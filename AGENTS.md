@@ -30,4 +30,4 @@ Nothing has been built yet. This is the first task.
 - Open a PR with `automationMode: AUTO_CREATE_PR` — never push directly to main
 
 ## Completed Work
-_(nothing yet)_
+- 🔒 **Security Fix**: Hardened `.github/workflows/auto-merge.yml` by replacing insecure title-based auto-merge conditions with a strict check for the authorized bot username (`google-labs-jules[bot]`).

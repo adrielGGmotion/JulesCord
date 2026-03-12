@@ -8,7 +8,7 @@ jobs:
   auto-merge:
     runs-on: ubuntu-latest
     # Only auto-merge PRs opened by the Jules bot
-    if: contains(github.event.pull_request.user.login, 'jules') || contains(github.event.pull_request.title, '[Jules]') || contains(github.event.pull_request.title, 'jules')
+    if: github.event.pull_request.user.login == 'google-labs-jules[bot]'
     permissions:
       pull-requests: write
       contents: write
