@@ -3,30 +3,25 @@ name: Jules Autonomous Loop
 on:
   schedule:
     - cron: '*/15 * * * *'
-  workflow_dispatch: # allow manual trigger too
+  workflow_dispatch:
 
 jobs:
   invoke-jules:
     runs-on: ubuntu-latest
     steps:
-      - name: Invoke Jules
-        uses: google-labs-code/jules-invoke@v1
-        with:
-          jules_api_key: ${{ secrets.JULES_API_KEY }}
-          prompt: |
-            Read AGENTS.md carefully to understand the current state of the JulesCord Discord bot project.
-            
-            Then:
-            1. Identify the next unchecked item in the "What Needs To Be Built" list
-            2. Implement it fully and correctly
-            3. Update AGENTS.md:
-               - Check off the item you just completed
-               - Add a note under "Completed Work" describing what you did
-               - Update "Current Status" to reflect the new phase if appropriate
-            4. Open a pull request with your changes
-            
-            Important rules:
-            - Never touch files in .github/workflows/
-            - Never hardcode secrets or tokens
-            - Always update AGENTS.md before opening the PR
-            - Use Node.js + discord.js v14
+      - name: Start Jules session
+        run: |
+          curl -s -X POST 'https://jules.googleapis.com/v1alpha/sessions' \
+            -H "Content-Type: application/json" \
+            -H "X-Goog-Api-Key: ${{ secrets.JULES_API_KEY }}" \
+            -d '{
+              "prompt": "Read AGENTS.md carefully to understand the current state of the JulesCord Discord bot project. Then: 1) Identify the next unchecked item in the What Needs To Be Built list. 2) Implement it fully and correctly using Node.js and discord.js v14. 3) Update AGENTS.md: check off the completed item, add a note under Completed Work, and update Current Status if needed. 4) Open a pull request with your changes. Rules: never touch files in .github/workflows/, never hardcode secrets or tokens, always update AGENTS.md before opening the PR.",
+              "sourceContext": {
+                "source": "sources/github/protoheasamail-code/JulesCord",
+                "githubRepoContext": {
+                  "startingBranch": "main"
+                }
+              },
+              "automationMode": "AUTO_CREATE_PR",
+              "title": "JulesCord autonomous task"
+            }'
