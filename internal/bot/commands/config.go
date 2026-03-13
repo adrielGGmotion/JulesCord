@@ -65,6 +65,19 @@ func Config(database *db.DB) *Command {
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "set-auto-role",
+					Description: "Sets the role to automatically assign to new members.",
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionRole,
+							Name:        "role",
+							Description: "The role to auto-assign",
+							Required:    true,
+						},
+					},
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Name:        "view",
 					Description: "View the current server configuration.",
 				},
@@ -226,6 +239,48 @@ func Config(database *db.DB) *Command {
 						Embeds: []*discordgo.MessageEmbed{embed},
 					},
 				})
+			case "set-auto-role":
+				var targetRole *discordgo.Role
+				for _, option := range subCommand.Options {
+					if option.Name == "role" {
+						targetRole = option.RoleValue(s, i.GuildID)
+					}
+				}
+
+				if targetRole == nil {
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "Could not find the specified role.",
+						},
+					})
+					return
+				}
+
+				err := database.SetGuildAutoRole(context.Background(), i.GuildID, targetRole.ID)
+				if err != nil {
+					log.Printf("Failed to set auto role for guild %s: %v", i.GuildID, err)
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "An error occurred while saving the configuration.",
+						},
+					})
+					return
+				}
+
+				embed := &discordgo.MessageEmbed{
+					Title:       "Configuration Updated",
+					Description: fmt.Sprintf("Auto-role has been set to <@&%s>.", targetRole.ID),
+					Color:       0x00FF00, // Green
+				}
+
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Embeds: []*discordgo.MessageEmbed{embed},
+					},
+				})
 			case "view":
 				config, err := database.GetGuildConfig(context.Background(), i.GuildID)
 				if err != nil {
@@ -256,6 +311,12 @@ func Config(database *db.DB) *Command {
 					desc += fmt.Sprintf("**Mod Role:** <@&%s>\n", *config.ModRoleID)
 				} else {
 					desc += "**Mod Role:** Not set\n"
+				}
+
+				if config.AutoRoleID != nil {
+					desc += fmt.Sprintf("**Auto Role:** <@&%s>\n", *config.AutoRoleID)
+				} else {
+					desc += "**Auto Role:** Not set\n"
 				}
 
 				embed := &discordgo.MessageEmbed{
