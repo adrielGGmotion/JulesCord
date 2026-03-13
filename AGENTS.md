@@ -76,17 +76,20 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
-*(none yet — pivoting from Node.js to Go)*
+- Removed old Node.js files (`index.js`, `deploy-commands.js`, `package.json`, `package-lock.json`, and `commands/` directory).
+- Initialized Go module (`go.mod` and `go.sum`) with all required dependencies.
+- Updated `.env.example` with `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DATABASE_URL`, `API_PORT`.
+- Updated `.gitignore` to include Go binaries, `.env`, and `node_modules`.
 
 ---
 
 ## Task Checklist
 
 ### Phase 1 — Foundation
-- [ ] Remove all old Node.js files (`index.js`, `deploy-commands.js`, `commands/`, `package.json`, `package-lock.json`)
-- [ ] `go.mod` and `go.sum` with all required dependencies
-- [ ] `.env.example` with `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DATABASE_URL`, `API_PORT`
-- [ ] `.gitignore` (Go binaries, node_modules, .env)
+- [x] Remove all old Node.js files (`index.js`, `deploy-commands.js`, `commands/`, `package.json`, `package-lock.json`)
+- [x] `go.mod` and `go.sum` with all required dependencies
+- [x] `.env.example` with `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DATABASE_URL`, `API_PORT`
+- [x] `.gitignore` (Go binaries, node_modules, .env)
 - [ ] `cmd/bot/main.go` — entry point, loads config, starts bot + API server concurrently
 - [ ] `internal/config/config.go` — loads env vars into a typed Config struct
 - [ ] `internal/bot/bot.go` — connects to Discord, registers handlers, graceful shutdown on SIGINT
