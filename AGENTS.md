@@ -92,6 +92,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Added `/ban` command to ban users and log the moderation action.
 - Added `/purge` command to bulk delete messages and log the moderation action.
 
+- Implemented Phase 4 Leveling & Economy first 4 items: created `migrations/003_economy.sql` with table `user_economy` for xp, levels, and coins.
+- Added database methods `GetUserEconomy`, `AddXP`, `SetLevel`, and `GetRank` to `internal/db/db.go`.
+- Added `messageCreateHandler` to `internal/bot/bot.go` to award XP on message with a 1-minute cooldown per user per channel, and announce level-ups.
+- Added `/rank` command to display a user's XP, level, and server rank.
+
 - Removed old Node.js files (`index.js`, `deploy-commands.js`, `package.json`, `package-lock.json`, and `commands/` directory).
 - Initialized Go module (`go.mod` and `go.sum`) with all required dependencies.
 - Updated `.env.example` with `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DATABASE_URL`, `API_PORT`.
@@ -138,13 +143,13 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] `migrations/002_moderation.sql` — warnings, mod_actions tables
 
 ### Phase 4 — Leveling & Economy
-- [ ] XP award on message (cooldown: 1 min per user per channel)
-- [ ] Level calculation from XP, level-up announcement in channel
-- [ ] `/rank` — user's XP, level, server rank
+- [x] XP award on message (cooldown: 1 min per user per channel)
+- [x] Level calculation from XP, level-up announcement in channel
+- [x] `/rank` — user's XP, level, server rank
 - [ ] `/leaderboard` — top 10 users by XP as an embed
 - [ ] `/daily` — daily coin reward, tracked per user per day
 - [ ] `/coins` — check coin balance
-- [ ] `migrations/003_economy.sql` — xp, levels, coins tables
+- [x] `migrations/003_economy.sql` — xp, levels, coins tables
 
 ### Phase 5 — Web Dashboard
 - [ ] `web/` scaffold — Vite + React 18 + Tailwind CSS v3
