@@ -31,3 +31,24 @@ func SendModLog(s *discordgo.Session, database *db.DB, guildID string, embed *di
 		slog.Error("Failed to send mod log to channel %s in guild %s", "arg1", channelID, "arg2", guildID, "error", err)
 	}
 }
+
+// SendError sends an error message reply to an interaction.
+func SendError(s *discordgo.Session, i *discordgo.InteractionCreate, message string) {
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "❌ " + message,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
+}
+
+// SendEmbed sends an embed reply to an interaction.
+func SendEmbed(s *discordgo.Session, i *discordgo.InteractionCreate, embed *discordgo.MessageEmbed) {
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Embeds: []*discordgo.MessageEmbed{embed},
+		},
+	})
+}
