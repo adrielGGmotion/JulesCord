@@ -79,6 +79,10 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Authored initial migration `migrations/001_init.sql` defining `guilds`, `users`, and `command_log` tables.
 - Integrated database with the Discord bot in `internal/bot/bot.go` to handle `guildCreate` (upserting guilds) and interaction creates (upserting users and logging commands).
 - Updated `cmd/bot/main.go` to run DB migrations at startup and establish a DB connection (with graceful fallback if no `DATABASE_URL` is set).
+- Added `GetStats` method to `internal/db/db.go` to retrieve counts for guilds, users, and command logs.
+- Added `/about` command to describe JulesCord and its autonomous build loop.
+- Added `/stats` command to display guild count, user count, total commands run, and bot uptime.
+- Added `/help` command to dynamically list all registered commands by iterating over the command registry.
 
 
 - Removed old Node.js files (`index.js`, `deploy-commands.js`, `package.json`, `package-lock.json`, and `commands/` directory).
@@ -113,9 +117,9 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] `migrations/001_init.sql` — guilds, users, command_log tables
 - [x] Guild auto-registration when bot joins a server
 - [x] User tracking — upsert Discord users in DB on every interaction
-- [ ] `/about` command — describes itself and the autonomous build loop
-- [ ] `/stats` command — guild count, user count, uptime, commands run
-- [ ] `/help` command — dynamically lists all registered commands with descriptions
+- [x] `/about` command — describes itself and the autonomous build loop
+- [x] `/stats` command — guild count, user count, uptime, commands run
+- [x] `/help` command — dynamically lists all registered commands with descriptions
 
 ### Phase 3 — Moderation System
 - [ ] `/warn @user reason` — stores warning in DB with timestamp and moderator ID
