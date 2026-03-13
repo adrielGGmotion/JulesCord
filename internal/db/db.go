@@ -115,3 +115,19 @@ func (db *DB) LogCommand(ctx context.Context, commandName, userID, guildID strin
 	_, err := db.Pool.Exec(ctx, query, commandName, userID, gID)
 	return err
 }
+
+// GetStats returns the total number of guilds, users, and commands executed.
+func (db *DB) GetStats(ctx context.Context) (guildCount, userCount, commandCount int64, err error) {
+	err = db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM guilds").Scan(&guildCount)
+	if err != nil {
+		return
+	}
+
+	err = db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM users").Scan(&userCount)
+	if err != nil {
+		return
+	}
+
+	err = db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM command_log").Scan(&commandCount)
+	return
+}

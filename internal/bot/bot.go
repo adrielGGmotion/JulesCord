@@ -32,6 +32,9 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 
 	registry := commands.NewRegistry()
 	registry.Add(commands.Ping())
+	registry.Add(commands.About())
+	registry.Add(commands.Stats(database))
+	registry.Add(commands.Help(registry))
 
 	bot := &Bot{
 		Session:  session,
