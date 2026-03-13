@@ -158,6 +158,9 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Added database operations `CreateTicket`, `GetTicketByChannel`, and `CloseTicket` in `internal/db/db.go`.
 - Added `/ticket create` command in `internal/bot/commands/ticket.go` to create private ticket channels.
 - Added `/ticket close` command to close tickets and delete the respective channels.
+- Implemented Phase 11 Tags System features: added migrations `008_tags.sql` with table `tags`.
+- Added database operations `CreateTag`, `GetTag`, `DeleteTag`, and `ListTags` in `internal/db/db.go`.
+- Added `/tag` command structure in `internal/bot/commands/tag.go` with four subcommands (`create`, `list`, `delete`, `view`).
 
 ---
 
@@ -310,3 +313,8 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — CreateTicket, CloseTicket, GetTicketByChannel
 - [x] `/ticket create` — creates a new private text channel for the ticket and sends a welcome message
 - [x] `/ticket close` — marks the ticket as closed in DB and deletes the ticket channel
+
+### Phase 11 — Tags System
+- [x] `migrations/008_tags.sql` — tags table
+- [x] DB operations — CreateTag, GetTag, DeleteTag, ListTags
+- [x] `/tag` subcommands — create, list, delete, view
