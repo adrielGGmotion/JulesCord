@@ -10,6 +10,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -296,4 +297,76 @@ func (db *DB) ClaimDaily(ctx context.Context, guildID, userID string, amount int
 	`
 	err = db.Pool.QueryRow(ctx, query, guildID, userID, amount).Scan(&newCoins)
 	return newCoins, err
+}
+
+// GuildConfig represents a guild's configuration.
+type GuildConfig struct {
+	GuildID          string
+	ModLogChannelID  *string
+	WelcomeChannelID *string
+	ModRoleID        *string
+	UpdatedAt        time.Time
+}
+
+// GetGuildConfig retrieves the configuration for a guild.
+func (db *DB) GetGuildConfig(ctx context.Context, guildID string) (*GuildConfig, error) {
+	query := `
+		SELECT guild_id, mod_log_channel_id, welcome_channel_id, mod_role_id, updated_at
+		FROM guild_config
+		WHERE guild_id = $1
+	`
+	row := db.Pool.QueryRow(ctx, query, guildID)
+	var c GuildConfig
+	err := row.Scan(&c.GuildID, &c.ModLogChannelID, &c.WelcomeChannelID, &c.ModRoleID, &c.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return &GuildConfig{GuildID: guildID}, nil
+		}
+		return nil, err
+	}
+	return &c, nil
+}
+
+// SetModLogChannel updates the moderation log channel for a guild.
+func (db *DB) SetModLogChannel(ctx context.Context, guildID, channelID string) error {
+	query := `
+		INSERT INTO guild_config (guild_id, mod_log_channel_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE SET
+			mod_log_channel_id = EXCLUDED.mod_log_channel_id,
+			updated_at = NOW()
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+// Guild represents a Discord guild record.
+type Guild struct {
+	ID       string
+	JoinedAt time.Time
+}
+
+// GetGuilds retrieves all guilds the bot is currently in.
+func (db *DB) GetGuilds(ctx context.Context) ([]Guild, error) {
+	query := `
+		SELECT id, joined_at
+		FROM guilds
+		ORDER BY joined_at DESC
+	`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var guilds []Guild
+	for rows.Next() {
+		var g Guild
+		if err := rows.Scan(&g.ID, &g.JoinedAt); err != nil {
+			return nil, err
+		}
+		guilds = append(guilds, g)
+	}
+
+	return guilds, rows.Err()
 }

@@ -92,6 +92,8 @@ func Kick(database *db.DB) *Command {
 				if err != nil {
 					log.Printf("Error logging mod action 'kick' for user %s: %v", targetUser.ID, err)
 				}
+
+				LogModerationAction(s, database, i.GuildID, "Kick", targetUser, moderator, reason)
 			}
 
 			// Respond with Embed

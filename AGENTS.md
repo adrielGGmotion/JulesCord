@@ -75,6 +75,10 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 ---
 
 ## Completed Work
+- Implemented Phase 3 Mod action log channel via `/modlog` and `migrations/004_config.sql`.
+- Implemented Phase 5 `web/` scaffold using Vite + React 18 + Tailwind CSS v3.
+- Implemented Phase 5 Dashboard home with bot status, guild count, uptime, and commands run fetching from `/api/stats`.
+- Implemented Phase 5 Guilds page displaying all servers the bot is in fetching from `/api/guilds`.
 - Implemented Phase 2 Database Foundation: created `internal/db/db.go` with connection pooling via `pgxpool`, and configured automated migration runs using `golang-migrate`.
 - Authored initial migration `migrations/001_init.sql` defining `guilds`, `users`, and `command_log` tables.
 - Integrated database with the Discord bot in `internal/bot/bot.go` to handle `guildCreate` (upserting guilds) and interaction creates (upserting users and logging commands).
@@ -143,7 +147,7 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] `/kick @user reason` — kicks with audit log reason
 - [x] `/ban @user reason` — bans with audit log reason
 - [x] `/purge [count]` — bulk delete up to 100 messages
-- [ ] Mod action log channel — all mod actions posted as embeds to configurable channel
+- [x] Mod action log channel — all mod actions posted as embeds to configurable channel
 - [x] `migrations/002_moderation.sql` — warnings, mod_actions tables
 
 ### Phase 4 — Leveling & Economy
@@ -156,9 +160,9 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] `migrations/003_economy.sql` — xp, levels, coins tables
 
 ### Phase 5 — Web Dashboard
-- [ ] `web/` scaffold — Vite + React 18 + Tailwind CSS v3
-- [ ] Dashboard home — bot status card, guild count, uptime, commands run
-- [ ] Guilds page — table of all servers the bot is in
+- [x] `web/` scaffold — Vite + React 18 + Tailwind CSS v3
+- [x] Dashboard home — bot status card, guild count, uptime, commands run
+- [x] Guilds page — table of all servers the bot is in
 - [ ] Users page — searchable user list with XP and level
 - [ ] Moderation log page — filterable table of all mod actions
 - [ ] Real-time stats via WebSocket — Go backend pushes updates every 5 seconds

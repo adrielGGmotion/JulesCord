@@ -92,6 +92,8 @@ func Ban(database *db.DB) *Command {
 				if err != nil {
 					log.Printf("Error logging mod action 'ban' for user %s: %v", targetUser.ID, err)
 				}
+
+				LogModerationAction(s, database, i.GuildID, "Ban", targetUser, moderator, reason)
 			}
 
 			// Respond with Embed

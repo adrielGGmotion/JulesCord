@@ -122,6 +122,8 @@ func Purge(database *db.DB) *Command {
 				if err != nil {
 					log.Printf("Error logging mod action 'purge': %v", err)
 				}
+
+					LogModerationAction(s, database, i.GuildID, "Purge", nil, moderator, fmt.Sprintf("Purged %d messages in <#%s>", len(messageIDs), i.ChannelID))
 			}
 
 			// Respond with success

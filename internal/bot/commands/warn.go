@@ -102,6 +102,8 @@ func Warn(database *db.DB) *Command {
 				log.Printf("Error logging mod action 'warn' for user %s: %v", targetUser.ID, err)
 			}
 
+			LogModerationAction(s, database, i.GuildID, "Warn", targetUser, moderator, reason)
+
 			// Respond with Embed
 			embed := &discordgo.MessageEmbed{
 				Title:       "User Warned",
