@@ -1,7 +1,7 @@
 package config
 
 import (
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -22,7 +22,7 @@ func Load() (*Config, error) {
 	if err != nil {
 		// Log that .env is not found, but we don't return an error because
 		// environment variables might be set via Docker, system env, etc.
-		log.Println("No .env file found or error reading it, falling back to environment variables")
+		slog.Info("No .env file found or error reading it, falling back to environment variables")
 	}
 
 	config := &Config{

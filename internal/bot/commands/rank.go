@@ -3,10 +3,11 @@ package commands
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
+
+	"julescord/internal/db"
 
 	"github.com/bwmarrin/discordgo"
-	"julescord/internal/db"
 )
 
 // Rank returns the /rank command definition and handler.
@@ -88,7 +89,7 @@ func Rank(database *db.DB) *Command {
 			// Fetch rank
 			rank, err := database.GetRank(ctx, i.GuildID, targetUser.ID)
 			if err != nil {
-				log.Printf("Failed to get rank for user %s: %v", targetUser.ID, err)
+				slog.Error("Failed to get rank for user %s", "arg1", targetUser.ID, "error", err)
 				rank = 0 // Default to 0 if error
 			}
 

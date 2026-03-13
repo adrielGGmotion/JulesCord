@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/bwmarrin/discordgo"
 	"julescord/internal/db"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 // Coins returns the /coins command definition and handler.

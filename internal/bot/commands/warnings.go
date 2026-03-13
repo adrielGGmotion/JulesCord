@@ -3,10 +3,11 @@ package commands
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
+
+	"julescord/internal/db"
 
 	"github.com/bwmarrin/discordgo"
-	"julescord/internal/db"
 )
 
 // Warnings returns the /warnings command definition and handler.
@@ -65,7 +66,7 @@ func Warnings(database *db.DB) *Command {
 
 			warnings, err := database.GetWarnings(context.Background(), i.GuildID, targetUser.ID)
 			if err != nil {
-				log.Printf("Error fetching warnings for user %s: %v", targetUser.ID, err)
+				slog.Error("Error fetching warnings for user %s", "arg1", targetUser.ID, "error", err)
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{

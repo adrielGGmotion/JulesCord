@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"julescord/internal/db"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 // Global reference for uptime tracking

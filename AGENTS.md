@@ -136,6 +136,13 @@ Starting from scratch in Go. All old Node.js files must be removed first.
   - Added `messageReactionAddHandler` and `messageReactionRemoveHandler` in `internal/bot/bot.go` to assign/remove roles based on reaction emojis.
   - Added `/schedule add` command in `internal/bot/commands/schedule.go` to schedule future announcements.
   - Added a background goroutine `checkScheduledAnnouncements` in `internal/bot/bot.go` to dispatch pending messages every minute.
+- Implemented remaining Phase 7 Advanced Features and Phase 8 Observability first 3 items:
+  - Created `/changelog` slash command in `internal/bot/commands/changelog.go` to fetch recent GitHub commits.
+  - Replaced standard logging with structured JSON logging via `log/slog` throughout the codebase.
+  - Added Prometheus metrics track command executions, command latency, and DB query latency in `internal/metrics/metrics.go`.
+  - Instrumented `internal/bot/commands/registry.go` and `internal/db/db.go` with Prometheus latency trackers.
+  - Exposed Prometheus `/metrics` endpoint on the Gin API server.
+  - Improved `/health` endpoint to check DB connection ping and Discord Heartbeat latency.
 - Initialized Go module (`go.mod` and `go.sum`) with all required dependencies.
 - Updated `.env.example` with `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DATABASE_URL`, `API_PORT`.
 - Updated `.gitignore` to include Go binaries, `.env`, and `node_modules`.
@@ -211,13 +218,13 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] Auto-role on join — assign configurable role automatically
 - [x] Scheduled announcements — guild admins schedule messages at a time
 - [x] Bot status rotation — cycling presence messages about building itself
-- [ ] `/changelog` — reads recent git commits from GitHub API and summarizes changes
+- [x] `/changelog` — reads recent git commits from GitHub API and summarizes changes
 
 ### Phase 8 — Observability
-- [ ] Structured JSON logging via `log/slog` (stdlib, Go 1.21+)
-- [ ] Prometheus metrics at `/metrics` — command latency, errors, DB query time
+- [x] Structured JSON logging via `log/slog` (stdlib, Go 1.21+)
+- [x] Prometheus metrics at `/metrics` — command latency, errors, DB query time
 - [ ] Dashboard metrics page — error rates, latency histogram, command popularity
-- [ ] Improved `/health` — reports DB connectivity and Discord WS heartbeat status
+- [x] Improved `/health` — reports DB connectivity and Discord WS heartbeat status
 
 ---
 
