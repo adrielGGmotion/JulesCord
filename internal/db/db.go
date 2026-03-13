@@ -877,3 +877,118 @@ func (db *DB) MarkReminderDelivered(ctx context.Context, id int) error {
 	_, err := db.Pool.Exec(ctx, query, id)
 	return err
 }
+
+// Tag represents a custom text response in a guild.
+type Tag struct {
+	ID        int       `json:"id"`
+	GuildID   string    `json:"guild_id"`
+	Name      string    `json:"name"`
+	Content   string    `json:"content"`
+	AuthorID  string    `json:"author_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// CreateTag creates a new tag in the database.
+func (db *DB) CreateTag(ctx context.Context, guildID, name, content, authorID string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("CreateTag").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		INSERT INTO tags (guild_id, name, content, author_id)
+		VALUES ($1, $2, $3, $4)
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, name, content, authorID)
+	if err != nil {
+		slog.Error("Failed to create tag", "error", err, "guild", guildID, "name", name)
+		return err
+	}
+	return nil
+}
+
+// GetTag retrieves a tag by name in a specific guild.
+func (db *DB) GetTag(ctx context.Context, guildID, name string) (*Tag, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetTag").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		SELECT id, guild_id, name, content, author_id, created_at
+		FROM tags
+		WHERE guild_id = $1 AND name = $2
+	`
+	tag := &Tag{}
+	err := db.Pool.QueryRow(ctx, query, guildID, name).Scan(
+		&tag.ID, &tag.GuildID, &tag.Name, &tag.Content, &tag.AuthorID, &tag.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Return nil, nil if tag is not found
+		}
+		slog.Error("Failed to get tag", "error", err, "guild", guildID, "name", name)
+		return nil, err
+	}
+	return tag, nil
+}
+
+// DeleteTag deletes a tag by name in a specific guild.
+func (db *DB) DeleteTag(ctx context.Context, guildID, name string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("DeleteTag").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		DELETE FROM tags
+		WHERE guild_id = $1 AND name = $2
+	`
+	tag, err := db.Pool.Exec(ctx, query, guildID, name)
+	if err != nil {
+		slog.Error("Failed to delete tag", "error", err, "guild", guildID, "name", name)
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
+}
+
+// ListTags lists all tags in a specific guild.
+func (db *DB) ListTags(ctx context.Context, guildID string) ([]*Tag, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("ListTags").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		SELECT id, guild_id, name, content, author_id, created_at
+		FROM tags
+		WHERE guild_id = $1
+		ORDER BY name ASC
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		slog.Error("Failed to list tags", "error", err, "guild", guildID)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var tags []*Tag
+	for rows.Next() {
+		tag := &Tag{}
+		if err := rows.Scan(&tag.ID, &tag.GuildID, &tag.Name, &tag.Content, &tag.AuthorID, &tag.CreatedAt); err != nil {
+			slog.Error("Failed to scan tag", "error", err)
+			return nil, err
+		}
+		tags = append(tags, tag)
+	}
+
+	if err := rows.Err(); err != nil {
+		slog.Error("Error iterating tags", "error", err)
+		return nil, err
+	}
+
+	return tags, nil
+}
