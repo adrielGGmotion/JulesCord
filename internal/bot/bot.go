@@ -3,16 +3,17 @@ package bot
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"math"
 	"math/rand"
 	"sync"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"julescord/internal/bot/commands"
 	"julescord/internal/config"
 	"julescord/internal/db"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 // Bot manages the Discord connection.
@@ -52,6 +53,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Config(database))
 	registry.Add(commands.ReactionRole(database))
 	registry.Add(commands.Schedule(database))
+	registry.Add(commands.Changelog())
 
 	bot := &Bot{
 		Session:  session,
@@ -89,36 +91,36 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 
 // Start opens the connection to Discord.
 func (b *Bot) Start() error {
-	log.Println("Starting Discord bot...")
+	slog.Info("Starting Discord bot...")
 	err := b.Session.Open()
 	if err != nil {
 		return fmt.Errorf("error opening Discord connection: %w", err)
 	}
 
-	log.Println("Discord bot started successfully.")
+	slog.Info("Discord bot started successfully.")
 	return nil
 }
 
 // Stop closes the connection to Discord gracefully.
 func (b *Bot) Stop() error {
-	log.Println("Stopping Discord bot...")
+	slog.Info("Stopping Discord bot...")
 	err := b.Session.Close()
 	if err != nil {
 		return fmt.Errorf("error closing Discord connection: %w", err)
 	}
 
-	log.Println("Discord bot stopped gracefully.")
+	slog.Info("Discord bot stopped gracefully.")
 	return nil
 }
 
 // readyHandler triggers when the bot connects to Discord.
 func (b *Bot) readyHandler(s *discordgo.Session, event *discordgo.Ready) {
-	log.Printf("Bot is ready! Logged in as %s#%s", event.User.Username, event.User.Discriminator)
+	slog.Info(fmt.Sprintf("Bot is ready! Logged in as %s#%s", event.User.Username, event.User.Discriminator))
 
 	// Register commands with Discord when ready
 	err := b.Registry.RegisterWithDiscord(s, b.Config.DiscordClientID, "")
 	if err != nil {
-		log.Printf("Error registering commands: %v", err)
+		slog.Error("Error registering commands", "error", err)
 	}
 
 	// Start bot status rotation
@@ -140,18 +142,18 @@ func (b *Bot) checkScheduledAnnouncements() {
 	for {
 		announcements, err := b.DB.GetPendingAnnouncements(context.Background())
 		if err != nil {
-			log.Printf("Failed to get pending announcements: %v", err)
+			slog.Error("Failed to get pending announcements", "error", err)
 		} else {
 			for _, a := range announcements {
 				_, err := b.Session.ChannelMessageSend(a.ChannelID, a.Message)
 				if err != nil {
-					log.Printf("Failed to send scheduled announcement %d to channel %s: %v", a.ID, a.ChannelID, err)
+					slog.Error("Failed to send scheduled announcement %d to channel %s", "arg1", a.ID, "arg2", a.ChannelID, "error", err)
 				}
 
 				// Mark as sent regardless of success to avoid spamming errors if channel is deleted/bot lacks permissions
 				err = b.DB.MarkAnnouncementSent(context.Background(), a.ID)
 				if err != nil {
-					log.Printf("Failed to mark announcement %d as sent: %v", a.ID, err)
+					slog.Error("Failed to mark announcement %d as sent", "arg1", a.ID, "error", err)
 				}
 			}
 		}
@@ -180,7 +182,7 @@ func (b *Bot) rotateStatus() {
 
 		err := b.Session.UpdateGameStatus(0, status)
 		if err != nil {
-			log.Printf("Failed to update bot status: %v", err)
+			slog.Error("Failed to update bot status", "error", err)
 		}
 
 		<-ticker.C
@@ -195,9 +197,9 @@ func (b *Bot) guildCreateHandler(s *discordgo.Session, event *discordgo.GuildCre
 
 	err := b.DB.UpsertGuild(context.Background(), event.Guild.ID)
 	if err != nil {
-		log.Printf("Failed to upsert guild %s: %v", event.Guild.ID, err)
+		slog.Error("Failed to upsert guild %s", "arg1", event.Guild.ID, "error", err)
 	} else {
-		log.Printf("Guild registered/upserted: %s", event.Guild.ID)
+		slog.Info(fmt.Sprintf("Guild registered/upserted: %s", event.Guild.ID))
 	}
 }
 
@@ -215,14 +217,14 @@ func (b *Bot) interactionCreateHandler(s *discordgo.Session, i *discordgo.Intera
 			// Track user
 			err := b.DB.UpsertUser(context.Background(), user.ID, user.Username, user.GlobalName, user.AvatarURL(""))
 			if err != nil {
-				log.Printf("Failed to upsert user %s: %v", user.ID, err)
+				slog.Error("Failed to upsert user %s", "arg1", user.ID, "error", err)
 			}
 
 			// Log command execution
 			commandName := i.ApplicationCommandData().Name
 			err = b.DB.LogCommand(context.Background(), commandName, user.ID, i.GuildID)
 			if err != nil {
-				log.Printf("Failed to log command execution for %s: %v", commandName, err)
+				slog.Error("Failed to log command execution for %s", "arg1", commandName, "error", err)
 			}
 		}
 	}
@@ -257,12 +259,12 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 			// Ensure user exists first
 			err := b.DB.UpsertUser(context.Background(), m.Author.ID, m.Author.Username, m.Author.GlobalName, m.Author.AvatarURL(""))
 			if err != nil {
-				log.Printf("Failed to upsert user %s for XP: %v", m.Author.ID, err)
+				slog.Error("Failed to upsert user %s for XP", "arg1", m.Author.ID, "error", err)
 			} else {
 				// Add XP
 				newXP, err := b.DB.AddXP(context.Background(), m.GuildID, m.Author.ID, amount)
 				if err != nil {
-					log.Printf("Failed to add XP to user %s: %v", m.Author.ID, err)
+					slog.Error("Failed to add XP to user %s", "arg1", m.Author.ID, "error", err)
 				} else {
 					// Update cooldown
 					b.xpCooldown.Store(cooldownKey, now)
@@ -282,13 +284,13 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 						// Update level in DB
 						err := b.DB.SetLevel(context.Background(), m.GuildID, m.Author.ID, newLevel)
 						if err != nil {
-							log.Printf("Failed to update level for user %s: %v", m.Author.ID, err)
+							slog.Error("Failed to update level for user %s", "arg1", m.Author.ID, "error", err)
 						} else {
 							// Announce level up
 							msg := fmt.Sprintf("🎉 Congratulations <@%s>, you just advanced to **Level %d**!", m.Author.ID, newLevel)
 							_, err = s.ChannelMessageSend(m.ChannelID, msg)
 							if err != nil {
-								log.Printf("Failed to send level up message: %v", err)
+								slog.Error("Failed to send level up message", "error", err)
 							}
 						}
 					}
@@ -311,14 +313,14 @@ func (b *Bot) messageReactionAddHandler(s *discordgo.Session, r *discordgo.Messa
 
 	rr, err := b.DB.GetReactionRole(context.Background(), r.MessageID, emojiName)
 	if err != nil {
-		log.Printf("Failed to get reaction role config: %v", err)
+		slog.Error("Failed to get reaction role config", "error", err)
 		return
 	}
 
 	if rr != nil {
 		err = s.GuildMemberRoleAdd(r.GuildID, r.UserID, rr.RoleID)
 		if err != nil {
-			log.Printf("Failed to add role %s to user %s via reaction: %v", rr.RoleID, r.UserID, err)
+			slog.Error("Failed to add role %s to user %s via reaction", "arg1", rr.RoleID, "arg2", r.UserID, "error", err)
 		}
 	}
 }
@@ -336,14 +338,14 @@ func (b *Bot) messageReactionRemoveHandler(s *discordgo.Session, r *discordgo.Me
 
 	rr, err := b.DB.GetReactionRole(context.Background(), r.MessageID, emojiName)
 	if err != nil {
-		log.Printf("Failed to get reaction role config: %v", err)
+		slog.Error("Failed to get reaction role config", "error", err)
 		return
 	}
 
 	if rr != nil {
 		err = s.GuildMemberRoleRemove(r.GuildID, r.UserID, rr.RoleID)
 		if err != nil {
-			log.Printf("Failed to remove role %s from user %s via reaction: %v", rr.RoleID, r.UserID, err)
+			slog.Error("Failed to remove role %s from user %s via reaction", "arg1", rr.RoleID, "arg2", r.UserID, "error", err)
 		}
 	}
 }
@@ -356,7 +358,7 @@ func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemb
 
 	config, err := b.DB.GetGuildConfig(context.Background(), m.GuildID)
 	if err != nil {
-		log.Printf("Failed to get guild config for welcome message/auto-role: %v", err)
+		slog.Error("Failed to get guild config for welcome message/auto-role", "error", err)
 		return
 	}
 
@@ -364,14 +366,14 @@ func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemb
 		welcomeMsg := fmt.Sprintf("Welcome to the server, <@%s>! We are glad to have you here.", m.User.ID)
 		_, err := s.ChannelMessageSend(*config.WelcomeChannelID, welcomeMsg)
 		if err != nil {
-			log.Printf("Failed to send welcome message: %v", err)
+			slog.Error("Failed to send welcome message", "error", err)
 		}
 	}
 
 	if config.AutoRoleID != nil && *config.AutoRoleID != "" {
 		err := s.GuildMemberRoleAdd(m.GuildID, m.User.ID, *config.AutoRoleID)
 		if err != nil {
-			log.Printf("Failed to assign auto-role to user %s in guild %s: %v", m.User.ID, m.GuildID, err)
+			slog.Error("Failed to assign auto-role to user %s in guild %s", "arg1", m.User.ID, "arg2", m.GuildID, "error", err)
 		}
 	}
 }

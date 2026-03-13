@@ -3,11 +3,12 @@ package commands
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
 	"julescord/internal/db"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 // Leaderboard returns the /leaderboard command definition and handler.
@@ -43,7 +44,7 @@ func Leaderboard(database *db.DB) *Command {
 			// Fetch top users
 			topUsers, err := database.GetTopUsersByXP(ctx, i.GuildID)
 			if err != nil {
-				log.Printf("Failed to fetch top users: %v", err)
+				slog.Error("Failed to fetch top users", "error", err)
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{

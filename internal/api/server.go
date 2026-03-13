@@ -2,15 +2,19 @@ package api
 
 import (
 	"context"
-	"log"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
+	"julescord/internal/config"
+	"julescord/internal/db"
+
+	"github.com/bwmarrin/discordgo"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"julescord/internal/config"
-	"julescord/internal/db"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var upgrader = websocket.Upgrader{
@@ -25,11 +29,12 @@ type Server struct {
 	Server  *http.Server
 	Config  *config.Config
 	DB      *db.DB
+	Session *discordgo.Session
 	StartAt time.Time
 }
 
 // New initializes a new API server.
-func New(cfg *config.Config, database *db.DB) *Server {
+func New(cfg *config.Config, database *db.DB, session *discordgo.Session) *Server {
 	// Use release mode in production-like setups, adjust as needed.
 	gin.SetMode(gin.ReleaseMode)
 
@@ -49,6 +54,7 @@ func New(cfg *config.Config, database *db.DB) *Server {
 		Engine:  r,
 		Config:  cfg,
 		DB:      database,
+		Session: session,
 		StartAt: time.Now(),
 	}
 
@@ -59,8 +65,32 @@ func New(cfg *config.Config, database *db.DB) *Server {
 
 func (s *Server) registerRoutes() {
 	s.Engine.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"status": "ok",
+		dbConnected := false
+		if s.DB != nil && s.DB.Pool != nil {
+			err := s.DB.Pool.Ping(c.Request.Context())
+			if err == nil {
+				dbConnected = true
+			}
+		}
+
+		discordLatency := "unknown"
+		if s.Session != nil {
+			latency := s.Session.HeartbeatLatency()
+			if latency > 0 {
+				discordLatency = fmt.Sprintf("%dms", latency.Milliseconds())
+			}
+		}
+
+		status := "ok"
+		statusCode := http.StatusOK
+		if !dbConnected {
+			status = "degraded"
+		}
+
+		c.JSON(statusCode, gin.H{
+			"status":          status,
+			"db_connected":    dbConnected,
+			"discord_latency": discordLatency,
 		})
 	})
 
@@ -71,6 +101,8 @@ func (s *Server) registerRoutes() {
 		})
 	})
 
+	s.Engine.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
 	s.Engine.GET("/api/stats", func(c *gin.Context) {
 		if s.DB == nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Database not available"})
@@ -79,7 +111,7 @@ func (s *Server) registerRoutes() {
 
 		guilds, users, cmds, err := s.DB.GetStats(c.Request.Context())
 		if err != nil {
-			log.Printf("Error fetching stats: %v", err)
+			slog.Error("Error fetching stats", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch stats"})
 			return
 		}
@@ -100,7 +132,7 @@ func (s *Server) registerRoutes() {
 
 		guilds, err := s.DB.GetGuilds(c.Request.Context())
 		if err != nil {
-			log.Printf("Error fetching guilds: %v", err)
+			slog.Error("Error fetching guilds", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch guilds"})
 			return
 		}
@@ -116,7 +148,7 @@ func (s *Server) registerRoutes() {
 
 		users, err := s.DB.GetUsersWithEconomy(c.Request.Context())
 		if err != nil {
-			log.Printf("Error fetching users: %v", err)
+			slog.Error("Error fetching users", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
 			return
 		}
@@ -132,7 +164,7 @@ func (s *Server) registerRoutes() {
 
 		actions, err := s.DB.GetModActions(c.Request.Context())
 		if err != nil {
-			log.Printf("Error fetching mod actions: %v", err)
+			slog.Error("Error fetching mod actions", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch mod actions"})
 			return
 		}
@@ -149,7 +181,7 @@ func (s *Server) registerRoutes() {
 		guildID := c.Param("id")
 		config, err := s.DB.GetGuildConfig(c.Request.Context(), guildID)
 		if err != nil {
-			log.Printf("Error fetching guild config: %v", err)
+			slog.Error("Error fetching guild config", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch guild config"})
 			return
 		}
@@ -178,7 +210,7 @@ func (s *Server) registerRoutes() {
 
 		config, err := s.DB.GetGuildConfig(c.Request.Context(), guildID)
 		if err != nil {
-			log.Printf("Error fetching guild config for update: %v", err)
+			slog.Error("Error fetching guild config for update", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch guild config"})
 			return
 		}
@@ -194,7 +226,7 @@ func (s *Server) registerRoutes() {
 		}
 
 		if err := s.DB.UpdateGuildConfig(c.Request.Context(), guildID, *config); err != nil {
-			log.Printf("Error updating guild config: %v", err)
+			slog.Error("Error updating guild config", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update guild config"})
 			return
 		}
@@ -210,7 +242,7 @@ func (s *Server) registerRoutes() {
 
 		stats, err := s.DB.GetCommandUsageStats(c.Request.Context())
 		if err != nil {
-			log.Printf("Error fetching command stats: %v", err)
+			slog.Error("Error fetching command stats", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch command stats"})
 			return
 		}
@@ -221,7 +253,7 @@ func (s *Server) registerRoutes() {
 	s.Engine.GET("/ws", func(c *gin.Context) {
 		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
-			log.Printf("Failed to upgrade websocket: %v", err)
+			slog.Error("Failed to upgrade websocket", "error", err)
 			return
 		}
 		defer conn.Close()
@@ -241,7 +273,7 @@ func (s *Server) registerRoutes() {
 				return
 			case <-ticker.C:
 				if err := s.sendWebSocketStats(conn, ctx); err != nil {
-					log.Printf("WebSocket send error: %v", err)
+					slog.Error("WebSocket send error", "error", err)
 					return // close connection on error
 				}
 			}
@@ -277,7 +309,7 @@ func (s *Server) Start() error {
 		Handler: s.Engine,
 	}
 
-	log.Printf("Starting API server on %s", addr)
+	slog.Info(fmt.Sprintf("Starting API server on %s", addr))
 	if err := s.Server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err
 	}
@@ -290,7 +322,7 @@ func (s *Server) Stop() error {
 		return nil
 	}
 
-	log.Println("Stopping API server...")
+	slog.Info("Stopping API server...")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -298,6 +330,6 @@ func (s *Server) Stop() error {
 		return err
 	}
 
-	log.Println("API server stopped gracefully.")
+	slog.Info("API server stopped gracefully.")
 	return nil
 }

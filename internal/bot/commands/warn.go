@@ -3,10 +3,11 @@ package commands
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
+
+	"julescord/internal/db"
 
 	"github.com/bwmarrin/discordgo"
-	"julescord/internal/db"
 )
 
 // Warn returns the /warn command definition and handler.
@@ -78,7 +79,7 @@ func Warn(database *db.DB) *Command {
 			// Upsert user if they don't exist yet (in case they haven't sent a message)
 			err := database.UpsertUser(context.Background(), targetUser.ID, targetUser.Username, targetUser.GlobalName, targetUser.AvatarURL(""))
 			if err != nil {
-				log.Printf("Failed to upsert user %s for warning: %v", targetUser.ID, err)
+				slog.Error("Failed to upsert user %s for warning", "arg1", targetUser.ID, "error", err)
 			}
 
 			moderator := i.Member.User
@@ -86,7 +87,7 @@ func Warn(database *db.DB) *Command {
 			// Add Warning
 			err = database.AddWarning(context.Background(), i.GuildID, targetUser.ID, moderator.ID, reason)
 			if err != nil {
-				log.Printf("Error adding warning for user %s: %v", targetUser.ID, err)
+				slog.Error("Error adding warning for user %s", "arg1", targetUser.ID, "error", err)
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
@@ -99,7 +100,7 @@ func Warn(database *db.DB) *Command {
 			// Log Moderation Action
 			err = database.LogModAction(context.Background(), i.GuildID, targetUser.ID, moderator.ID, "warn", reason)
 			if err != nil {
-				log.Printf("Error logging mod action 'warn' for user %s: %v", targetUser.ID, err)
+				slog.Error("Error logging mod action 'warn' for user %s", "arg1", targetUser.ID, "error", err)
 			}
 
 			// Respond with Embed

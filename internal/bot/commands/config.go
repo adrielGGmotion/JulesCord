@@ -3,10 +3,11 @@ package commands
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
+
+	"julescord/internal/db"
 
 	"github.com/bwmarrin/discordgo"
-	"julescord/internal/db"
 )
 
 // Config returns the /config command definition and handler.
@@ -132,7 +133,7 @@ func Config(database *db.DB) *Command {
 
 				err := database.SetGuildLogChannel(context.Background(), i.GuildID, targetChannel.ID)
 				if err != nil {
-					log.Printf("Failed to set log channel for guild %s: %v", i.GuildID, err)
+					slog.Error("Failed to set log channel for guild %s", "arg1", i.GuildID, "error", err)
 					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 						Type: discordgo.InteractionResponseChannelMessageWithSource,
 						Data: &discordgo.InteractionResponseData{
@@ -175,7 +176,7 @@ func Config(database *db.DB) *Command {
 
 				err := database.SetGuildWelcomeChannel(context.Background(), i.GuildID, targetChannel.ID)
 				if err != nil {
-					log.Printf("Failed to set welcome channel for guild %s: %v", i.GuildID, err)
+					slog.Error("Failed to set welcome channel for guild %s", "arg1", i.GuildID, "error", err)
 					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 						Type: discordgo.InteractionResponseChannelMessageWithSource,
 						Data: &discordgo.InteractionResponseData{
@@ -217,7 +218,7 @@ func Config(database *db.DB) *Command {
 
 				err := database.SetGuildModRole(context.Background(), i.GuildID, targetRole.ID)
 				if err != nil {
-					log.Printf("Failed to set mod role for guild %s: %v", i.GuildID, err)
+					slog.Error("Failed to set mod role for guild %s", "arg1", i.GuildID, "error", err)
 					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 						Type: discordgo.InteractionResponseChannelMessageWithSource,
 						Data: &discordgo.InteractionResponseData{
@@ -259,7 +260,7 @@ func Config(database *db.DB) *Command {
 
 				err := database.SetGuildAutoRole(context.Background(), i.GuildID, targetRole.ID)
 				if err != nil {
-					log.Printf("Failed to set auto role for guild %s: %v", i.GuildID, err)
+					slog.Error("Failed to set auto role for guild %s", "arg1", i.GuildID, "error", err)
 					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 						Type: discordgo.InteractionResponseChannelMessageWithSource,
 						Data: &discordgo.InteractionResponseData{
@@ -284,7 +285,7 @@ func Config(database *db.DB) *Command {
 			case "view":
 				config, err := database.GetGuildConfig(context.Background(), i.GuildID)
 				if err != nil {
-					log.Printf("Failed to get config for guild %s: %v", i.GuildID, err)
+					slog.Error("Failed to get config for guild %s", "arg1", i.GuildID, "error", err)
 					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 						Type: discordgo.InteractionResponseChannelMessageWithSource,
 						Data: &discordgo.InteractionResponseData{

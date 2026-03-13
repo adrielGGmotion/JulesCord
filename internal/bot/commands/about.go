@@ -13,7 +13,7 @@ func About() *Command {
 		},
 		Handler: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			embed := &discordgo.MessageEmbed{
-				Title:       "About JulesCord 🤖",
+				Title: "About JulesCord 🤖",
 				Description: "JulesCord is a production-grade, complex Discord bot written in Go.\n\n" +
 					"**I am built entirely by [Jules](https://jules.google.com) — Google's autonomous coding agent.**\n" +
 					"Zero human code contributions.\n\n" +
@@ -22,13 +22,13 @@ func About() *Command {
 				Color: 0x0099ff,
 				Fields: []*discordgo.MessageEmbedField{
 					{
-						Name:  "Tech Stack",
-						Value: "Go, DiscordGo, Gin, PostgreSQL (pgx/v5), React + Tailwind Web Dashboard",
+						Name:   "Tech Stack",
+						Value:  "Go, DiscordGo, Gin, PostgreSQL (pgx/v5), React + Tailwind Web Dashboard",
 						Inline: false,
 					},
 					{
-						Name:  "Status",
-						Value: "Phase 2 — Database & Core Features",
+						Name:   "Status",
+						Value:  "Phase 2 — Database & Core Features",
 						Inline: false,
 					},
 				},

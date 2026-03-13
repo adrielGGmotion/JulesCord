@@ -3,11 +3,12 @@ package commands
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"julescord/internal/db"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 // Daily returns the /daily command definition and handler.
@@ -54,7 +55,7 @@ func Daily(database *db.DB) *Command {
 			// Fetch current economy state
 			econ, err := database.GetUserEconomy(ctx, i.GuildID, user.ID)
 			if err != nil && err.Error() != "no rows in result set" {
-				log.Printf("Failed to get economy for daily %s: %v", user.ID, err)
+				slog.Error("Failed to get economy for daily %s", "arg1", user.ID, "error", err)
 			}
 
 			// Check cooldown
@@ -82,7 +83,7 @@ func Daily(database *db.DB) *Command {
 			// Grant daily and get new total
 			newCoins, err := database.ClaimDaily(ctx, i.GuildID, user.ID, amount)
 			if err != nil {
-				log.Printf("Failed to process daily claim for %s: %v", user.ID, err)
+				slog.Error("Failed to process daily claim for %s", "arg1", user.ID, "error", err)
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{

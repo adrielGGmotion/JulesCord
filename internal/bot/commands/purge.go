@@ -3,10 +3,11 @@ package commands
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
+
+	"julescord/internal/db"
 
 	"github.com/bwmarrin/discordgo"
-	"julescord/internal/db"
 )
 
 // Purge returns the /purge command definition and handler.
@@ -66,14 +67,14 @@ func Purge(database *db.DB) *Command {
 				},
 			})
 			if err != nil {
-				log.Printf("Failed to defer interaction for purge: %v", err)
+				slog.Error("Failed to defer interaction for purge", "error", err)
 				return
 			}
 
 			// Get the messages
 			messages, err := s.ChannelMessages(i.ChannelID, count, "", "", "")
 			if err != nil {
-				log.Printf("Error fetching messages for purge in channel %s: %v", i.ChannelID, err)
+				slog.Error("Error fetching messages for purge in channel %s", "arg1", i.ChannelID, "error", err)
 				s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 					Content: "Failed to fetch messages to delete.",
 				})
@@ -96,7 +97,7 @@ func Purge(database *db.DB) *Command {
 				// Single delete
 				err = s.ChannelMessageDelete(i.ChannelID, messageIDs[0])
 				if err != nil {
-					log.Printf("Error deleting single message in channel %s: %v", i.ChannelID, err)
+					slog.Error("Error deleting single message in channel %s", "arg1", i.ChannelID, "error", err)
 					s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 						Content: "Failed to delete the message.",
 					})
@@ -106,7 +107,7 @@ func Purge(database *db.DB) *Command {
 				// Bulk delete
 				err = s.ChannelMessagesBulkDelete(i.ChannelID, messageIDs)
 				if err != nil {
-					log.Printf("Error bulk deleting messages in channel %s: %v", i.ChannelID, err)
+					slog.Error("Error bulk deleting messages in channel %s", "arg1", i.ChannelID, "error", err)
 					s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 						Content: "Failed to delete messages. Note: Discord does not allow bulk deleting messages older than 14 days.",
 					})
@@ -120,7 +121,7 @@ func Purge(database *db.DB) *Command {
 			if database != nil {
 				err = database.LogModAction(context.Background(), i.GuildID, moderator.ID, moderator.ID, "purge", fmt.Sprintf("Purged %d messages", len(messageIDs)))
 				if err != nil {
-					log.Printf("Error logging mod action 'purge': %v", err)
+					slog.Error("Error logging mod action 'purge'", "error", err)
 				}
 			}
 

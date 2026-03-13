@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
+
+	"julescord/internal/metrics"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -40,7 +42,7 @@ func New(databaseURL string) (*DB, error) {
 		return nil, fmt.Errorf("error connecting to database: %w", err)
 	}
 
-	log.Println("Connected to PostgreSQL database successfully.")
+	slog.Info("Connected to PostgreSQL database successfully.")
 
 	return &DB{Pool: pool}, nil
 }
@@ -49,13 +51,13 @@ func New(databaseURL string) (*DB, error) {
 func (db *DB) Close() {
 	if db.Pool != nil {
 		db.Pool.Close()
-		log.Println("Database connection closed gracefully.")
+		slog.Info("Database connection closed gracefully.")
 	}
 }
 
 // RunMigrations executes database migrations from the migrations folder.
 func RunMigrations(databaseURL string) error {
-	log.Println("Running database migrations...")
+	slog.Info("Running database migrations...")
 
 	m, err := migrate.New("file://migrations", databaseURL)
 	if err != nil {
@@ -66,13 +68,13 @@ func RunMigrations(databaseURL string) error {
 	err = m.Up()
 	if err != nil {
 		if errors.Is(err, migrate.ErrNoChange) {
-			log.Println("Database is already up to date.")
+			slog.Info("Database is already up to date.")
 			return nil
 		}
 		return fmt.Errorf("could not run up migrations: %w", err)
 	}
 
-	log.Println("Database migrations applied successfully.")
+	slog.Info("Database migrations applied successfully.")
 	return nil
 }
 
@@ -178,6 +180,11 @@ func (db *DB) LogModAction(ctx context.Context, guildID, userID, moderatorID, ac
 
 // GetStats returns the total number of guilds, users, and commands executed.
 func (db *DB) GetStats(ctx context.Context) (guildCount, userCount, commandCount int64, err error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetStats").Observe(time.Since(start).Seconds())
+	}()
+
 	err = db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM guilds").Scan(&guildCount)
 	if err != nil {
 		return
@@ -200,6 +207,11 @@ type Guild struct {
 
 // GetGuilds returns a list of all guilds the bot is in.
 func (db *DB) GetGuilds(ctx context.Context) ([]Guild, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetGuilds").Observe(time.Since(start).Seconds())
+	}()
+
 	query := `
 		SELECT id, joined_at
 		FROM guilds
@@ -344,6 +356,11 @@ type UserWithEconomy struct {
 
 // GetUsersWithEconomy returns all users with their aggregated XP and level.
 func (db *DB) GetUsersWithEconomy(ctx context.Context) ([]UserWithEconomy, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetUsersWithEconomy").Observe(time.Since(start).Seconds())
+	}()
+
 	query := `
 		SELECT
 			u.id, u.username, u.global_name, u.avatar_url,
@@ -424,6 +441,11 @@ type CommandUsage struct {
 
 // GetCommandUsageStats returns the top 10 most used commands.
 func (db *DB) GetCommandUsageStats(ctx context.Context) ([]CommandUsage, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetCommandUsageStats").Observe(time.Since(start).Seconds())
+	}()
+
 	query := `
 		SELECT command_name, COUNT(*) as count
 		FROM command_log
@@ -451,6 +473,11 @@ func (db *DB) GetCommandUsageStats(ctx context.Context) ([]CommandUsage, error) 
 
 // GetModActions returns a list of all moderation actions with user details.
 func (db *DB) GetModActions(ctx context.Context) ([]ModActionJoined, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetModActions").Observe(time.Since(start).Seconds())
+	}()
+
 	query := `
 		SELECT
 			m.id, m.guild_id, m.action, m.reason, m.created_at,

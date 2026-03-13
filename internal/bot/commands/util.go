@@ -2,10 +2,11 @@ package commands
 
 import (
 	"context"
-	"log"
+	"log/slog"
+
+	"julescord/internal/db"
 
 	"github.com/bwmarrin/discordgo"
-	"julescord/internal/db"
 )
 
 // SendModLog sends an embed to the configured moderation log channel, if one is set.
@@ -16,7 +17,7 @@ func SendModLog(s *discordgo.Session, database *db.DB, guildID string, embed *di
 
 	channelID, err := database.GetGuildLogChannel(context.Background(), guildID)
 	if err != nil {
-		log.Printf("Error getting log channel for guild %s: %v", guildID, err)
+		slog.Error("Error getting log channel for guild %s", "arg1", guildID, "error", err)
 		return
 	}
 
@@ -27,6 +28,6 @@ func SendModLog(s *discordgo.Session, database *db.DB, guildID string, embed *di
 
 	_, err = s.ChannelMessageSendEmbed(channelID, embed)
 	if err != nil {
-		log.Printf("Failed to send mod log to channel %s in guild %s: %v", channelID, guildID, err)
+		slog.Error("Failed to send mod log to channel %s in guild %s", "arg1", channelID, "arg2", guildID, "error", err)
 	}
 }

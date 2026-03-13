@@ -3,10 +3,11 @@ package commands
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
+
+	"julescord/internal/db"
 
 	"github.com/bwmarrin/discordgo"
-	"julescord/internal/db"
 )
 
 // Ban returns the /ban command definition and handler.
@@ -70,7 +71,7 @@ func Ban(database *db.DB) *Command {
 			// Execute the ban
 			err := s.GuildBanCreateWithReason(i.GuildID, targetUser.ID, fmt.Sprintf("Banned by %s: %s", moderator.Username, reason), 0)
 			if err != nil {
-				log.Printf("Error banning user %s from guild %s: %v", targetUser.ID, i.GuildID, err)
+				slog.Error("Error banning user %s from guild %s", "arg1", targetUser.ID, "arg2", i.GuildID, "error", err)
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
@@ -84,13 +85,13 @@ func Ban(database *db.DB) *Command {
 			if database != nil {
 				err = database.UpsertUser(context.Background(), targetUser.ID, targetUser.Username, targetUser.GlobalName, targetUser.AvatarURL(""))
 				if err != nil {
-					log.Printf("Failed to upsert user %s for ban: %v", targetUser.ID, err)
+					slog.Error("Failed to upsert user %s for ban", "arg1", targetUser.ID, "error", err)
 				}
 
 				// Log Moderation Action
 				err = database.LogModAction(context.Background(), i.GuildID, targetUser.ID, moderator.ID, "ban", reason)
 				if err != nil {
-					log.Printf("Error logging mod action 'ban' for user %s: %v", targetUser.ID, err)
+					slog.Error("Error logging mod action 'ban' for user %s", "arg1", targetUser.ID, "error", err)
 				}
 			}
 

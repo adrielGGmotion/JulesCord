@@ -3,10 +3,11 @@ package commands
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
+
+	"julescord/internal/db"
 
 	"github.com/bwmarrin/discordgo"
-	"julescord/internal/db"
 )
 
 // ReactionRole returns the /reactionrole command definition and handler.
@@ -120,7 +121,7 @@ func ReactionRole(database *db.DB) *Command {
 
 				err := database.AddReactionRole(context.Background(), messageID, emoji, role.ID)
 				if err != nil {
-					log.Printf("Failed to add reaction role: %v", err)
+					slog.Error("Failed to add reaction role", "error", err)
 					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 						Type: discordgo.InteractionResponseChannelMessageWithSource,
 						Data: &discordgo.InteractionResponseData{
@@ -133,7 +134,7 @@ func ReactionRole(database *db.DB) *Command {
 				// Add the reaction to the message so users can easily click it
 				err = s.MessageReactionAdd(i.ChannelID, messageID, emoji)
 				if err != nil {
-					log.Printf("Failed to add initial reaction %s to message %s: %v", emoji, messageID, err)
+					slog.Error("Failed to add initial reaction %s to message %s", "arg1", emoji, "arg2", messageID, "error", err)
 					// We continue even if we fail to add the reaction, as it might be an external emoji the bot can't use
 				}
 
@@ -158,7 +159,7 @@ func ReactionRole(database *db.DB) *Command {
 
 				err := database.RemoveReactionRole(context.Background(), messageID, emoji)
 				if err != nil {
-					log.Printf("Failed to remove reaction role: %v", err)
+					slog.Error("Failed to remove reaction role", "error", err)
 					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 						Type: discordgo.InteractionResponseChannelMessageWithSource,
 						Data: &discordgo.InteractionResponseData{

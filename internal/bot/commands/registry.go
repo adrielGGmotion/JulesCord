@@ -1,9 +1,12 @@
 package commands
 
 import (
-	"log"
+	"fmt"
+	"log/slog"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"julescord/internal/metrics"
 )
 
 // Command defines the structure for a slash command.
@@ -27,7 +30,7 @@ func NewRegistry() *Registry {
 // Add registers a command in the registry.
 func (r *Registry) Add(cmd *Command) {
 	if cmd == nil || cmd.Definition == nil {
-		log.Println("Attempted to register nil command or nil definition")
+		slog.Info("Attempted to register nil command or nil definition")
 		return
 	}
 	r.Commands[cmd.Definition.Name] = cmd
@@ -41,15 +44,21 @@ func (r *Registry) Dispatch(s *discordgo.Session, i *discordgo.InteractionCreate
 
 	name := i.ApplicationCommandData().Name
 	if cmd, ok := r.Commands[name]; ok {
+		start := time.Now()
+		metrics.CommandCounter.WithLabelValues(name).Inc()
+		defer func() {
+			metrics.CommandLatency.WithLabelValues(name).Observe(time.Since(start).Seconds())
+		}()
+
 		cmd.Handler(s, i)
 	} else {
-		log.Printf("Received interaction for unknown command: %s", name)
+		slog.Info(fmt.Sprintf("Received interaction for unknown command: %s", name))
 	}
 }
 
 // RegisterWithDiscord registers all commands in the registry with Discord.
 func (r *Registry) RegisterWithDiscord(s *discordgo.Session, appID string, guildID string) error {
-	log.Println("Registering slash commands...")
+	slog.Info("Registering slash commands...")
 
 	// Create a slice of application commands to register all at once
 	var commands []*discordgo.ApplicationCommand
@@ -59,10 +68,10 @@ func (r *Registry) RegisterWithDiscord(s *discordgo.Session, appID string, guild
 
 	_, err := s.ApplicationCommandBulkOverwrite(appID, guildID, commands)
 	if err != nil {
-		log.Printf("Cannot overwrite commands: %v", err)
+		slog.Error("Cannot overwrite commands", "error", err)
 		return err
 	}
 
-	log.Printf("Slash commands registered successfully. Count: %d", len(commands))
+	slog.Info(fmt.Sprintf("Slash commands registered successfully. Count: %d", len(commands)))
 	return nil
 }

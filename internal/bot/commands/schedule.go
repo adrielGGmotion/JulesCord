@@ -3,11 +3,12 @@ package commands
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
-	"github.com/bwmarrin/discordgo"
 	"julescord/internal/db"
+
+	"github.com/bwmarrin/discordgo"
 )
 
 // Schedule returns the /schedule command definition and handler.
@@ -106,7 +107,7 @@ func Schedule(database *db.DB) *Command {
 
 				err := database.CreateScheduledAnnouncement(context.Background(), i.GuildID, channelID, message, sendAt)
 				if err != nil {
-					log.Printf("Failed to create scheduled announcement: %v", err)
+					slog.Error("Failed to create scheduled announcement", "error", err)
 					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 						Type: discordgo.InteractionResponseChannelMessageWithSource,
 						Data: &discordgo.InteractionResponseData{
