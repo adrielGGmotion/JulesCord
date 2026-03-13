@@ -1,12 +1,14 @@
 package bot
 
 import (
+	"context"
 	"fmt"
 	"log"
 
 	"github.com/bwmarrin/discordgo"
 	"julescord/internal/bot/commands"
 	"julescord/internal/config"
+	"julescord/internal/db"
 )
 
 // Bot manages the Discord connection.
@@ -14,10 +16,11 @@ type Bot struct {
 	Session  *discordgo.Session
 	Config   *config.Config
 	Registry *commands.Registry
+	DB       *db.DB
 }
 
 // New initializes a new bot instance.
-func New(cfg *config.Config) (*Bot, error) {
+func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	if cfg.DiscordToken == "" {
 		return nil, fmt.Errorf("discord token is required")
 	}
@@ -34,10 +37,14 @@ func New(cfg *config.Config) (*Bot, error) {
 		Session:  session,
 		Config:   cfg,
 		Registry: registry,
+		DB:       database,
 	}
 
 	// Register ready handler
 	bot.Session.AddHandler(bot.readyHandler)
+
+	// Register guild create handler
+	bot.Session.AddHandler(bot.guildCreateHandler)
 
 	// Register interaction handler
 	bot.Session.AddHandler(bot.interactionCreateHandler)
@@ -83,7 +90,45 @@ func (b *Bot) readyHandler(s *discordgo.Session, event *discordgo.Ready) {
 	}
 }
 
+// guildCreateHandler is called when the bot joins a new guild or a guild becomes available.
+func (b *Bot) guildCreateHandler(s *discordgo.Session, event *discordgo.GuildCreate) {
+	if b.DB == nil {
+		return
+	}
+
+	err := b.DB.UpsertGuild(context.Background(), event.Guild.ID)
+	if err != nil {
+		log.Printf("Failed to upsert guild %s: %v", event.Guild.ID, err)
+	} else {
+		log.Printf("Guild registered/upserted: %s", event.Guild.ID)
+	}
+}
+
 // interactionCreateHandler handles all slash commands
 func (b *Bot) interactionCreateHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if b.DB != nil && i.Type == discordgo.InteractionApplicationCommand {
+		var user *discordgo.User
+		if i.Member != nil {
+			user = i.Member.User
+		} else {
+			user = i.User // Fallback for DMs
+		}
+
+		if user != nil {
+			// Track user
+			err := b.DB.UpsertUser(context.Background(), user.ID, user.Username, user.GlobalName, user.AvatarURL(""))
+			if err != nil {
+				log.Printf("Failed to upsert user %s: %v", user.ID, err)
+			}
+
+			// Log command execution
+			commandName := i.ApplicationCommandData().Name
+			err = b.DB.LogCommand(context.Background(), commandName, user.ID, i.GuildID)
+			if err != nil {
+				log.Printf("Failed to log command execution for %s: %v", commandName, err)
+			}
+		}
+	}
+
 	b.Registry.Dispatch(s, i)
 }

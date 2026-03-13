@@ -75,6 +75,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 ---
 
 ## Completed Work
+- Implemented Phase 2 Database Foundation: created `internal/db/db.go` with connection pooling via `pgxpool`, and configured automated migration runs using `golang-migrate`.
+- Authored initial migration `migrations/001_init.sql` defining `guilds`, `users`, and `command_log` tables.
+- Integrated database with the Discord bot in `internal/bot/bot.go` to handle `guildCreate` (upserting guilds) and interaction creates (upserting users and logging commands).
+- Updated `cmd/bot/main.go` to run DB migrations at startup and establish a DB connection (with graceful fallback if no `DATABASE_URL` is set).
+
 
 - Removed old Node.js files (`index.js`, `deploy-commands.js`, `package.json`, `package-lock.json`, and `commands/` directory).
 - Initialized Go module (`go.mod` and `go.sum`) with all required dependencies.
@@ -104,10 +109,10 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] `Dockerfile` — multi-stage Go build, final image is minimal
 
 ### Phase 2 — Database & Core Features
-- [ ] `internal/db/db.go` — PostgreSQL connection pool via pgx
-- [ ] `migrations/001_init.sql` — guilds, users, command_log tables
-- [ ] Guild auto-registration when bot joins a server
-- [ ] User tracking — upsert Discord users in DB on every interaction
+- [x] `internal/db/db.go` — PostgreSQL connection pool via pgx
+- [x] `migrations/001_init.sql` — guilds, users, command_log tables
+- [x] Guild auto-registration when bot joins a server
+- [x] User tracking — upsert Discord users in DB on every interaction
 - [ ] `/about` command — describes itself and the autonomous build loop
 - [ ] `/stats` command — guild count, user count, uptime, commands run
 - [ ] `/help` command — dynamically lists all registered commands with descriptions
