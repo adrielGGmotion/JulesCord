@@ -154,6 +154,10 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Created `internal/bot/bot.go` to connect to Discord and handle basic startup/shutdown.
 - Created `internal/api/server.go` to serve Gin HTTP REST API endpoints like `/health`.
 - Created `cmd/bot/main.go` to act as the primary entry point, running the Bot and API concurrently and shutting them down gracefully.
+- Implemented Phase 10 Ticketing System features: added migrations `007_tickets.sql` with table `tickets`.
+- Added database operations `CreateTicket`, `GetTicketByChannel`, and `CloseTicket` in `internal/db/db.go`.
+- Added `/ticket create` command in `internal/bot/commands/ticket.go` to create private ticket channels.
+- Added `/ticket close` command to close tickets and delete the respective channels.
 
 ---
 
@@ -300,3 +304,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — AddReminder, GetPendingReminders, GetDueReminders, DeleteReminder, MarkReminderSent
 - [x] `/remind` subcommands — add, list, delete
 - [x] Background goroutine for delivery
+
+### Phase 10 — Ticketing System
+- [x] `migrations/007_tickets.sql` — tickets table
+- [x] DB operations — CreateTicket, CloseTicket, GetTicketByChannel
+- [x] `/ticket create` — creates a new private text channel for the ticket and sends a welcome message
+- [x] `/ticket close` — marks the ticket as closed in DB and deletes the ticket channel

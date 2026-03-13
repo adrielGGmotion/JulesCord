@@ -89,6 +89,68 @@ func (db *DB) UpsertGuild(ctx context.Context, id string) error {
 	return err
 }
 
+// Ticket represents a support ticket in a guild.
+type Ticket struct {
+	ID        int       `json:"id"`
+	GuildID   string    `json:"guild_id"`
+	UserID    string    `json:"user_id"`
+	ChannelID string    `json:"channel_id"`
+	Reason    string    `json:"reason"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	ClosedAt  *time.Time `json:"closed_at"`
+}
+
+// CreateTicket creates a new ticket in the database.
+func (db *DB) CreateTicket(ctx context.Context, guildID, userID, channelID, reason string) error {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("CreateTicket").Observe(time.Since(start).Seconds())
+
+	query := `
+		INSERT INTO tickets (guild_id, user_id, channel_id, reason, status, created_at)
+		VALUES ($1, $2, $3, $4, 'open', NOW())
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, channelID, reason)
+	return err
+}
+
+// GetTicketByChannel retrieves a ticket by its channel ID.
+func (db *DB) GetTicketByChannel(ctx context.Context, channelID string) (*Ticket, error) {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("GetTicketByChannel").Observe(time.Since(start).Seconds())
+
+	query := `
+		SELECT id, guild_id, user_id, channel_id, reason, status, created_at, closed_at
+		FROM tickets
+		WHERE channel_id = $1
+	`
+	var t Ticket
+	err := db.Pool.QueryRow(ctx, query, channelID).Scan(
+		&t.ID, &t.GuildID, &t.UserID, &t.ChannelID, &t.Reason, &t.Status, &t.CreatedAt, &t.ClosedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Return nil if no ticket is found
+		}
+		return nil, err
+	}
+	return &t, nil
+}
+
+// CloseTicket marks a ticket as closed.
+func (db *DB) CloseTicket(ctx context.Context, channelID string) error {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("CloseTicket").Observe(time.Since(start).Seconds())
+
+	query := `
+		UPDATE tickets
+		SET status = 'closed', closed_at = NOW()
+		WHERE channel_id = $1
+	`
+	_, err := db.Pool.Exec(ctx, query, channelID)
+	return err
+}
+
 // UpsertUser inserts a new user or updates their info if they exist.
 func (db *DB) UpsertUser(ctx context.Context, id, username, globalName, avatarURL string) error {
 	query := `
