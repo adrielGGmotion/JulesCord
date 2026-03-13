@@ -29,6 +29,16 @@ To run this yourself you need:
 - The Jules GitHub app installed on this repo
 - `JULES_API_KEY` added as a GitHub Actions secret
 
+## Documentation
+
+JulesCord is a complex application with a Go backend, PostgreSQL database, and a React web dashboard. The documentation is split into several files in the `docs/` directory:
+
+- [Setup Guide](docs/setup.md)
+- [Architecture](docs/architecture.md)
+- [Bot Features](docs/features.md)
+- [Available Commands](docs/commands.md)
+- [API Documentation](docs/api.md)
+
 ## What Jules is building
 
 A Discord bot themed around itself. See `AGENTS.md` for current progress.
