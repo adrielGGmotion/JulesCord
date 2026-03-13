@@ -189,3 +189,34 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Start Phase 1 completely: delete Node.js files, set up Go module, get bot connecting to Discord
 - Get `/health` returning 200 from the API before anything else
 - DB is optional in Phase 1 — skip if it blocks getting the bot online
+
+---
+
+## Environment Variables
+
+| Variable | Description |
+|---|---|
+| `BOT_TOKEN` | Discord bot token — this is the exact secret name, use it everywhere |
+| `DISCORD_CLIENT_ID` | Discord application client ID for slash command registration |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `API_PORT` | Port for the Gin HTTP server (default 8080) |
+
+**Important:** The token secret is named `BOT_TOKEN` — not `DISCORD_TOKEN`. Always use `BOT_TOKEN` in code and `.env.example`.
+
+---
+
+## Testing Requirements — MANDATORY
+
+After every iteration that touches bot code, Jules MUST test before opening a PR.
+
+### Steps
+
+1. Build: `go build ./cmd/bot/` — must compile with zero errors
+2. Run: `BOT_TOKEN=$BOT_TOKEN DISCORD_CLIENT_ID=$DISCORD_CLIENT_ID go run ./cmd/bot/` for 10 seconds
+3. Verify the log contains a "Ready" / connected message
+4. Verify slash commands were submitted to Discord REST API without error
+5. Kill the process cleanly
+
+The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as environment variables from secrets. Jules can reference them directly when running the test.
+
+**If the bot fails to start or slash commands fail to register — fix it before opening the PR.**

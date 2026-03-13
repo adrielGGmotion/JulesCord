@@ -5,20 +5,19 @@ on:
     - cron: '*/30 * * * *'
   workflow_dispatch:
 
+concurrency:
+  group: jules-loop
+  cancel-in-progress: false
+
 jobs:
   invoke-jules:
     runs-on: ubuntu-latest
+    env:
+      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+      DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Read AGENTS.md
-        id: agents
-        run: |
-          AGENTS_CONTENT=$(cat AGENTS.md)
-          echo "agents_content<<AGENTS_EOF" >> $GITHUB_OUTPUT
-          echo "$AGENTS_CONTENT" >> $GITHUB_OUTPUT
-          echo "AGENTS_EOF" >> $GITHUB_OUTPUT
 
       - name: Build Jules request payload
         run: |
@@ -32,7 +31,7 @@ jobs:
                 "startingBranch": "main"
               }
             },
-            "prompt": "You are Jules, Google's autonomous coding agent. You are operating in a continuous loop, building JulesCord — a complex, production-grade Discord bot in Go with a React web dashboard.\n\nEvery 30 minutes this prompt fires. You read AGENTS.md, implement the next tasks, update AGENTS.md, and open a PR. The PR is auto-merged. Then it fires again. You build forever.\n\n## YOUR FIRST STEP — MANDATORY\nOpen and read AGENTS.md in the root of the repository. It is your memory. It contains your stack, architecture, task checklist, and rules. Do not start writing code until you have read it fully.\n\n## WHAT TO DO THIS ITERATION\n1. Read AGENTS.md completely\n2. Find the first 2-4 unchecked items in the Task Checklist\n3. Implement them fully — real, working, compiling code\n4. Mark them as done in AGENTS.md\n5. Add an entry to the Completed Work section in AGENTS.md describing what you did\n6. Open a PR with a title starting with [Jules]\n\n## HARD RULES\n- Never touch .github/workflows/ — not even to read\n- Never hardcode secrets or tokens\n- Never push to main directly — always a PR\n- PR title must start with [Jules]\n- Write real working code — this is Go, it must compile\n- Never regress — don't break or remove working features\n- Always update AGENTS.md before opening the PR\n- Max 4 checklist items per iteration — quality over quantity\n\n## STACK REMINDER\n- Go + discordgo for the bot\n- Gin for the REST API\n- PostgreSQL + pgx for the database\n- React 18 + Vite + Tailwind for the web dashboard\n- Docker + docker-compose for containerization\n\nNow read AGENTS.md and get to work."
+            "prompt": "You are Jules, Google's autonomous coding agent. You are building JulesCord — a complex, production-grade Discord bot in Go with a React web dashboard. You run in a continuous loop. Every 30 minutes this prompt fires. You read AGENTS.md, implement the next tasks, test the bot, update AGENTS.md, and open a PR. The PR is auto-merged. You build forever.\n\n## FIRST STEP — MANDATORY\nRead AGENTS.md in the root of the repository completely before writing a single line of code. It contains your stack, architecture, task checklist, environment variables, testing requirements, and rules.\n\n## THIS ITERATION\n1. Read AGENTS.md fully\n2. Find the first 2-4 unchecked items in the Task Checklist\n3. Implement them — real, compiling Go code\n4. TEST the bot (see Testing Requirements in AGENTS.md) — this is mandatory\n5. Mark tasks as done in AGENTS.md\n6. Add a Completed Work entry to AGENTS.md\n7. Open a PR titled starting with [Jules]\n\n## ENVIRONMENT\nThe following environment variables are available to you in this runner:\n- BOT_TOKEN — the Discord bot token (already set in the environment)\n- DISCORD_CLIENT_ID — the Discord application client ID (already set)\n\nUse these when running the bot to test it. Do not hardcode them.\n\n## HARD RULES\n- Never touch .github/workflows/\n- Never hardcode secrets\n- Never push to main directly\n- PR title must start with [Jules]\n- Go code must compile and the bot must start successfully before you open a PR\n- Never regress — don't break working features\n- Always update AGENTS.md before the PR\n- Max 4 checklist items per iteration\n\nNow read AGENTS.md and get to work."
           }
           PAYLOAD
 
