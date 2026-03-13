@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS command_log;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS guilds;
