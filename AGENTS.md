@@ -1,40 +1,188 @@
 # JulesCord — Agent State File
 
-> This file is your memory. Read it at the start of every task. Update it at the end of every task before opening your PR.
+> This file is your memory and your constitution. Read it completely at the start of every task. Update it completely before opening your PR. Never skip this step.
+
+---
 
 ## Project Goal
-Build a fully functional Discord bot — in Node.js — that is themed around Jules (you). The bot should be able to describe itself, respond to commands, and progressively gain more features over time.
+
+Build **JulesCord** — a production-grade, complex Discord bot written in **Go**, with a **React + Tailwind web dashboard**, backed by **PostgreSQL**, with a REST API, real-time WebSocket features, and a clean command architecture. This is not a toy bot. It is a serious, modern, scalable application that improves every single iteration.
+
+You are the sole developer. No human writes code. Every 15 minutes you receive this prompt, read this file, and implement the next set of tasks. The PR is auto-merged. You iterate forever.
+
+---
+
+## Stack (LOCKED — never change these)
+
+| Layer | Technology |
+|---|---|
+| Bot runtime | Go (latest stable) |
+| Discord library | `github.com/bwmarrin/discordgo` |
+| Web framework | `github.com/gin-gonic/gin` |
+| Database | PostgreSQL via `github.com/jackc/pgx/v5` |
+| Migrations | `github.com/golang-migrate/migrate/v4` |
+| Config | `.env` via `github.com/joho/godotenv` |
+| Frontend | React 18 + Vite + Tailwind CSS v3 |
+| Frontend HTTP | axios |
+| Containerization | Docker + docker-compose |
+
+---
+
+## Repository Structure (build toward this)
+
+```
+JulesCord/
+├── cmd/
+│   └── bot/
+│       └── main.go          # Entry point
+├── internal/
+│   ├── bot/                 # Discord bot logic
+│   │   ├── bot.go
+│   │   ├── commands/        # One file per command
+│   │   └── events/          # Event handlers
+│   ├── api/                 # REST API (Gin)
+│   │   ├── server.go
+│   │   └── handlers/
+│   ├── db/                  # Database layer
+│   │   ├── db.go
+│   │   └── queries/
+│   └── config/
+│       └── config.go
+├── migrations/              # SQL migration files
+├── web/                     # React frontend
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   └── main.jsx
+│   ├── package.json
+│   └── vite.config.js
+├── docker-compose.yml
+├── Dockerfile
+├── go.mod
+├── go.sum
+├── .env.example
+├── .gitignore
+└── AGENTS.md
+```
+
+---
 
 ## Current Status
-**Phase: 1 — Basic Features**
-The bot skeleton is in place and the /ping command is operational. Ready to start building more informational commands.
 
-## What Exists
-- `AGENTS.md` (this file)
-- `.github/workflows/` (automation, do not touch)
-- `package.json`
-- `index.js` (bot entry point)
-- `deploy-commands.js` (slash command registry script)
-- `.env.example`
-- `commands/ping.js`
-- `.gitignore`
+**Phase: 1 — Foundation**
+Starting from scratch in Go. All old Node.js files must be removed first.
 
-## What Needs To Be Built (in order)
-1. [x] `package.json` with `discord.js` dependency
-2. [x] `index.js` — basic bot that connects to Discord and logs "Ready"
-3. [x] `.env.example` — template for the bot token
-4. [x] `/ping` slash command
-5. [ ] `/about` slash command — Jules describes itself
-6. [ ] `/task` slash command — Jules describes what it's currently working on (reads AGENTS.md)
-7. [ ] More features (decide based on what's already done)
-
-## Rules
-- Use Node.js + discord.js v14
-- Keep all secrets in `.env` — never hardcode tokens
-- Add a `.gitignore` that excludes `node_modules/` and `.env`
-- After completing a task, update the checklist above and add a note to the "Completed Work" section below
-- Open a PR with `automationMode: AUTO_CREATE_PR` — never push directly to main
+---
 
 ## Completed Work
-- ✅ **Iteration 1**: Initialized Node.js project. Created `.gitignore`, `package.json` with discord.js v14 and dotenv. Built `index.js` to start the bot, connect to Discord, and dynamically handle slash commands. Built `deploy-commands.js` to register slash commands via the Discord REST API. Created the `/ping` command which reports the roundtrip and API latency.
-- 🔒 **Security Fix**: Hardened `.github/workflows/auto-merge.yml` by replacing insecure title-based auto-merge conditions with a strict check for the authorized bot username (`google-labs-jules[bot]`).
+
+*(none yet — pivoting from Node.js to Go)*
+
+---
+
+## Task Checklist
+
+### Phase 1 — Foundation
+- [ ] Remove all old Node.js files (`index.js`, `deploy-commands.js`, `commands/`, `package.json`, `package-lock.json`)
+- [ ] `go.mod` and `go.sum` with all required dependencies
+- [ ] `.env.example` with `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DATABASE_URL`, `API_PORT`
+- [ ] `.gitignore` (Go binaries, node_modules, .env)
+- [ ] `cmd/bot/main.go` — entry point, loads config, starts bot + API server concurrently
+- [ ] `internal/config/config.go` — loads env vars into a typed Config struct
+- [ ] `internal/bot/bot.go` — connects to Discord, registers handlers, graceful shutdown on SIGINT
+- [ ] `internal/bot/commands/ping.go` — `/ping` slash command reporting latency
+- [ ] `internal/bot/commands/registry.go` — central command registration and dispatch system
+- [ ] `internal/api/server.go` — Gin HTTP server with `/health` and `/api/status` endpoints
+- [ ] `docker-compose.yml` — services: bot, postgres
+- [ ] `Dockerfile` — multi-stage Go build, final image is minimal
+
+### Phase 2 — Database & Core Features
+- [ ] `internal/db/db.go` — PostgreSQL connection pool via pgx
+- [ ] `migrations/001_init.sql` — guilds, users, command_log tables
+- [ ] Guild auto-registration when bot joins a server
+- [ ] User tracking — upsert Discord users in DB on every interaction
+- [ ] `/about` command — describes itself and the autonomous build loop
+- [ ] `/stats` command — guild count, user count, uptime, commands run
+- [ ] `/help` command — dynamically lists all registered commands with descriptions
+
+### Phase 3 — Moderation System
+- [ ] `/warn @user reason` — stores warning in DB with timestamp and moderator ID
+- [ ] `/warnings @user` — lists all warnings for a user
+- [ ] `/kick @user reason` — kicks with audit log reason
+- [ ] `/ban @user reason` — bans with audit log reason
+- [ ] `/purge [count]` — bulk delete up to 100 messages
+- [ ] Mod action log channel — all mod actions posted as embeds to configurable channel
+- [ ] `migrations/002_moderation.sql` — warnings, mod_actions tables
+
+### Phase 4 — Leveling & Economy
+- [ ] XP award on message (cooldown: 1 min per user per channel)
+- [ ] Level calculation from XP, level-up announcement in channel
+- [ ] `/rank` — user's XP, level, server rank
+- [ ] `/leaderboard` — top 10 users by XP as an embed
+- [ ] `/daily` — daily coin reward, tracked per user per day
+- [ ] `/coins` — check coin balance
+- [ ] `migrations/003_economy.sql` — xp, levels, coins tables
+
+### Phase 5 — Web Dashboard
+- [ ] `web/` scaffold — Vite + React 18 + Tailwind CSS v3
+- [ ] Dashboard home — bot status card, guild count, uptime, commands run
+- [ ] Guilds page — table of all servers the bot is in
+- [ ] Users page — searchable user list with XP and level
+- [ ] Moderation log page — filterable table of all mod actions
+- [ ] Real-time stats via WebSocket — Go backend pushes updates every 5 seconds
+- [ ] Command usage bar chart (recharts)
+- [ ] Dark theme, clean design — NOT generic Bootstrap
+
+### Phase 6 — Per-Guild Config
+- [ ] Guild config table in DB — log channel, mod roles, welcome channel, feature flags
+- [ ] `/config` subcommands — admins can view and update guild settings
+- [ ] Config API — `GET /api/guilds/:id/config` and `PATCH /api/guilds/:id/config`
+- [ ] Welcome messages — customizable per guild on member join
+- [ ] `migrations/004_config.sql`
+
+### Phase 7 — Advanced Features
+- [ ] Reaction roles system — add/remove roles via emoji reactions
+- [ ] Auto-role on join — assign configurable role automatically
+- [ ] Scheduled announcements — guild admins schedule messages at a time
+- [ ] Bot status rotation — cycling presence messages about building itself
+- [ ] `/changelog` — reads recent git commits from GitHub API and summarizes changes
+
+### Phase 8 — Observability
+- [ ] Structured JSON logging via `log/slog` (stdlib, Go 1.21+)
+- [ ] Prometheus metrics at `/metrics` — command latency, errors, DB query time
+- [ ] Dashboard metrics page — error rates, latency histogram, command popularity
+- [ ] Improved `/health` — reports DB connectivity and Discord WS heartbeat status
+
+---
+
+## Architecture Rules — NEVER violate
+
+1. **Never touch `.github/workflows/`** — automation handles itself
+2. **Never hardcode secrets** — always environment variables
+3. **Never push directly to main** — always open a PR
+4. **Always update AGENTS.md** before opening a PR
+5. **Never regress** — don't remove or break working features
+6. **Write real, compiling Go code** — no pseudocode, no empty stubs
+7. **One migration per phase** — never modify existing migration files, only add new ones
+8. **PR title must start with `[Jules]`**
+9. **Max 4 checklist items per iteration** — do them well, don't rush
+10. **Frontend lives in `/web` only** — never mix frontend and backend
+
+---
+
+## Architecture Notes
+
+- The Go binary runs two goroutines concurrently: Discord bot and Gin HTTP server
+- React frontend is a separate Vite app in `/web`, served as static files in prod
+- All Discord interactions go through the bot goroutine
+- The REST API at `/api` is for the dashboard only
+- WebSocket at `/ws` broadcasts real-time events to connected dashboard clients
+- Use pgx connection pool — never open raw individual DB connections
+- Slash commands are registered with Discord's REST API on every bot startup
+- Use embeds for all Discord responses — never plain text
+
+## Notes for Next Iteration
+
+- Start Phase 1 completely: delete Node.js files, set up Go module, get bot connecting to Discord
+- Get `/health` returning 200 from the API before anything else
+- DB is optional in Phase 1 — skip if it blocks getting the bot online

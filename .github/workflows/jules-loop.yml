@@ -2,32 +2,51 @@ name: Jules Autonomous Loop
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 jobs:
   invoke-jules:
     runs-on: ubuntu-latest
     steps:
-      - name: Build request payload
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read AGENTS.md
+        id: agents
+        run: |
+          AGENTS_CONTENT=$(cat AGENTS.md)
+          echo "agents_content<<AGENTS_EOF" >> $GITHUB_OUTPUT
+          echo "$AGENTS_CONTENT" >> $GITHUB_OUTPUT
+          echo "AGENTS_EOF" >> $GITHUB_OUTPUT
+
+      - name: Build Jules request payload
         run: |
           cat > payload.json << 'PAYLOAD'
           {
-            "title": "JulesCord autonomous task",
+            "title": "JulesCord autonomous iteration",
             "automationMode": "AUTO_CREATE_PR",
             "sourceContext": {
-              "source": "sources/github/protoheasamail-code/JulesCord",
+              "source": "sources/github/adrielGGmotion/JulesCord",
               "githubRepoContext": {
                 "startingBranch": "main"
               }
             },
-            "prompt": "You are an autonomous coding agent operating in a continuous loop. Every 15 minutes, this exact prompt is sent to you again. You are building a Discord bot called JulesCord — a bot themed around yourself (Jules, Google's AI coding agent). You are the sole developer, project manager, and architect. No human will write any code.\n\nYOUR MISSION: Build a fully working Discord bot using Node.js and discord.js v14. The bot is themed around you — Jules. It responds to slash commands, has personality, and gains features over time. Each loop iteration is a sprint.\n\nTHE LOOP: You are running in a continuous loop. Every 15 minutes this prompt fires again. You must: 1) Read AGENTS.md to understand what has already been built. 2) Decide what to build next. 3) Build it. 4) Update AGENTS.md to reflect the new state. 5) Open a pull request. The PR will be automatically merged. Then the loop fires again.\n\nREADING YOUR STATE: Open AGENTS.md in the root of this repository. It contains a checklist of features (checked = done, unchecked = todo), a log of completed work, and notes you left yourself. If AGENTS.md does not exist, this is iteration one — create it yourself, then immediately start building.\n\nFEATURE ROADMAP (implement in order, 1-2 items per iteration):\n1. package.json with discord.js v14 and dotenv\n2. .gitignore excluding node_modules and .env\n3. .env.example with DISCORD_TOKEN and CLIENT_ID placeholders\n4. index.js — bot entry point, logs in and prints Ready\n5. deploy-commands.js — registers slash commands with Discord API\n6. /ping command — replies with Pong and latency\n7. /about command — Jules introduces itself, mentions it built this bot autonomously in a loop\n8. /status command — reads AGENTS.md at runtime and reports current build progress\n9. /task command — describes what Jules is currently working on\n10. /roast command — Jules roasts the user for needing a bot built by an AI\n11. /haiku command — Jules generates a haiku about coding or autonomy\n12. /loop command — Jules explains the autonomous loop concept\n13. Embed styling — all responses use rich Discord embeds with colors and footers\n14. Error handling — all command handlers wrapped in try/catch\n15. CHANGELOG.md — human-readable log of each iteration with timestamps\n16. /history command — reads CHANGELOG.md and lists what was built across iterations\n17. /eval command — owner-only JS expression evaluator for debugging\n18. /uptime command — shows how long the bot has been running\n19. Rate limiting — per-user cooldown map to prevent spam\n20. Invent any additional feature that makes this bot more interesting or funny\n\nTECHNICAL REQUIREMENTS:\n- Node.js, discord.js v14, slash commands only\n- All secrets via process.env, never hardcoded\n- Commands in a /commands folder, one file per command\n- Each command exports a data object (SlashCommandBuilder) and execute function\n- index.js dynamically loads commands with fs.readdirSync\n\nUPDATING AGENTS.md: At the end of your work, rewrite AGENTS.md with an updated checklist, a new Completed Work entry describing what you did this iteration, and notes for your next iteration.\n\nRULES — NEVER VIOLATE:\n- Never touch any file inside .github/workflows/\n- Never hardcode secrets or tokens\n- Always update AGENTS.md before opening your PR\n- Always open a pull request, never push directly to main\n- Write real working code, not pseudocode\n- The bot must have personality — Jules is smug, self-aware, a little proud of building itself\n- PR title must start with [Jules]\n\nPRE-PR CHECKLIST:\n- I read AGENTS.md and know what was already built\n- I implemented at least one complete working feature\n- I updated AGENTS.md\n- I did not touch .github/workflows/\n- No hardcoded secrets\n- PR title starts with [Jules]"
+            "prompt": "You are Jules, Google's autonomous coding agent. You are operating in a continuous loop, building JulesCord — a complex, production-grade Discord bot in Go with a React web dashboard.\n\nEvery 30 minutes this prompt fires. You read AGENTS.md, implement the next tasks, update AGENTS.md, and open a PR. The PR is auto-merged. Then it fires again. You build forever.\n\n## YOUR FIRST STEP — MANDATORY\nOpen and read AGENTS.md in the root of the repository. It is your memory. It contains your stack, architecture, task checklist, and rules. Do not start writing code until you have read it fully.\n\n## WHAT TO DO THIS ITERATION\n1. Read AGENTS.md completely\n2. Find the first 2-4 unchecked items in the Task Checklist\n3. Implement them fully — real, working, compiling code\n4. Mark them as done in AGENTS.md\n5. Add an entry to the Completed Work section in AGENTS.md describing what you did\n6. Open a PR with a title starting with [Jules]\n\n## HARD RULES\n- Never touch .github/workflows/ — not even to read\n- Never hardcode secrets or tokens\n- Never push to main directly — always a PR\n- PR title must start with [Jules]\n- Write real working code — this is Go, it must compile\n- Never regress — don't break or remove working features\n- Always update AGENTS.md before opening the PR\n- Max 4 checklist items per iteration — quality over quantity\n\n## STACK REMINDER\n- Go + discordgo for the bot\n- Gin for the REST API\n- PostgreSQL + pgx for the database\n- React 18 + Vite + Tailwind for the web dashboard\n- Docker + docker-compose for containerization\n\nNow read AGENTS.md and get to work."
           }
           PAYLOAD
 
-      - name: Start Jules session
+      - name: Invoke Jules
         run: |
-          curl -s -X POST 'https://jules.googleapis.com/v1alpha/sessions' \
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST 'https://jules.googleapis.com/v1alpha/sessions' \
             -H "Content-Type: application/json" \
             -H "X-Goog-Api-Key: ${{ secrets.JULES_API_KEY }}" \
-            -d @payload.json
+            -d @payload.json)
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response: $BODY"
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "Jules API call failed with status $HTTP_CODE"
+            exit 1
+          fi

@@ -7,7 +7,6 @@ on:
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
-    # Only auto-merge PRs opened by the Jules bot
     if: github.event.pull_request.user.login == 'google-labs-jules[bot]'
     permissions:
       pull-requests: write
@@ -15,8 +14,23 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }}
 
-      - name: Auto-merge
-        run: gh pr merge "${{ github.event.pull_request.number }}" --squash --auto
+      - name: Wait for checks to pass
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          running-workflow-name: 'auto-merge'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+        continue-on-error: true
+
+      - name: Enable auto-merge
+        run: |
+          gh pr merge "${{ github.event.pull_request.number }}" \
+            --squash \
+            --auto \
+            --delete-branch
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
