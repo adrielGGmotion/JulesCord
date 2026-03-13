@@ -70,8 +70,11 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	// Register message create handler
 	bot.Session.AddHandler(bot.messageCreateHandler)
 
+	// Register guild member add handler
+	bot.Session.AddHandler(bot.guildMemberAddHandler)
+
 	// Set intentions
-	bot.Session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages
+	bot.Session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMembers
 
 	return bot, nil
 }
@@ -218,6 +221,27 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 					}
 				}
 			}
+		}
+	}
+}
+
+// guildMemberAddHandler is called every time a new member joins a guild
+func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
+	if b.DB == nil {
+		return
+	}
+
+	config, err := b.DB.GetGuildConfig(context.Background(), m.GuildID)
+	if err != nil {
+		log.Printf("Failed to get guild config for welcome message: %v", err)
+		return
+	}
+
+	if config.WelcomeChannelID != nil && *config.WelcomeChannelID != "" {
+		welcomeMsg := fmt.Sprintf("Welcome to the server, <@%s>! We are glad to have you here.", m.User.ID)
+		_, err := s.ChannelMessageSend(*config.WelcomeChannelID, welcomeMsg)
+		if err != nil {
+			log.Printf("Failed to send welcome message: %v", err)
 		}
 	}
 }
