@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiClient } from '../api';
 import { Users as UsersIcon, Search, Award } from 'lucide-react';
 
 export default function Users() {
@@ -10,7 +10,7 @@ export default function Users() {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const res = await axios.get('http://localhost:8080/api/users');
+        const res = await apiClient.get('http://localhost:8080/api/users');
         setUsers(res.data || []);
       } catch (err) {
         console.error("Failed to fetch users:", err);

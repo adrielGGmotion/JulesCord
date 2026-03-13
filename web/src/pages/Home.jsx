@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiClient, getWsUrl } from '../api';
 import { Server, Users, Activity, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
@@ -13,8 +13,8 @@ export default function Home() {
     const fetchData = async () => {
       try {
         const [statusRes, cmdsRes] = await Promise.all([
-          axios.get('http://localhost:8080/api/status'),
-          axios.get('http://localhost:8080/api/stats/commands')
+          apiClient.get('/api/status'),
+          apiClient.get('/api/stats/commands')
         ]);
         setStatus(statusRes.data);
         setCommandStats(cmdsRes.data || []);
@@ -28,7 +28,7 @@ export default function Home() {
     fetchData();
 
     // WebSocket connection for real-time stats
-    const ws = new WebSocket('ws://localhost:8080/ws');
+    const ws = new WebSocket(getWsUrl('/ws'));
 
     ws.onmessage = (event) => {
       try {

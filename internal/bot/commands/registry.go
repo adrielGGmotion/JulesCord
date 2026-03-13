@@ -52,6 +52,7 @@ func (r *Registry) Dispatch(s *discordgo.Session, i *discordgo.InteractionCreate
 
 		cmd.Handler(s, i)
 	} else {
+		metrics.ErrorCounter.WithLabelValues("unknown_command").Inc()
 		slog.Info(fmt.Sprintf("Received interaction for unknown command: %s", name))
 	}
 }
@@ -68,6 +69,7 @@ func (r *Registry) RegisterWithDiscord(s *discordgo.Session, appID string, guild
 
 	_, err := s.ApplicationCommandBulkOverwrite(appID, guildID, commands)
 	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("command_registration").Inc()
 		slog.Error("Cannot overwrite commands", "error", err)
 		return err
 	}

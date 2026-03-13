@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiClient } from '../api';
 import { Shield, Search, Filter } from 'lucide-react';
 
 export default function Moderation() {
@@ -11,7 +11,7 @@ export default function Moderation() {
   useEffect(() => {
     const fetchModActions = async () => {
       try {
-        const res = await axios.get('http://localhost:8080/api/mod-actions');
+        const res = await apiClient.get('http://localhost:8080/api/mod-actions');
         setActions(res.data || []);
       } catch (err) {
         console.error("Failed to fetch mod actions:", err);
