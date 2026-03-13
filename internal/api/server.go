@@ -8,9 +8,16 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"julescord/internal/config"
 	"julescord/internal/db"
 )
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true // Allow all origins for the dashboard
+	},
+}
 
 // Server handles the Gin REST API for the dashboard.
 type Server struct {
@@ -132,6 +139,72 @@ func (s *Server) registerRoutes() {
 
 		c.JSON(http.StatusOK, actions)
 	})
+
+	s.Engine.GET("/api/stats/commands", func(c *gin.Context) {
+		if s.DB == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Database not available"})
+			return
+		}
+
+		stats, err := s.DB.GetCommandUsageStats(c.Request.Context())
+		if err != nil {
+			log.Printf("Error fetching command stats: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch command stats"})
+			return
+		}
+
+		c.JSON(http.StatusOK, stats)
+	})
+
+	s.Engine.GET("/ws", func(c *gin.Context) {
+		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+		if err != nil {
+			log.Printf("Failed to upgrade websocket: %v", err)
+			return
+		}
+		defer conn.Close()
+
+		ctx, cancel := context.WithCancel(c.Request.Context())
+		defer cancel()
+
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		// Send initial stats immediately
+		s.sendWebSocketStats(conn, ctx)
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := s.sendWebSocketStats(conn, ctx); err != nil {
+					log.Printf("WebSocket send error: %v", err)
+					return // close connection on error
+				}
+			}
+		}
+	})
+}
+
+func (s *Server) sendWebSocketStats(conn *websocket.Conn, ctx context.Context) error {
+	if s.DB == nil {
+		return nil
+	}
+
+	guilds, users, cmds, err := s.DB.GetStats(ctx)
+	if err != nil {
+		return err
+	}
+
+	data := gin.H{
+		"guilds":       guilds,
+		"users":        users,
+		"commands_run": cmds,
+		"uptime":       time.Since(s.StartAt).String(),
+	}
+
+	return conn.WriteJSON(data)
 }
 
 // Start begins listening and serving HTTP traffic.

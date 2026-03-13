@@ -127,6 +127,8 @@ func Warn(database *db.DB) *Command {
 					Embeds: []*discordgo.MessageEmbed{embed},
 				},
 			})
+
+			SendModLog(s, database, i.GuildID, embed)
 		},
 	}
 }
