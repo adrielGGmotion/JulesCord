@@ -992,3 +992,112 @@ func (db *DB) ListTags(ctx context.Context, guildID string) ([]*Tag, error) {
 
 	return tags, nil
 }
+
+// AutoResponder represents an auto-responder configuration in a guild.
+type AutoResponder struct {
+	ID          int       `json:"id"`
+	GuildID     string    `json:"guild_id"`
+	TriggerWord string    `json:"trigger_word"`
+	Response    string    `json:"response"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// AddAutoResponder adds a new auto-responder or updates an existing one for the same trigger.
+func (db *DB) AddAutoResponder(ctx context.Context, guildID, triggerWord, response string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("AddAutoResponder").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		INSERT INTO auto_responders (guild_id, trigger_word, response)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, trigger_word)
+		DO UPDATE SET response = EXCLUDED.response
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, triggerWord, response)
+	if err != nil {
+		return fmt.Errorf("failed to add auto-responder: %w", err)
+	}
+
+	return nil
+}
+
+// RemoveAutoResponder removes an auto-responder by trigger word in a guild.
+func (db *DB) RemoveAutoResponder(ctx context.Context, guildID, triggerWord string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("RemoveAutoResponder").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `DELETE FROM auto_responders WHERE guild_id = $1 AND trigger_word = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, triggerWord)
+	if err != nil {
+		return fmt.Errorf("failed to remove auto-responder: %w", err)
+	}
+
+	return nil
+}
+
+// ListAllAutoResponders returns all auto-responders across all guilds.
+func (db *DB) ListAllAutoResponders(ctx context.Context) ([]*AutoResponder, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("ListAllAutoResponders").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		SELECT id, guild_id, trigger_word, response, created_at
+		FROM auto_responders
+		ORDER BY id DESC
+	`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list all auto-responders: %w", err)
+	}
+	defer rows.Close()
+
+	var responders []*AutoResponder
+	for rows.Next() {
+		r := &AutoResponder{}
+		err := rows.Scan(&r.ID, &r.GuildID, &r.TriggerWord, &r.Response, &r.CreatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan auto-responder: %w", err)
+		}
+		responders = append(responders, r)
+	}
+
+	return responders, nil
+}
+
+// ListAutoResponders returns all auto-responders for a specific guild.
+func (db *DB) ListAutoResponders(ctx context.Context, guildID string) ([]*AutoResponder, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("ListAutoResponders").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		SELECT id, guild_id, trigger_word, response, created_at
+		FROM auto_responders
+		WHERE guild_id = $1
+		ORDER BY id DESC
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list auto-responders: %w", err)
+	}
+	defer rows.Close()
+
+	var responders []*AutoResponder
+	for rows.Next() {
+		r := &AutoResponder{}
+		err := rows.Scan(&r.ID, &r.GuildID, &r.TriggerWord, &r.Response, &r.CreatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan auto-responder: %w", err)
+		}
+		responders = append(responders, r)
+	}
+
+	return responders, nil
+}
