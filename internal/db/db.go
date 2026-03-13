@@ -190,3 +190,68 @@ func (db *DB) GetStats(ctx context.Context) (guildCount, userCount, commandCount
 	err = db.Pool.QueryRow(ctx, "SELECT COUNT(*) FROM command_log").Scan(&commandCount)
 	return
 }
+
+// UserEconomy represents a user's economy state in a guild.
+type UserEconomy struct {
+	GuildID     string
+	UserID      string
+	XP          int64
+	Level       int
+	Coins       int64
+	LastDailyAt *time.Time
+}
+
+// GetUserEconomy retrieves the economy record for a user in a guild.
+func (db *DB) GetUserEconomy(ctx context.Context, guildID, userID string) (*UserEconomy, error) {
+	query := `
+		SELECT guild_id, user_id, xp, level, coins, last_daily_at
+		FROM user_economy
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	row := db.Pool.QueryRow(ctx, query, guildID, userID)
+	var e UserEconomy
+	err := row.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt)
+	if err != nil {
+		return nil, err
+	}
+	return &e, nil
+}
+
+// AddXP adds XP to a user's economy record.
+func (db *DB) AddXP(ctx context.Context, guildID, userID string, amount int) (newXP int64, err error) {
+	query := `
+		INSERT INTO user_economy (guild_id, user_id, xp, level)
+		VALUES ($1, $2, $3, 0)
+		ON CONFLICT (guild_id, user_id) DO UPDATE SET
+			xp = user_economy.xp + EXCLUDED.xp
+		RETURNING xp
+	`
+	err = db.Pool.QueryRow(ctx, query, guildID, userID, amount).Scan(&newXP)
+	return newXP, err
+}
+
+// SetLevel updates a user's level in a guild.
+func (db *DB) SetLevel(ctx context.Context, guildID, userID string, level int) error {
+	query := `
+		UPDATE user_economy
+		SET level = $1
+		WHERE guild_id = $2 AND user_id = $3
+	`
+	_, err := db.Pool.Exec(ctx, query, level, guildID, userID)
+	return err
+}
+
+// GetRank returns a user's rank based on XP within a guild.
+func (db *DB) GetRank(ctx context.Context, guildID, userID string) (int, error) {
+	query := `
+		SELECT rank FROM (
+			SELECT user_id, RANK() OVER (ORDER BY xp DESC) as rank
+			FROM user_economy
+			WHERE guild_id = $1
+		) ranked_users
+		WHERE user_id = $2
+	`
+	var rank int
+	err := db.Pool.QueryRow(ctx, query, guildID, userID).Scan(&rank)
+	return rank, err
+}
