@@ -161,6 +161,10 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Implemented Phase 11 Tags System features: added migrations `008_tags.sql` with table `tags`.
 - Added database operations `CreateTag`, `GetTag`, `DeleteTag`, and `ListTags` in `internal/db/db.go`.
 - Added `/tag` command structure in `internal/bot/commands/tag.go` with four subcommands (`create`, `list`, `delete`, `view`).
+- Implemented Phase 12 Auto-Responder System features: added migrations `009_auto_responders.sql` with table `auto_responders`.
+- Added database operations `AddAutoResponder`, `RemoveAutoResponder`, `ListAutoResponders`, and `ListAllAutoResponders` in `internal/db/db.go`.
+- Added `/autoresponder` command in `internal/bot/commands/autoresponder.go` with subcommands `add`, `remove`, and `list`.
+- Updated message handler in `internal/bot/bot.go` to use an in-memory cache to check incoming messages and reply if a trigger word matches without querying the database each time.
 
 ---
 
@@ -318,3 +322,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `migrations/008_tags.sql` — tags table
 - [x] DB operations — CreateTag, GetTag, DeleteTag, ListTags
 - [x] `/tag` subcommands — create, list, delete, view
+
+### Phase 12 — Auto-Responder System
+- [x] `migrations/009_auto_responders.sql` — auto_responders table
+- [x] DB operations — AddAutoResponder, RemoveAutoResponder, ListAutoResponders
+- [x] `/autoresponder` subcommands — add, remove, list
+- [x] Message handler to check for triggers and respond automatically

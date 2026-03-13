@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,11 +19,12 @@ import (
 
 // Bot manages the Discord connection.
 type Bot struct {
-	Session    *discordgo.Session
-	Config     *config.Config
-	Registry   *commands.Registry
-	DB         *db.DB
-	xpCooldown sync.Map // map[string]time.Time (key: guildID_channelID_userID)
+	Session        *discordgo.Session
+	Config         *config.Config
+	Registry       *commands.Registry
+	DB             *db.DB
+	xpCooldown     sync.Map // map[string]time.Time (key: guildID_channelID_userID)
+	AutoResponders sync.Map // map[string][]*db.AutoResponder (key: guildID)
 }
 
 // New initializes a new bot instance.
@@ -65,6 +67,25 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 		DB:       database,
 	}
 
+	registry.Add(commands.AutoResponder(database, bot))
+
+	// Load auto-responders into memory cache
+	if database != nil {
+		allResponders, err := database.ListAllAutoResponders(context.Background())
+		if err != nil {
+			slog.Error("Failed to load auto-responders into cache", "error", err)
+		} else {
+			grouped := make(map[string][]*db.AutoResponder)
+			for _, r := range allResponders {
+				grouped[r.GuildID] = append(grouped[r.GuildID], r)
+			}
+			for guildID, responders := range grouped {
+				bot.AutoResponders.Store(guildID, responders)
+			}
+			slog.Info("Successfully loaded auto-responders into cache")
+		}
+	}
+
 	// Register ready handler
 	bot.Session.AddHandler(bot.readyHandler)
 
@@ -90,6 +111,21 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	bot.Session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMembers | discordgo.IntentsGuildMessageReactions
 
 	return bot, nil
+}
+
+// UpdateAutoResponderCache updates the in-memory cache for a specific guild
+func (b *Bot) UpdateAutoResponderCache(guildID string) {
+	if b.DB == nil {
+		return
+	}
+
+	responders, err := b.DB.ListAutoResponders(context.Background(), guildID)
+	if err != nil {
+		slog.Error("Failed to update auto-responder cache for guild", "guild_id", guildID, "error", err)
+		return
+	}
+
+	b.AutoResponders.Store(guildID, responders)
 }
 
 // Start opens the connection to Discord.
@@ -255,6 +291,22 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 			lastXpTime := lastXpTimeAny.(time.Time)
 			if now.Sub(lastXpTime) < time.Minute {
 				onCooldown = true
+			}
+		}
+
+		// Check Auto-Responders from cache
+		if respondersAny, ok := b.AutoResponders.Load(m.GuildID); ok {
+			responders := respondersAny.([]*db.AutoResponder)
+			contentLower := strings.ToLower(strings.TrimSpace(m.Content))
+			for _, r := range responders {
+				if strings.Contains(contentLower, r.TriggerWord) {
+					_, err := s.ChannelMessageSend(m.ChannelID, r.Response)
+					if err != nil {
+						slog.Error("Failed to send auto-responder message", "error", err)
+					}
+					// Only trigger one auto-responder per message
+					break
+				}
 			}
 		}
 
