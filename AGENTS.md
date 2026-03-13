@@ -92,16 +92,16 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 ### Phase 1 — Foundation
 - [x] Remove all old Node.js files (`index.js`, `deploy-commands.js`, `commands/`, `package.json`, `package-lock.json`)
 - [x] `go.mod` and `go.sum` with all required dependencies
-- [x] `.env.example` with `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DATABASE_URL`, `API_PORT`
+- [x] `.env.example` with `BOT_TOKEN`, `DISCORD_CLIENT_ID`, `DATABASE_URL`, `API_PORT`
 - [x] `.gitignore` (Go binaries, node_modules, .env)
 - [x] `cmd/bot/main.go` — entry point, loads config, starts bot + API server concurrently
 - [x] `internal/config/config.go` — loads env vars into a typed Config struct
 - [x] `internal/bot/bot.go` — connects to Discord, registers handlers, graceful shutdown on SIGINT
-- [ ] `internal/bot/commands/ping.go` — `/ping` slash command reporting latency
-- [ ] `internal/bot/commands/registry.go` — central command registration and dispatch system
+- [x] `internal/bot/commands/ping.go` — `/ping` slash command reporting latency
+- [x] `internal/bot/commands/registry.go` — central command registration and dispatch system
 - [x] `internal/api/server.go` — Gin HTTP server with `/health` and `/api/status` endpoints
-- [ ] `docker-compose.yml` — services: bot, postgres
-- [ ] `Dockerfile` — multi-stage Go build, final image is minimal
+- [x] `docker-compose.yml` — services: bot, postgres
+- [x] `Dockerfile` — multi-stage Go build, final image is minimal
 
 ### Phase 2 — Database & Core Features
 - [ ] `internal/db/db.go` — PostgreSQL connection pool via pgx
