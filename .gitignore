@@ -1,2 +1,15 @@
-node_modules/
+# Go binaries
+julescord
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Environment variables
 .env
+
+# Node modules (for frontend)
+node_modules/
