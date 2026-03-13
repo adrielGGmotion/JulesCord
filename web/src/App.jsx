@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import Guilds from './pages/Guilds';
 import Users from './pages/Users';
 import Moderation from './pages/Moderation';
+import Metrics from './pages/Metrics';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
           <Route path="guilds" element={<Guilds />} />
           <Route path="users" element={<Users />} />
           <Route path="moderation" element={<Moderation />} />
+          <Route path="metrics" element={<Metrics />} />
           <Route path="*" element={
             <div className="flex items-center justify-center h-full text-gray-400">
               <div className="text-center">

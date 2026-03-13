@@ -143,6 +143,10 @@ Starting from scratch in Go. All old Node.js files must be removed first.
   - Instrumented `internal/bot/commands/registry.go` and `internal/db/db.go` with Prometheus latency trackers.
   - Exposed Prometheus `/metrics` endpoint on the Gin API server.
   - Improved `/health` endpoint to check DB connection ping and Discord Heartbeat latency.
+- Implemented Phase 8 Observability item "Dashboard metrics page":
+  - Created `/api/dashboard-metrics` endpoint in `internal/api/server.go` to expose Prometheus metrics (command execution count, command latency, and DB query latency) in a JSON structure.
+  - Added React Dashboard Metrics component at `web/src/pages/Metrics.jsx` utilizing `recharts` to display the command stats and DB query latency.
+  - Updated frontend routing in `web/src/App.jsx` to include the new Metrics page.
 - Initialized Go module (`go.mod` and `go.sum`) with all required dependencies.
 - Updated `.env.example` with `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DATABASE_URL`, `API_PORT`.
 - Updated `.gitignore` to include Go binaries, `.env`, and `node_modules`.
@@ -223,7 +227,7 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 ### Phase 8 — Observability
 - [x] Structured JSON logging via `log/slog` (stdlib, Go 1.21+)
 - [x] Prometheus metrics at `/metrics` — command latency, errors, DB query time
-- [ ] Dashboard metrics page — error rates, latency histogram, command popularity
+- [x] Dashboard metrics page — error rates, latency histogram, command popularity
 - [x] Improved `/health` — reports DB connectivity and Discord WS heartbeat status
 
 ---

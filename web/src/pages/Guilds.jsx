@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiClient } from '../api';
 import { Server, Calendar } from 'lucide-react';
 
 export default function Guilds() {
@@ -9,7 +9,7 @@ export default function Guilds() {
   useEffect(() => {
     const fetchGuilds = async () => {
       try {
-        const res = await axios.get('http://localhost:8080/api/guilds');
+        const res = await apiClient.get('http://localhost:8080/api/guilds');
         setGuilds(res.data || []);
       } catch (err) {
         console.error("Failed to fetch guilds:", err);

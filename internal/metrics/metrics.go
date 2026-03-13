@@ -34,4 +34,13 @@ var (
 		},
 		[]string{"query"},
 	)
+
+	// ErrorCounter tracks the number of errors by type.
+	ErrorCounter = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "julescord_errors_total",
+			Help: "Total number of errors.",
+		},
+		[]string{"type"},
+	)
 )
