@@ -294,3 +294,9 @@ After every iteration that touches bot code, Jules MUST test before opening a PR
 The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as environment variables from secrets. Jules can reference them directly when running the test.
 
 **If the bot fails to start or slash commands fail to register — fix it before opening the PR.**
+
+### Phase 9 — Reminders System
+- [x] `migrations/006_reminders.sql` — reminders table
+- [x] DB operations — AddReminder, GetPendingReminders, GetDueReminders, DeleteReminder, MarkReminderSent
+- [x] `/remind` subcommands — add, list, delete
+- [x] Background goroutine for delivery

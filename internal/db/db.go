@@ -702,3 +702,116 @@ func (db *DB) MarkAnnouncementSent(ctx context.Context, id int) error {
 	_, err := db.Pool.Exec(ctx, query, id)
 	return err
 }
+
+// Reminder represents a scheduled user reminder.
+type Reminder struct {
+	ID        int       `json:"id"`
+	UserID    string    `json:"user_id"`
+	ChannelID string    `json:"channel_id"`
+	GuildID   *string   `json:"guild_id"`
+	Message   string    `json:"message"`
+	DueAt     time.Time `json:"due_at"`
+	Delivered bool      `json:"delivered"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// AddReminder adds a new reminder to the database.
+func (db *DB) AddReminder(ctx context.Context, userID, channelID string, guildID *string, message string, dueAt time.Time) error {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("AddReminder").Observe(time.Since(start).Seconds())
+
+	query := `
+		INSERT INTO reminders (user_id, channel_id, guild_id, message, due_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+	_, err := db.Pool.Exec(ctx, query, userID, channelID, guildID, message, dueAt)
+	return err
+}
+
+// GetPendingReminders gets all undelivered reminders for a specific user.
+func (db *DB) GetPendingReminders(ctx context.Context, userID string) ([]Reminder, error) {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("GetPendingReminders").Observe(time.Since(start).Seconds())
+
+	query := `
+		SELECT id, user_id, channel_id, guild_id, message, due_at, delivered, created_at
+		FROM reminders
+		WHERE user_id = $1 AND delivered = FALSE
+		ORDER BY due_at ASC
+		LIMIT 10
+	`
+	rows, err := db.Pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var reminders []Reminder
+	for rows.Next() {
+		var r Reminder
+		err := rows.Scan(&r.ID, &r.UserID, &r.ChannelID, &r.GuildID, &r.Message, &r.DueAt, &r.Delivered, &r.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		reminders = append(reminders, r)
+	}
+	return reminders, nil
+}
+
+// GetDueReminders gets all undelivered reminders that are past their due time.
+func (db *DB) GetDueReminders(ctx context.Context) ([]Reminder, error) {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("GetDueReminders").Observe(time.Since(start).Seconds())
+
+	query := `
+		SELECT id, user_id, channel_id, guild_id, message, due_at, delivered, created_at
+		FROM reminders
+		WHERE due_at <= NOW() AND delivered = FALSE
+	`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var reminders []Reminder
+	for rows.Next() {
+		var r Reminder
+		err := rows.Scan(&r.ID, &r.UserID, &r.ChannelID, &r.GuildID, &r.Message, &r.DueAt, &r.Delivered, &r.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		reminders = append(reminders, r)
+	}
+	return reminders, nil
+}
+
+// DeleteReminder deletes a reminder by ID for a specific user.
+func (db *DB) DeleteReminder(ctx context.Context, id int, userID string) (bool, error) {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("DeleteReminder").Observe(time.Since(start).Seconds())
+
+	query := `
+		DELETE FROM reminders
+		WHERE id = $1 AND user_id = $2
+	`
+	cmdTag, err := db.Pool.Exec(ctx, query, id, userID)
+	if err != nil {
+		return false, err
+	}
+	return cmdTag.RowsAffected() > 0, nil
+}
+
+// MarkReminderDelivered marks a reminder as delivered.
+func (db *DB) MarkReminderDelivered(ctx context.Context, id int) error {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("MarkReminderDelivered").Observe(time.Since(start).Seconds())
+
+	query := `
+		UPDATE reminders
+		SET delivered = TRUE
+		WHERE id = $1
+	`
+	_, err := db.Pool.Exec(ctx, query, id)
+	return err
+}

@@ -54,6 +54,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.ReactionRole(database))
 	registry.Add(commands.Schedule(database))
 	registry.Add(commands.Changelog())
+	registry.Add(commands.Remind(database))
 
 	bot := &Bot{
 		Session:  session,
@@ -128,6 +129,9 @@ func (b *Bot) readyHandler(s *discordgo.Session, event *discordgo.Ready) {
 
 	// Start scheduled announcements checker
 	go b.checkScheduledAnnouncements()
+
+	// Start reminder delivery checker
+	go b.checkReminders()
 }
 
 // checkScheduledAnnouncements checks for pending announcements and sends them.
@@ -375,5 +379,37 @@ func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemb
 		if err != nil {
 			slog.Error("Failed to assign auto-role to user %s in guild %s", "arg1", m.User.ID, "arg2", m.GuildID, "error", err)
 		}
+	}
+}
+
+// checkReminders checks for pending reminders and sends them.
+func (b *Bot) checkReminders() {
+	if b.DB == nil {
+		return
+	}
+
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		reminders, err := b.DB.GetDueReminders(context.Background())
+		if err != nil {
+			slog.Error("Failed to get due reminders", "error", err)
+		} else {
+			for _, r := range reminders {
+				msg := fmt.Sprintf("⏰ <@%s>, here is your reminder: **%s**", r.UserID, r.Message)
+				_, err := b.Session.ChannelMessageSend(r.ChannelID, msg)
+				if err != nil {
+					slog.Error("Failed to send reminder", "id", r.ID, "channel", r.ChannelID, "error", err)
+				}
+
+				err = b.DB.MarkReminderDelivered(context.Background(), r.ID)
+				if err != nil {
+					slog.Error("Failed to mark reminder as delivered", "id", r.ID, "error", err)
+				}
+			}
+		}
+
+		<-ticker.C
 	}
 }
