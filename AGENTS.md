@@ -89,6 +89,8 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Added `/warn` command to issue warnings and log them in the database.
 - Added `/warnings` command to list all warnings for a user.
 - Added `/kick` command to kick users and log the moderation action.
+- Added `/ban` command to ban users and log the moderation action.
+- Added `/purge` command to bulk delete messages and log the moderation action.
 
 - Removed old Node.js files (`index.js`, `deploy-commands.js`, `package.json`, `package-lock.json`, and `commands/` directory).
 - Initialized Go module (`go.mod` and `go.sum`) with all required dependencies.
@@ -130,8 +132,8 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] `/warn @user reason` — stores warning in DB with timestamp and moderator ID
 - [x] `/warnings @user` — lists all warnings for a user
 - [x] `/kick @user reason` — kicks with audit log reason
-- [ ] `/ban @user reason` — bans with audit log reason
-- [ ] `/purge [count]` — bulk delete up to 100 messages
+- [x] `/ban @user reason` — bans with audit log reason
+- [x] `/purge [count]` — bulk delete up to 100 messages
 - [ ] Mod action log channel — all mod actions posted as embeds to configurable channel
 - [x] `migrations/002_moderation.sql` — warnings, mod_actions tables
 
