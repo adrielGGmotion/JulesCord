@@ -128,6 +128,14 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Implemented Phase 6 Guild Config remaining features: added `/config view`, `/config set-welcome-channel`, and `/config set-mod-role` subcommands.
 - Created Config API `GET /api/guilds/:id/config` and `PATCH /api/guilds/:id/config` endpoints in `internal/api/server.go`.
 - Implemented `GuildMemberAdd` event handler in `internal/bot/bot.go` to send automated welcome messages to configured channels.
+- Implemented Phase 7 Advanced Features first 4 items:
+  - Created `migrations/005_advanced.sql` adding `auto_role_id` to `guild_config` and creating `reaction_roles` and `scheduled_announcements` tables.
+  - Added `set-auto-role` subcommand to `/config` and updated `guildMemberAddHandler` in `internal/bot/bot.go` to assign the role.
+  - Added a background goroutine `rotateStatus` in `internal/bot/bot.go` to cycle bot custom presence every 5 minutes.
+  - Added `/reactionrole add` and `/reactionrole remove` commands in `internal/bot/commands/reactionrole.go`.
+  - Added `messageReactionAddHandler` and `messageReactionRemoveHandler` in `internal/bot/bot.go` to assign/remove roles based on reaction emojis.
+  - Added `/schedule add` command in `internal/bot/commands/schedule.go` to schedule future announcements.
+  - Added a background goroutine `checkScheduledAnnouncements` in `internal/bot/bot.go` to dispatch pending messages every minute.
 - Initialized Go module (`go.mod` and `go.sum`) with all required dependencies.
 - Updated `.env.example` with `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DATABASE_URL`, `API_PORT`.
 - Updated `.gitignore` to include Go binaries, `.env`, and `node_modules`.
@@ -199,10 +207,10 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] `migrations/004_config.sql`
 
 ### Phase 7 — Advanced Features
-- [ ] Reaction roles system — add/remove roles via emoji reactions
-- [ ] Auto-role on join — assign configurable role automatically
-- [ ] Scheduled announcements — guild admins schedule messages at a time
-- [ ] Bot status rotation — cycling presence messages about building itself
+- [x] Reaction roles system — add/remove roles via emoji reactions
+- [x] Auto-role on join — assign configurable role automatically
+- [x] Scheduled announcements — guild admins schedule messages at a time
+- [x] Bot status rotation — cycling presence messages about building itself
 - [ ] `/changelog` — reads recent git commits from GitHub API and summarizes changes
 
 ### Phase 8 — Observability

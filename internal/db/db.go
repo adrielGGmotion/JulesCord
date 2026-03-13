@@ -491,12 +491,13 @@ type GuildConfig struct {
 	LogChannelID     *string `json:"log_channel_id"`
 	WelcomeChannelID *string `json:"welcome_channel_id"`
 	ModRoleID        *string `json:"mod_role_id"`
+	AutoRoleID       *string `json:"auto_role_id"`
 }
 
 // GetGuildConfig retrieves the entire configuration for a guild.
 func (db *DB) GetGuildConfig(ctx context.Context, guildID string) (*GuildConfig, error) {
 	query := `
-		SELECT guild_id, log_channel_id, welcome_channel_id, mod_role_id
+		SELECT guild_id, log_channel_id, welcome_channel_id, mod_role_id, auto_role_id
 		FROM guild_config
 		WHERE guild_id = $1
 	`
@@ -506,6 +507,7 @@ func (db *DB) GetGuildConfig(ctx context.Context, guildID string) (*GuildConfig,
 		&config.LogChannelID,
 		&config.WelcomeChannelID,
 		&config.ModRoleID,
+		&config.AutoRoleID,
 	)
 	if err != nil {
 		// If no row is found, return an empty config with just the GuildID
@@ -546,14 +548,130 @@ func (db *DB) SetGuildModRole(ctx context.Context, guildID, modRoleID string) er
 // UpdateGuildConfig updates the entire configuration for a guild.
 func (db *DB) UpdateGuildConfig(ctx context.Context, guildID string, config GuildConfig) error {
 	query := `
-		INSERT INTO guild_config (guild_id, log_channel_id, welcome_channel_id, mod_role_id)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO guild_config (guild_id, log_channel_id, welcome_channel_id, mod_role_id, auto_role_id)
+		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (guild_id) DO UPDATE SET
 			log_channel_id = EXCLUDED.log_channel_id,
 			welcome_channel_id = EXCLUDED.welcome_channel_id,
 			mod_role_id = EXCLUDED.mod_role_id,
+			auto_role_id = EXCLUDED.auto_role_id,
 			updated_at = NOW()
 	`
-	_, err := db.Pool.Exec(ctx, query, guildID, config.LogChannelID, config.WelcomeChannelID, config.ModRoleID)
+	_, err := db.Pool.Exec(ctx, query, guildID, config.LogChannelID, config.WelcomeChannelID, config.ModRoleID, config.AutoRoleID)
+	return err
+}
+
+// SetGuildAutoRole updates or inserts the auto role ID for a guild.
+func (db *DB) SetGuildAutoRole(ctx context.Context, guildID, autoRoleID string) error {
+	query := `
+		INSERT INTO guild_config (guild_id, auto_role_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE SET
+			auto_role_id = EXCLUDED.auto_role_id,
+			updated_at = NOW()
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, autoRoleID)
+	return err
+}
+
+// ReactionRole represents a reaction role mapping.
+type ReactionRole struct {
+	MessageID string `json:"message_id"`
+	Emoji     string `json:"emoji"`
+	RoleID    string `json:"role_id"`
+}
+
+// AddReactionRole adds a new reaction role mapping.
+func (db *DB) AddReactionRole(ctx context.Context, messageID, emoji, roleID string) error {
+	query := `
+		INSERT INTO reaction_roles (message_id, emoji, role_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (message_id, emoji) DO UPDATE SET
+			role_id = EXCLUDED.role_id
+	`
+	_, err := db.Pool.Exec(ctx, query, messageID, emoji, roleID)
+	return err
+}
+
+// RemoveReactionRole removes a reaction role mapping.
+func (db *DB) RemoveReactionRole(ctx context.Context, messageID, emoji string) error {
+	query := `
+		DELETE FROM reaction_roles
+		WHERE message_id = $1 AND emoji = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, messageID, emoji)
+	return err
+}
+
+// GetReactionRole retrieves a reaction role mapping.
+func (db *DB) GetReactionRole(ctx context.Context, messageID, emoji string) (*ReactionRole, error) {
+	query := `
+		SELECT message_id, emoji, role_id
+		FROM reaction_roles
+		WHERE message_id = $1 AND emoji = $2
+	`
+	var rr ReactionRole
+	err := db.Pool.QueryRow(ctx, query, messageID, emoji).Scan(&rr.MessageID, &rr.Emoji, &rr.RoleID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Return nil if no mapping is found
+		}
+		return nil, err
+	}
+	return &rr, nil
+}
+
+// ScheduledAnnouncement represents a scheduled announcement.
+type ScheduledAnnouncement struct {
+	ID        int       `json:"id"`
+	GuildID   string    `json:"guild_id"`
+	ChannelID string    `json:"channel_id"`
+	Message   string    `json:"message"`
+	SendAt    time.Time `json:"send_at"`
+	Sent      bool      `json:"sent"`
+}
+
+// CreateScheduledAnnouncement creates a new scheduled announcement.
+func (db *DB) CreateScheduledAnnouncement(ctx context.Context, guildID, channelID, message string, sendAt time.Time) error {
+	query := `
+		INSERT INTO scheduled_announcements (guild_id, channel_id, message, send_at)
+		VALUES ($1, $2, $3, $4)
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, message, sendAt)
+	return err
+}
+
+// GetPendingAnnouncements retrieves all pending announcements that are ready to be sent.
+func (db *DB) GetPendingAnnouncements(ctx context.Context) ([]ScheduledAnnouncement, error) {
+	query := `
+		SELECT id, guild_id, channel_id, message, send_at, sent
+		FROM scheduled_announcements
+		WHERE sent = false AND send_at <= NOW()
+	`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var announcements []ScheduledAnnouncement
+	for rows.Next() {
+		var a ScheduledAnnouncement
+		if err := rows.Scan(&a.ID, &a.GuildID, &a.ChannelID, &a.Message, &a.SendAt, &a.Sent); err != nil {
+			return nil, err
+		}
+		announcements = append(announcements, a)
+	}
+	return announcements, rows.Err()
+}
+
+// MarkAnnouncementSent marks a scheduled announcement as sent.
+func (db *DB) MarkAnnouncementSent(ctx context.Context, id int) error {
+	query := `
+		UPDATE scheduled_announcements
+		SET sent = true
+		WHERE id = $1
+	`
+	_, err := db.Pool.Exec(ctx, query, id)
 	return err
 }

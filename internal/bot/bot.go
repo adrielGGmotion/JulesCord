@@ -50,6 +50,8 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Daily(database))
 	registry.Add(commands.Coins(database))
 	registry.Add(commands.Config(database))
+	registry.Add(commands.ReactionRole(database))
+	registry.Add(commands.Schedule(database))
 
 	bot := &Bot{
 		Session:  session,
@@ -73,8 +75,14 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	// Register guild member add handler
 	bot.Session.AddHandler(bot.guildMemberAddHandler)
 
+	// Register message reaction add handler
+	bot.Session.AddHandler(bot.messageReactionAddHandler)
+
+	// Register message reaction remove handler
+	bot.Session.AddHandler(bot.messageReactionRemoveHandler)
+
 	// Set intentions
-	bot.Session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMembers
+	bot.Session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMembers | discordgo.IntentsGuildMessageReactions
 
 	return bot, nil
 }
@@ -111,6 +119,71 @@ func (b *Bot) readyHandler(s *discordgo.Session, event *discordgo.Ready) {
 	err := b.Registry.RegisterWithDiscord(s, b.Config.DiscordClientID, "")
 	if err != nil {
 		log.Printf("Error registering commands: %v", err)
+	}
+
+	// Start bot status rotation
+	go b.rotateStatus()
+
+	// Start scheduled announcements checker
+	go b.checkScheduledAnnouncements()
+}
+
+// checkScheduledAnnouncements checks for pending announcements and sends them.
+func (b *Bot) checkScheduledAnnouncements() {
+	if b.DB == nil {
+		return
+	}
+
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		announcements, err := b.DB.GetPendingAnnouncements(context.Background())
+		if err != nil {
+			log.Printf("Failed to get pending announcements: %v", err)
+		} else {
+			for _, a := range announcements {
+				_, err := b.Session.ChannelMessageSend(a.ChannelID, a.Message)
+				if err != nil {
+					log.Printf("Failed to send scheduled announcement %d to channel %s: %v", a.ID, a.ChannelID, err)
+				}
+
+				// Mark as sent regardless of success to avoid spamming errors if channel is deleted/bot lacks permissions
+				err = b.DB.MarkAnnouncementSent(context.Background(), a.ID)
+				if err != nil {
+					log.Printf("Failed to mark announcement %d as sent: %v", a.ID, err)
+				}
+			}
+		}
+
+		<-ticker.C
+	}
+}
+
+// rotateStatus updates the bot's custom status periodically.
+func (b *Bot) rotateStatus() {
+	statuses := []string{
+		"Building myself...",
+		"Reading AGENTS.md...",
+		"Running go build ./...",
+		"Checking pull requests...",
+		"Connecting to PostgreSQL...",
+		"Watching the dashboard...",
+	}
+
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		// Pick a random status
+		status := statuses[rand.Intn(len(statuses))]
+
+		err := b.Session.UpdateGameStatus(0, status)
+		if err != nil {
+			log.Printf("Failed to update bot status: %v", err)
+		}
+
+		<-ticker.C
 	}
 }
 
@@ -225,6 +298,56 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	}
 }
 
+// messageReactionAddHandler is called when a user adds a reaction to a message
+func (b *Bot) messageReactionAddHandler(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
+	if b.DB == nil || r.GuildID == "" || r.UserID == s.State.User.ID {
+		return
+	}
+
+	emojiName := r.Emoji.Name
+	if r.Emoji.ID != "" {
+		emojiName = fmt.Sprintf("%s:%s", r.Emoji.Name, r.Emoji.ID)
+	}
+
+	rr, err := b.DB.GetReactionRole(context.Background(), r.MessageID, emojiName)
+	if err != nil {
+		log.Printf("Failed to get reaction role config: %v", err)
+		return
+	}
+
+	if rr != nil {
+		err = s.GuildMemberRoleAdd(r.GuildID, r.UserID, rr.RoleID)
+		if err != nil {
+			log.Printf("Failed to add role %s to user %s via reaction: %v", rr.RoleID, r.UserID, err)
+		}
+	}
+}
+
+// messageReactionRemoveHandler is called when a user removes a reaction from a message
+func (b *Bot) messageReactionRemoveHandler(s *discordgo.Session, r *discordgo.MessageReactionRemove) {
+	if b.DB == nil || r.GuildID == "" || r.UserID == s.State.User.ID {
+		return
+	}
+
+	emojiName := r.Emoji.Name
+	if r.Emoji.ID != "" {
+		emojiName = fmt.Sprintf("%s:%s", r.Emoji.Name, r.Emoji.ID)
+	}
+
+	rr, err := b.DB.GetReactionRole(context.Background(), r.MessageID, emojiName)
+	if err != nil {
+		log.Printf("Failed to get reaction role config: %v", err)
+		return
+	}
+
+	if rr != nil {
+		err = s.GuildMemberRoleRemove(r.GuildID, r.UserID, rr.RoleID)
+		if err != nil {
+			log.Printf("Failed to remove role %s from user %s via reaction: %v", rr.RoleID, r.UserID, err)
+		}
+	}
+}
+
 // guildMemberAddHandler is called every time a new member joins a guild
 func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	if b.DB == nil {
@@ -233,7 +356,7 @@ func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemb
 
 	config, err := b.DB.GetGuildConfig(context.Background(), m.GuildID)
 	if err != nil {
-		log.Printf("Failed to get guild config for welcome message: %v", err)
+		log.Printf("Failed to get guild config for welcome message/auto-role: %v", err)
 		return
 	}
 
@@ -242,6 +365,13 @@ func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemb
 		_, err := s.ChannelMessageSend(*config.WelcomeChannelID, welcomeMsg)
 		if err != nil {
 			log.Printf("Failed to send welcome message: %v", err)
+		}
+	}
+
+	if config.AutoRoleID != nil && *config.AutoRoleID != "" {
+		err := s.GuildMemberRoleAdd(m.GuildID, m.User.ID, *config.AutoRoleID)
+		if err != nil {
+			log.Printf("Failed to assign auto-role to user %s in guild %s: %v", m.User.ID, m.GuildID, err)
 		}
 	}
 }
