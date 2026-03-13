@@ -108,6 +108,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Created Dashboard Guilds component at `web/src/pages/Guilds.jsx` listing all servers the bot is in.
 - Built Layout component in `web/src/components/Layout.jsx` featuring a clean, dark theme and dynamic sidebar navigation.
 - Configured frontend routing via `react-router-dom` in `web/src/App.jsx`.
+- Added database methods `GetUsersWithEconomy` and `GetModActions` to `internal/db/db.go`.
+- Added `/api/users` and `/api/mod-actions` endpoints to Gin backend `internal/api/server.go`.
+- Created Dashboard Users component at `web/src/pages/Users.jsx` listing all users with their total XP and max level.
+- Created Dashboard Moderation component at `web/src/pages/Moderation.jsx` listing all moderation actions with a filter and search bar.
+- Updated frontend routing in `web/src/App.jsx` to include the new Users and Moderation pages.
 
 - Removed old Node.js files (`index.js`, `deploy-commands.js`, `package.json`, `package-lock.json`, and `commands/` directory).
 - Initialized Go module (`go.mod` and `go.sum`) with all required dependencies.
@@ -167,8 +172,8 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] `web/` scaffold — Vite + React 18 + Tailwind CSS v3
 - [x] Dashboard home — bot status card, guild count, uptime, commands run
 - [x] Guilds page — table of all servers the bot is in
-- [ ] Users page — searchable user list with XP and level
-- [ ] Moderation log page — filterable table of all mod actions
+- [x] Users page — searchable user list with XP and level
+- [x] Moderation log page — filterable table of all mod actions
 - [ ] Real-time stats via WebSocket — Go backend pushes updates every 5 seconds
 - [ ] Command usage bar chart (recharts)
 - [x] Dark theme, clean design — NOT generic Bootstrap

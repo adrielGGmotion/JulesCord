@@ -330,3 +330,96 @@ func (db *DB) ClaimDaily(ctx context.Context, guildID, userID string, amount int
 	err = db.Pool.QueryRow(ctx, query, guildID, userID, amount).Scan(&newCoins)
 	return newCoins, err
 }
+
+// UserWithEconomy represents a user joined with their aggregated economy data.
+type UserWithEconomy struct {
+	ID         string  `json:"id"`
+	Username   string  `json:"username"`
+	GlobalName *string `json:"global_name"`
+	AvatarURL  *string `json:"avatar_url"`
+	TotalXP    int64   `json:"total_xp"`
+	MaxLevel   int     `json:"max_level"`
+}
+
+// GetUsersWithEconomy returns all users with their aggregated XP and level.
+func (db *DB) GetUsersWithEconomy(ctx context.Context) ([]UserWithEconomy, error) {
+	query := `
+		SELECT
+			u.id, u.username, u.global_name, u.avatar_url,
+			COALESCE(SUM(e.xp), 0) as total_xp,
+			COALESCE(MAX(e.level), 0) as max_level
+		FROM users u
+		LEFT JOIN user_economy e ON u.id = e.user_id
+		GROUP BY u.id, u.username, u.global_name, u.avatar_url
+		ORDER BY total_xp DESC
+	`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []UserWithEconomy
+	for rows.Next() {
+		var u UserWithEconomy
+		if err := rows.Scan(&u.ID, &u.Username, &u.GlobalName, &u.AvatarURL, &u.TotalXP, &u.MaxLevel); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+
+	return users, rows.Err()
+}
+
+// ModActionJoined represents a moderation action joined with user and moderator details.
+type ModActionJoined struct {
+	ID               int     `json:"id"`
+	GuildID          string  `json:"guild_id"`
+	Action           string  `json:"action"`
+	Reason           string  `json:"reason"`
+	CreatedAt        string  `json:"created_at"`
+	TargetID         string  `json:"target_id"`
+	TargetUsername   string  `json:"target_username"`
+	TargetGlobalName *string `json:"target_global_name"`
+	TargetAvatarURL  *string `json:"target_avatar_url"`
+	ModID            string  `json:"mod_id"`
+	ModUsername      string  `json:"mod_username"`
+	ModGlobalName    *string `json:"mod_global_name"`
+	ModAvatarURL     *string `json:"mod_avatar_url"`
+}
+
+// GetModActions returns a list of all moderation actions with user details.
+func (db *DB) GetModActions(ctx context.Context) ([]ModActionJoined, error) {
+	query := `
+		SELECT
+			m.id, m.guild_id, m.action, m.reason, m.created_at,
+			tu.id as target_id, tu.username as target_username, tu.global_name as target_global_name, tu.avatar_url as target_avatar_url,
+			mu.id as mod_id, mu.username as mod_username, mu.global_name as mod_global_name, mu.avatar_url as mod_avatar_url
+		FROM mod_actions m
+		JOIN users tu ON m.user_id = tu.id
+		JOIN users mu ON m.moderator_id = mu.id
+		ORDER BY m.created_at DESC
+	`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var actions []ModActionJoined
+	for rows.Next() {
+		var a ModActionJoined
+		var t time.Time
+		if err := rows.Scan(
+			&a.ID, &a.GuildID, &a.Action, &a.Reason, &t,
+			&a.TargetID, &a.TargetUsername, &a.TargetGlobalName, &a.TargetAvatarURL,
+			&a.ModID, &a.ModUsername, &a.ModGlobalName, &a.ModAvatarURL,
+		); err != nil {
+			return nil, err
+		}
+		a.CreatedAt = t.Format(time.RFC3339)
+		actions = append(actions, a)
+	}
+
+	return actions, rows.Err()
+}

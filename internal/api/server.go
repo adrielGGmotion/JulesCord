@@ -100,6 +100,38 @@ func (s *Server) registerRoutes() {
 
 		c.JSON(http.StatusOK, guilds)
 	})
+
+	s.Engine.GET("/api/users", func(c *gin.Context) {
+		if s.DB == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Database not available"})
+			return
+		}
+
+		users, err := s.DB.GetUsersWithEconomy(c.Request.Context())
+		if err != nil {
+			log.Printf("Error fetching users: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
+			return
+		}
+
+		c.JSON(http.StatusOK, users)
+	})
+
+	s.Engine.GET("/api/mod-actions", func(c *gin.Context) {
+		if s.DB == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Database not available"})
+			return
+		}
+
+		actions, err := s.DB.GetModActions(c.Request.Context())
+		if err != nil {
+			log.Printf("Error fetching mod actions: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch mod actions"})
+			return
+		}
+
+		c.JSON(http.StatusOK, actions)
+	})
 }
 
 // Start begins listening and serving HTTP traffic.
