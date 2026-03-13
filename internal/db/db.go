@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -113,6 +114,64 @@ func (db *DB) LogCommand(ctx context.Context, commandName, userID, guildID strin
 		VALUES ($1, $2, $3)
 	`
 	_, err := db.Pool.Exec(ctx, query, commandName, userID, gID)
+	return err
+}
+
+// AddWarning inserts a new warning for a user in a guild.
+func (db *DB) AddWarning(ctx context.Context, guildID, userID, moderatorID, reason string) error {
+	query := `
+		INSERT INTO warnings (guild_id, user_id, moderator_id, reason)
+		VALUES ($1, $2, $3, $4)
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, moderatorID, reason)
+	return err
+}
+
+// Warning represents a single warning record.
+type Warning struct {
+	ID          int
+	GuildID     string
+	UserID      string
+	ModeratorID string
+	Reason      string
+	CreatedAt   string // Can parse as time.Time if needed, but string is fine for formatting
+}
+
+// GetWarnings retrieves all warnings for a specific user in a guild.
+func (db *DB) GetWarnings(ctx context.Context, guildID, userID string) ([]Warning, error) {
+	query := `
+		SELECT id, guild_id, user_id, moderator_id, reason, created_at
+		FROM warnings
+		WHERE guild_id = $1 AND user_id = $2
+		ORDER BY created_at DESC
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var warnings []Warning
+	for rows.Next() {
+		var w Warning
+		var t time.Time
+		if err := rows.Scan(&w.ID, &w.GuildID, &w.UserID, &w.ModeratorID, &w.Reason, &t); err != nil {
+			return nil, err
+		}
+		w.CreatedAt = t.Format(time.RFC1123)
+		warnings = append(warnings, w)
+	}
+
+	return warnings, rows.Err()
+}
+
+// LogModAction records a moderation action.
+func (db *DB) LogModAction(ctx context.Context, guildID, userID, moderatorID, action, reason string) error {
+	query := `
+		INSERT INTO mod_actions (guild_id, user_id, moderator_id, action, reason)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, moderatorID, action, reason)
 	return err
 }
 
