@@ -371,6 +371,39 @@ func (db *DB) GetUsersWithEconomy(ctx context.Context) ([]UserWithEconomy, error
 	return users, rows.Err()
 }
 
+// CommandUsage represents the execution count of a specific command.
+type CommandUsage struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
+// GetCommandUsage retrieves the total execution count for each command.
+func (db *DB) GetCommandUsage(ctx context.Context) ([]CommandUsage, error) {
+	query := `
+		SELECT command_name, COUNT(*) as count
+		FROM command_log
+		GROUP BY command_name
+		ORDER BY count DESC
+		LIMIT 10
+	`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var usage []CommandUsage
+	for rows.Next() {
+		var u CommandUsage
+		if err := rows.Scan(&u.Name, &u.Count); err != nil {
+			return nil, err
+		}
+		usage = append(usage, u)
+	}
+
+	return usage, rows.Err()
+}
+
 // ModActionJoined represents a moderation action joined with user and moderator details.
 type ModActionJoined struct {
 	ID               int     `json:"id"`

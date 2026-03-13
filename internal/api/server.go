@@ -8,9 +8,16 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"julescord/internal/config"
 	"julescord/internal/db"
 )
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true // Allow all origins for the dashboard
+	},
+}
 
 // Server handles the Gin REST API for the dashboard.
 type Server struct {
@@ -131,6 +138,61 @@ func (s *Server) registerRoutes() {
 		}
 
 		c.JSON(http.StatusOK, actions)
+	})
+
+	s.Engine.GET("/api/command-usage", func(c *gin.Context) {
+		if s.DB == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Database not available"})
+			return
+		}
+
+		usage, err := s.DB.GetCommandUsage(c.Request.Context())
+		if err != nil {
+			log.Printf("Error fetching command usage: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch command usage"})
+			return
+		}
+
+		c.JSON(http.StatusOK, usage)
+	})
+
+	s.Engine.GET("/ws", func(c *gin.Context) {
+		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+		if err != nil {
+			log.Printf("WebSocket upgrade error: %v", err)
+			return
+		}
+		defer conn.Close()
+
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				if s.DB == nil {
+					continue
+				}
+
+				guilds, users, cmds, err := s.DB.GetStats(context.Background())
+				if err != nil {
+					log.Printf("WebSocket stats fetch error: %v", err)
+					continue
+				}
+
+				stats := gin.H{
+					"guilds":       guilds,
+					"users":        users,
+					"commands_run": cmds,
+					"uptime":       time.Since(s.StartAt).String(),
+				}
+
+				if err := conn.WriteJSON(stats); err != nil {
+					log.Printf("WebSocket write error: %v", err)
+					return // Break the loop on error
+				}
+			}
+		}
 	})
 }
 

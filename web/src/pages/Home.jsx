@@ -1,21 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Server, Users, Activity, Clock } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 export default function Home() {
   const [stats, setStats] = useState(null);
   const [status, setStatus] = useState(null);
+  const [commandUsage, setCommandUsage] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsRes, statusRes] = await Promise.all([
+        const [statsRes, statusRes, usageRes] = await Promise.all([
           axios.get('http://localhost:8080/api/stats'),
-          axios.get('http://localhost:8080/api/status')
+          axios.get('http://localhost:8080/api/status'),
+          axios.get('http://localhost:8080/api/command-usage')
         ]);
         setStats(statsRes.data);
         setStatus(statusRes.data);
+        setCommandUsage(usageRes.data || []);
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
       } finally {
@@ -24,6 +28,27 @@ export default function Home() {
     };
 
     fetchData();
+  }, []);
+
+  useEffect(() => {
+    const ws = new WebSocket('ws://localhost:8080/ws');
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        setStats(data);
+      } catch (err) {
+        console.error("Failed to parse WebSocket message:", err);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
+
+    return () => {
+      ws.close();
+    };
   }, []);
 
   if (loading) {
@@ -68,6 +93,37 @@ export default function Home() {
             <span className="text-gray-300">
               System is <strong className="text-green-400 font-medium">Online</strong> and processing Discord events.
             </span>
+          </div>
+        </div>
+      )}
+
+      {commandUsage.length > 0 && (
+        <div className="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-sm mt-6">
+          <h3 className="text-lg font-medium text-white mb-4">Command Usage</h3>
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={commandUsage} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                <XAxis
+                  dataKey="name"
+                  stroke="#9CA3AF"
+                  tick={{ fill: '#9CA3AF' }}
+                  axisLine={{ stroke: '#4B5563' }}
+                />
+                <YAxis
+                  stroke="#9CA3AF"
+                  tick={{ fill: '#9CA3AF' }}
+                  axisLine={{ stroke: '#4B5563' }}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  cursor={{ fill: '#374151' }}
+                  contentStyle={{ backgroundColor: '#1F2937', borderColor: '#374151', color: '#F3F4F6' }}
+                  itemStyle={{ color: '#F3F4F6' }}
+                />
+                <Bar dataKey="count" fill="#818CF8" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       )}

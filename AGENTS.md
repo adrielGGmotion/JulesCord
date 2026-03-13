@@ -113,6 +113,8 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Created Dashboard Users component at `web/src/pages/Users.jsx` listing all users with their total XP and max level.
 - Created Dashboard Moderation component at `web/src/pages/Moderation.jsx` listing all moderation actions with a filter and search bar.
 - Updated frontend routing in `web/src/App.jsx` to include the new Users and Moderation pages.
+- Implemented real-time stats updates via WebSocket from Go backend to React frontend.
+- Added `/api/command-usage` to Go backend and implemented visual BarChart using `recharts` in React frontend to track command execution frequency.
 
 - Removed old Node.js files (`index.js`, `deploy-commands.js`, `package.json`, `package-lock.json`, and `commands/` directory).
 - Initialized Go module (`go.mod` and `go.sum`) with all required dependencies.
@@ -174,8 +176,8 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] Guilds page — table of all servers the bot is in
 - [x] Users page — searchable user list with XP and level
 - [x] Moderation log page — filterable table of all mod actions
-- [ ] Real-time stats via WebSocket — Go backend pushes updates every 5 seconds
-- [ ] Command usage bar chart (recharts)
+- [x] Real-time stats via WebSocket — Go backend pushes updates every 5 seconds
+- [x] Command usage bar chart (recharts)
 - [x] Dark theme, clean design — NOT generic Bootstrap
 
 ### Phase 6 — Per-Guild Config
