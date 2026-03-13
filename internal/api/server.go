@@ -6,27 +6,43 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"julescord/internal/config"
+	"julescord/internal/db"
 )
 
 // Server handles the Gin REST API for the dashboard.
 type Server struct {
-	Engine *gin.Engine
-	Server *http.Server
-	Config *config.Config
+	Engine  *gin.Engine
+	Server  *http.Server
+	Config  *config.Config
+	DB      *db.DB
+	StartAt time.Time
 }
 
 // New initializes a new API server.
-func New(cfg *config.Config) *Server {
+func New(cfg *config.Config, database *db.DB) *Server {
 	// Use release mode in production-like setups, adjust as needed.
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.Default()
 
+	// Add CORS middleware
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:5173", "http://127.0.0.1:5173"}, // Vite default port
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
 	s := &Server{
-		Engine: r,
-		Config: cfg,
+		Engine:  r,
+		Config:  cfg,
+		DB:      database,
+		StartAt: time.Now(),
 	}
 
 	s.registerRoutes()
@@ -46,6 +62,43 @@ func (s *Server) registerRoutes() {
 			"status": "online",
 			"bot":    "JulesCord",
 		})
+	})
+
+	s.Engine.GET("/api/stats", func(c *gin.Context) {
+		if s.DB == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Database not available"})
+			return
+		}
+
+		guilds, users, cmds, err := s.DB.GetStats(c.Request.Context())
+		if err != nil {
+			log.Printf("Error fetching stats: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch stats"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"guilds":       guilds,
+			"users":        users,
+			"commands_run": cmds,
+			"uptime":       time.Since(s.StartAt).String(),
+		})
+	})
+
+	s.Engine.GET("/api/guilds", func(c *gin.Context) {
+		if s.DB == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Database not available"})
+			return
+		}
+
+		guilds, err := s.DB.GetGuilds(c.Request.Context())
+		if err != nil {
+			log.Printf("Error fetching guilds: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch guilds"})
+			return
+		}
+
+		c.JSON(http.StatusOK, guilds)
 	})
 }
 

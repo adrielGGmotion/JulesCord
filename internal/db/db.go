@@ -191,6 +191,39 @@ func (db *DB) GetStats(ctx context.Context) (guildCount, userCount, commandCount
 	return
 }
 
+// Guild represents a single guild record.
+type Guild struct {
+	ID       string `json:"id"`
+	JoinedAt string `json:"joined_at"`
+}
+
+// GetGuilds returns a list of all guilds the bot is in.
+func (db *DB) GetGuilds(ctx context.Context) ([]Guild, error) {
+	query := `
+		SELECT id, joined_at
+		FROM guilds
+		ORDER BY joined_at DESC
+	`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var guilds []Guild
+	for rows.Next() {
+		var g Guild
+		var t time.Time
+		if err := rows.Scan(&g.ID, &t); err != nil {
+			return nil, err
+		}
+		g.JoinedAt = t.Format(time.RFC3339)
+		guilds = append(guilds, g)
+	}
+
+	return guilds, rows.Err()
+}
+
 // UserEconomy represents a user's economy state in a guild.
 type UserEconomy struct {
 	GuildID     string
