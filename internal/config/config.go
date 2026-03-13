@@ -26,7 +26,7 @@ func Load() (*Config, error) {
 	}
 
 	config := &Config{
-		DiscordToken:    os.Getenv("DISCORD_TOKEN"),
+		DiscordToken:    os.Getenv("BOT_TOKEN"),
 		DiscordClientID: os.Getenv("DISCORD_CLIENT_ID"),
 		DatabaseURL:     os.Getenv("DATABASE_URL"),
 		APIPort:         os.Getenv("API_PORT"),
