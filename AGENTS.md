@@ -80,6 +80,10 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Initialized Go module (`go.mod` and `go.sum`) with all required dependencies.
 - Updated `.env.example` with `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DATABASE_URL`, `API_PORT`.
 - Updated `.gitignore` to include Go binaries, `.env`, and `node_modules`.
+- Created `internal/config/config.go` to load and parse environment variables.
+- Created `internal/bot/bot.go` to connect to Discord and handle basic startup/shutdown.
+- Created `internal/api/server.go` to serve Gin HTTP REST API endpoints like `/health`.
+- Created `cmd/bot/main.go` to act as the primary entry point, running the Bot and API concurrently and shutting them down gracefully.
 
 ---
 
@@ -90,12 +94,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] `go.mod` and `go.sum` with all required dependencies
 - [x] `.env.example` with `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DATABASE_URL`, `API_PORT`
 - [x] `.gitignore` (Go binaries, node_modules, .env)
-- [ ] `cmd/bot/main.go` — entry point, loads config, starts bot + API server concurrently
-- [ ] `internal/config/config.go` — loads env vars into a typed Config struct
-- [ ] `internal/bot/bot.go` — connects to Discord, registers handlers, graceful shutdown on SIGINT
+- [x] `cmd/bot/main.go` — entry point, loads config, starts bot + API server concurrently
+- [x] `internal/config/config.go` — loads env vars into a typed Config struct
+- [x] `internal/bot/bot.go` — connects to Discord, registers handlers, graceful shutdown on SIGINT
 - [ ] `internal/bot/commands/ping.go` — `/ping` slash command reporting latency
 - [ ] `internal/bot/commands/registry.go` — central command registration and dispatch system
-- [ ] `internal/api/server.go` — Gin HTTP server with `/health` and `/api/status` endpoints
+- [x] `internal/api/server.go` — Gin HTTP server with `/health` and `/api/status` endpoints
 - [ ] `docker-compose.yml` — services: bot, postgres
 - [ ] `Dockerfile` — multi-stage Go build, final image is minimal
 
