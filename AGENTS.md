@@ -125,6 +125,9 @@ Starting from scratch in Go. All old Node.js files must be removed first.
   - Updated React Dashboard Home component `web/src/pages/Home.jsx` to connect to WebSocket for real-time updates and added a `recharts` BarChart displaying command usage statistics.
 
 - Removed old Node.js files (`index.js`, `deploy-commands.js`, `package.json`, `package-lock.json`, and `commands/` directory).
+- Implemented Phase 6 Guild Config remaining features: added `/config view`, `/config set-welcome-channel`, and `/config set-mod-role` subcommands.
+- Created Config API `GET /api/guilds/:id/config` and `PATCH /api/guilds/:id/config` endpoints in `internal/api/server.go`.
+- Implemented `GuildMemberAdd` event handler in `internal/bot/bot.go` to send automated welcome messages to configured channels.
 - Initialized Go module (`go.mod` and `go.sum`) with all required dependencies.
 - Updated `.env.example` with `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DATABASE_URL`, `API_PORT`.
 - Updated `.gitignore` to include Go binaries, `.env`, and `node_modules`.
@@ -190,9 +193,9 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ### Phase 6 — Per-Guild Config
 - [x] Guild config table in DB — log channel, mod roles, welcome channel, feature flags
-- [ ] `/config` subcommands — admins can view and update guild settings
-- [ ] Config API — `GET /api/guilds/:id/config` and `PATCH /api/guilds/:id/config`
-- [ ] Welcome messages — customizable per guild on member join
+- [x] `/config` subcommands — admins can view and update guild settings
+- [x] Config API — `GET /api/guilds/:id/config` and `PATCH /api/guilds/:id/config`
+- [x] Welcome messages — customizable per guild on member join
 - [x] `migrations/004_config.sql`
 
 ### Phase 7 — Advanced Features

@@ -10,6 +10,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -482,4 +483,77 @@ func (db *DB) GetModActions(ctx context.Context) ([]ModActionJoined, error) {
 	}
 
 	return actions, rows.Err()
+}
+
+// GuildConfig represents the configuration for a single guild.
+type GuildConfig struct {
+	GuildID          string  `json:"guild_id"`
+	LogChannelID     *string `json:"log_channel_id"`
+	WelcomeChannelID *string `json:"welcome_channel_id"`
+	ModRoleID        *string `json:"mod_role_id"`
+}
+
+// GetGuildConfig retrieves the entire configuration for a guild.
+func (db *DB) GetGuildConfig(ctx context.Context, guildID string) (*GuildConfig, error) {
+	query := `
+		SELECT guild_id, log_channel_id, welcome_channel_id, mod_role_id
+		FROM guild_config
+		WHERE guild_id = $1
+	`
+	var config GuildConfig
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(
+		&config.GuildID,
+		&config.LogChannelID,
+		&config.WelcomeChannelID,
+		&config.ModRoleID,
+	)
+	if err != nil {
+		// If no row is found, return an empty config with just the GuildID
+		if errors.Is(err, pgx.ErrNoRows) {
+			return &GuildConfig{GuildID: guildID}, nil
+		}
+		return nil, err
+	}
+	return &config, nil
+}
+
+// SetGuildWelcomeChannel updates or inserts the welcome channel ID for a guild.
+func (db *DB) SetGuildWelcomeChannel(ctx context.Context, guildID, welcomeChannelID string) error {
+	query := `
+		INSERT INTO guild_config (guild_id, welcome_channel_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE SET
+			welcome_channel_id = EXCLUDED.welcome_channel_id,
+			updated_at = NOW()
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, welcomeChannelID)
+	return err
+}
+
+// SetGuildModRole updates or inserts the mod role ID for a guild.
+func (db *DB) SetGuildModRole(ctx context.Context, guildID, modRoleID string) error {
+	query := `
+		INSERT INTO guild_config (guild_id, mod_role_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE SET
+			mod_role_id = EXCLUDED.mod_role_id,
+			updated_at = NOW()
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, modRoleID)
+	return err
+}
+
+// UpdateGuildConfig updates the entire configuration for a guild.
+func (db *DB) UpdateGuildConfig(ctx context.Context, guildID string, config GuildConfig) error {
+	query := `
+		INSERT INTO guild_config (guild_id, log_channel_id, welcome_channel_id, mod_role_id)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (guild_id) DO UPDATE SET
+			log_channel_id = EXCLUDED.log_channel_id,
+			welcome_channel_id = EXCLUDED.welcome_channel_id,
+			mod_role_id = EXCLUDED.mod_role_id,
+			updated_at = NOW()
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, config.LogChannelID, config.WelcomeChannelID, config.ModRoleID)
+	return err
 }

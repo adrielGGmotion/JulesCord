@@ -140,6 +140,68 @@ func (s *Server) registerRoutes() {
 		c.JSON(http.StatusOK, actions)
 	})
 
+	s.Engine.GET("/api/guilds/:id/config", func(c *gin.Context) {
+		if s.DB == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Database not available"})
+			return
+		}
+
+		guildID := c.Param("id")
+		config, err := s.DB.GetGuildConfig(c.Request.Context(), guildID)
+		if err != nil {
+			log.Printf("Error fetching guild config: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch guild config"})
+			return
+		}
+
+		c.JSON(http.StatusOK, config)
+	})
+
+	s.Engine.PATCH("/api/guilds/:id/config", func(c *gin.Context) {
+		if s.DB == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Database not available"})
+			return
+		}
+
+		guildID := c.Param("id")
+
+		var req struct {
+			LogChannelID     *string `json:"log_channel_id"`
+			WelcomeChannelID *string `json:"welcome_channel_id"`
+			ModRoleID        *string `json:"mod_role_id"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+			return
+		}
+
+		config, err := s.DB.GetGuildConfig(c.Request.Context(), guildID)
+		if err != nil {
+			log.Printf("Error fetching guild config for update: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch guild config"})
+			return
+		}
+
+		if req.LogChannelID != nil {
+			config.LogChannelID = req.LogChannelID
+		}
+		if req.WelcomeChannelID != nil {
+			config.WelcomeChannelID = req.WelcomeChannelID
+		}
+		if req.ModRoleID != nil {
+			config.ModRoleID = req.ModRoleID
+		}
+
+		if err := s.DB.UpdateGuildConfig(c.Request.Context(), guildID, *config); err != nil {
+			log.Printf("Error updating guild config: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update guild config"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"status": "success"})
+	})
+
 	s.Engine.GET("/api/stats/commands", func(c *gin.Context) {
 		if s.DB == nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Database not available"})
