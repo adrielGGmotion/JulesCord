@@ -255,3 +255,45 @@ func (db *DB) GetRank(ctx context.Context, guildID, userID string) (int, error) 
 	err := db.Pool.QueryRow(ctx, query, guildID, userID).Scan(&rank)
 	return rank, err
 }
+
+// GetTopUsersByXP retrieves the top 10 users by XP in a guild.
+func (db *DB) GetTopUsersByXP(ctx context.Context, guildID string) ([]UserEconomy, error) {
+	query := `
+		SELECT guild_id, user_id, xp, level, coins, last_daily_at
+		FROM user_economy
+		WHERE guild_id = $1
+		ORDER BY xp DESC
+		LIMIT 10
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var topUsers []UserEconomy
+	for rows.Next() {
+		var e UserEconomy
+		if err := rows.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt); err != nil {
+			return nil, err
+		}
+		topUsers = append(topUsers, e)
+	}
+
+	return topUsers, rows.Err()
+}
+
+// ClaimDaily awards a daily coin amount to a user and updates their last_daily_at timestamp.
+func (db *DB) ClaimDaily(ctx context.Context, guildID, userID string, amount int) (newCoins int64, err error) {
+	// Need to handle both upsert and update
+	query := `
+		INSERT INTO user_economy (guild_id, user_id, coins, last_daily_at)
+		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (guild_id, user_id) DO UPDATE SET
+			coins = user_economy.coins + EXCLUDED.coins,
+			last_daily_at = EXCLUDED.last_daily_at
+		RETURNING coins
+	`
+	err = db.Pool.QueryRow(ctx, query, guildID, userID, amount).Scan(&newCoins)
+	return newCoins, err
+}
