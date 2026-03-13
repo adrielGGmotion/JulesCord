@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS guild_config (
+    guild_id VARCHAR(255) PRIMARY KEY,
+    log_channel_id VARCHAR(255),
+    welcome_channel_id VARCHAR(255),
+    mod_role_id VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);

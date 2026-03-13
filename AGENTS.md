@@ -114,6 +114,16 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Created Dashboard Moderation component at `web/src/pages/Moderation.jsx` listing all moderation actions with a filter and search bar.
 - Updated frontend routing in `web/src/App.jsx` to include the new Users and Moderation pages.
 
+- Implemented remaining Phase 3 Moderation, Phase 5 Web Dashboard, and Phase 6 Guild Config items:
+  - Created `migrations/004_config.sql` defining `guild_config` table.
+  - Added `/config set-log-channel` command to `internal/bot/commands/config.go` allowing admins to set a log channel.
+  - Added DB methods `SetGuildLogChannel` and `GetGuildLogChannel` to `internal/db/db.go`.
+  - Updated all moderation commands (`warn`, `kick`, `ban`, `purge`) to post action embeds to the configured mod log channel.
+  - Implemented WebSocket server in `internal/api/server.go` on `/ws` to stream real-time bot stats every 5 seconds.
+  - Added DB method `GetCommandUsageStats` returning the top 10 most used commands from the command log.
+  - Created `/api/stats/commands` endpoint in `internal/api/server.go`.
+  - Updated React Dashboard Home component `web/src/pages/Home.jsx` to connect to WebSocket for real-time updates and added a `recharts` BarChart displaying command usage statistics.
+
 - Removed old Node.js files (`index.js`, `deploy-commands.js`, `package.json`, `package-lock.json`, and `commands/` directory).
 - Initialized Go module (`go.mod` and `go.sum`) with all required dependencies.
 - Updated `.env.example` with `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DATABASE_URL`, `API_PORT`.
@@ -156,7 +166,7 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] `/kick @user reason` — kicks with audit log reason
 - [x] `/ban @user reason` — bans with audit log reason
 - [x] `/purge [count]` — bulk delete up to 100 messages
-- [ ] Mod action log channel — all mod actions posted as embeds to configurable channel
+- [x] Mod action log channel — all mod actions posted as embeds to configurable channel
 - [x] `migrations/002_moderation.sql` — warnings, mod_actions tables
 
 ### Phase 4 — Leveling & Economy
@@ -174,16 +184,16 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] Guilds page — table of all servers the bot is in
 - [x] Users page — searchable user list with XP and level
 - [x] Moderation log page — filterable table of all mod actions
-- [ ] Real-time stats via WebSocket — Go backend pushes updates every 5 seconds
-- [ ] Command usage bar chart (recharts)
+- [x] Real-time stats via WebSocket — Go backend pushes updates every 5 seconds
+- [x] Command usage bar chart (recharts)
 - [x] Dark theme, clean design — NOT generic Bootstrap
 
 ### Phase 6 — Per-Guild Config
-- [ ] Guild config table in DB — log channel, mod roles, welcome channel, feature flags
+- [x] Guild config table in DB — log channel, mod roles, welcome channel, feature flags
 - [ ] `/config` subcommands — admins can view and update guild settings
 - [ ] Config API — `GET /api/guilds/:id/config` and `PATCH /api/guilds/:id/config`
 - [ ] Welcome messages — customizable per guild on member join
-- [ ] `migrations/004_config.sql`
+- [x] `migrations/004_config.sql`
 
 ### Phase 7 — Advanced Features
 - [ ] Reaction roles system — add/remove roles via emoji reactions

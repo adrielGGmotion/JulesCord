@@ -128,6 +128,21 @@ func Purge(database *db.DB) *Command {
 			s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 				Content: fmt.Sprintf("Successfully deleted %d messages.", len(messageIDs)),
 			})
+
+			embed := &discordgo.MessageEmbed{
+				Title:       "Messages Purged",
+				Description: fmt.Sprintf("%d messages were deleted in <#%s>.", len(messageIDs), i.ChannelID),
+				Color:       0x808080, // Gray
+				Fields: []*discordgo.MessageEmbedField{
+					{
+						Name:   "Moderator",
+						Value:  fmt.Sprintf("<@%s>", moderator.ID),
+						Inline: true,
+					},
+				},
+			}
+
+			SendModLog(s, database, i.GuildID, embed)
 		},
 	}
 }

@@ -388,6 +388,66 @@ type ModActionJoined struct {
 	ModAvatarURL     *string `json:"mod_avatar_url"`
 }
 
+// GetGuildLogChannel retrieves the configured log channel ID for a guild.
+func (db *DB) GetGuildLogChannel(ctx context.Context, guildID string) (string, error) {
+	query := `SELECT log_channel_id FROM guild_config WHERE guild_id = $1`
+	var logChannelID *string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&logChannelID)
+	if err != nil {
+		return "", err
+	}
+	if logChannelID == nil {
+		return "", nil
+	}
+	return *logChannelID, nil
+}
+
+// SetGuildLogChannel updates or inserts the log channel ID for a guild.
+func (db *DB) SetGuildLogChannel(ctx context.Context, guildID, logChannelID string) error {
+	query := `
+		INSERT INTO guild_config (guild_id, log_channel_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE SET
+			log_channel_id = EXCLUDED.log_channel_id,
+			updated_at = NOW()
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, logChannelID)
+	return err
+}
+
+// CommandUsage represents the usage count for a specific command.
+type CommandUsage struct {
+	CommandName string `json:"name"`
+	Count       int64  `json:"count"`
+}
+
+// GetCommandUsageStats returns the top 10 most used commands.
+func (db *DB) GetCommandUsageStats(ctx context.Context) ([]CommandUsage, error) {
+	query := `
+		SELECT command_name, COUNT(*) as count
+		FROM command_log
+		GROUP BY command_name
+		ORDER BY count DESC
+		LIMIT 10
+	`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats []CommandUsage
+	for rows.Next() {
+		var u CommandUsage
+		if err := rows.Scan(&u.CommandName, &u.Count); err != nil {
+			return nil, err
+		}
+		stats = append(stats, u)
+	}
+
+	return stats, rows.Err()
+}
+
 // GetModActions returns a list of all moderation actions with user details.
 func (db *DB) GetModActions(ctx context.Context) ([]ModActionJoined, error) {
 	query := `
