@@ -45,7 +45,7 @@ func main() {
 	}
 
 	// 4. Initialize the API Server
-	apiServer := api.New(cfg)
+	apiServer := api.New(cfg, database)
 
 	// 5. Start Bot concurrently
 	go func() {

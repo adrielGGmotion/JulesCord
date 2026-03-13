@@ -101,6 +101,14 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Added `/daily` command to claim a 24-hour coin reward.
 - Added `/coins` command to display a user's coin balance.
 
+- Implemented Phase 5 Web Dashboard foundation: scaffolded React 18 frontend with Vite and Tailwind CSS.
+- Added `/api/stats` and `/api/guilds` endpoints to Gin backend `internal/api/server.go` and implemented CORS.
+- Added `GetGuilds` method to `internal/db/db.go`.
+- Created Dashboard Home component at `web/src/pages/Home.jsx` showing bot status, total guilds, users, command run count and uptime.
+- Created Dashboard Guilds component at `web/src/pages/Guilds.jsx` listing all servers the bot is in.
+- Built Layout component in `web/src/components/Layout.jsx` featuring a clean, dark theme and dynamic sidebar navigation.
+- Configured frontend routing via `react-router-dom` in `web/src/App.jsx`.
+
 - Removed old Node.js files (`index.js`, `deploy-commands.js`, `package.json`, `package-lock.json`, and `commands/` directory).
 - Initialized Go module (`go.mod` and `go.sum`) with all required dependencies.
 - Updated `.env.example` with `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DATABASE_URL`, `API_PORT`.
@@ -156,14 +164,14 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] `migrations/003_economy.sql` — xp, levels, coins tables
 
 ### Phase 5 — Web Dashboard
-- [ ] `web/` scaffold — Vite + React 18 + Tailwind CSS v3
-- [ ] Dashboard home — bot status card, guild count, uptime, commands run
-- [ ] Guilds page — table of all servers the bot is in
+- [x] `web/` scaffold — Vite + React 18 + Tailwind CSS v3
+- [x] Dashboard home — bot status card, guild count, uptime, commands run
+- [x] Guilds page — table of all servers the bot is in
 - [ ] Users page — searchable user list with XP and level
 - [ ] Moderation log page — filterable table of all mod actions
 - [ ] Real-time stats via WebSocket — Go backend pushes updates every 5 seconds
 - [ ] Command usage bar chart (recharts)
-- [ ] Dark theme, clean design — NOT generic Bootstrap
+- [x] Dark theme, clean design — NOT generic Bootstrap
 
 ### Phase 6 — Per-Guild Config
 - [ ] Guild config table in DB — log channel, mod roles, welcome channel, feature flags
