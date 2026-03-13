@@ -84,6 +84,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Added `/stats` command to display guild count, user count, total commands run, and bot uptime.
 - Added `/help` command to dynamically list all registered commands by iterating over the command registry.
 
+- Implemented Phase 3 Moderation System first 4 items: created `migrations/002_moderation.sql` with tables `warnings` and `mod_actions`.
+- Added database methods `AddWarning`, `GetWarnings`, and `LogModAction` to `internal/db/db.go`.
+- Added `/warn` command to issue warnings and log them in the database.
+- Added `/warnings` command to list all warnings for a user.
+- Added `/kick` command to kick users and log the moderation action.
 
 - Removed old Node.js files (`index.js`, `deploy-commands.js`, `package.json`, `package-lock.json`, and `commands/` directory).
 - Initialized Go module (`go.mod` and `go.sum`) with all required dependencies.
@@ -122,13 +127,13 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] `/help` command — dynamically lists all registered commands with descriptions
 
 ### Phase 3 — Moderation System
-- [ ] `/warn @user reason` — stores warning in DB with timestamp and moderator ID
-- [ ] `/warnings @user` — lists all warnings for a user
-- [ ] `/kick @user reason` — kicks with audit log reason
+- [x] `/warn @user reason` — stores warning in DB with timestamp and moderator ID
+- [x] `/warnings @user` — lists all warnings for a user
+- [x] `/kick @user reason` — kicks with audit log reason
 - [ ] `/ban @user reason` — bans with audit log reason
 - [ ] `/purge [count]` — bulk delete up to 100 messages
 - [ ] Mod action log channel — all mod actions posted as embeds to configurable channel
-- [ ] `migrations/002_moderation.sql` — warnings, mod_actions tables
+- [x] `migrations/002_moderation.sql` — warnings, mod_actions tables
 
 ### Phase 4 — Leveling & Economy
 - [ ] XP award on message (cooldown: 1 min per user per channel)

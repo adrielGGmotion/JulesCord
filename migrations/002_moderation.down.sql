@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS mod_actions;
+DROP TABLE IF EXISTS warnings;
