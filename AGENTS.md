@@ -359,6 +359,10 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added DB operations SetSticky, RemoveSticky, GetSticky, and UpdateStickyMessageID in internal/db/db.go.
 - Added /sticky command with set and remove subcommands in internal/bot/commands/sticky.go.
 - Updated message handler in internal/bot/bot.go to maintain sticky messages at the bottom of channels.
+- Implemented Phase 17 Polls System features: added migrations `014_polls.sql` with table `polls`.
+- Added DB operations `CreatePoll`, `GetPoll`, and `ClosePoll` in `internal/db/db.go`.
+- Added `/poll create` and `/poll close` commands in `internal/bot/commands/poll.go`.
+- Added logic to handle adding number reactions to poll options and dynamically counting reactions to display poll results when closing a poll.
 
 ### Phase 15 — AFK System
 - [x] `migrations/012_afk.sql` — `afk_users` table
@@ -371,3 +375,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetSticky`, `RemoveSticky`, `GetSticky`, `UpdateStickyMessageID`
 - [x] `/sticky` command with `set` and `remove` subcommands
 - [x] Message handler to maintain the sticky message at the bottom of the channel
+
+### Phase 17 — Polls System
+- [x] `migrations/014_polls.sql` — `polls` table
+- [x] DB operations — `CreatePoll`, `GetPoll`, `ClosePoll`
+- [x] `/poll create` command — creates a poll with up to 10 options, posts embed, adds number reactions
+- [x] `/poll close` command — closes a poll, tallies reactions, and displays the final results
