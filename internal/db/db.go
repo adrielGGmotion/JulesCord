@@ -1789,3 +1789,67 @@ func (db *DB) GetServerLogChannel(ctx context.Context, guildID string) (string, 
 	}
 	return channelID, nil
 }
+
+// UserNote represents a note added by a moderator to a user.
+type UserNote struct {
+	ID          int       `json:"id"`
+	GuildID     string    `json:"guild_id"`
+	UserID      string    `json:"user_id"`
+	ModeratorID string    `json:"moderator_id"`
+	Note        string    `json:"note"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// AddNote adds a new note to a user.
+func (db *DB) AddNote(ctx context.Context, guildID, userID, moderatorID, note string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("AddNote").Observe(time.Since(start).Seconds())
+	}()
+	query := `
+		INSERT INTO user_notes (guild_id, user_id, moderator_id, note)
+		VALUES ($1, $2, $3, $4)
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, moderatorID, note)
+	return err
+}
+
+// GetNotes retrieves all notes for a user in a guild.
+func (db *DB) GetNotes(ctx context.Context, guildID, userID string) ([]UserNote, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetNotes").Observe(time.Since(start).Seconds())
+	}()
+	query := `
+		SELECT id, guild_id, user_id, moderator_id, note, created_at
+		FROM user_notes
+		WHERE guild_id = $1 AND user_id = $2
+		ORDER BY created_at DESC
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var notes []UserNote
+	for rows.Next() {
+		var n UserNote
+		if err := rows.Scan(&n.ID, &n.GuildID, &n.UserID, &n.ModeratorID, &n.Note, &n.CreatedAt); err != nil {
+			return nil, err
+		}
+		notes = append(notes, n)
+	}
+	return notes, rows.Err()
+}
+
+// RemoveNote removes a specific note by ID in a guild.
+func (db *DB) RemoveNote(ctx context.Context, guildID string, id int) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("RemoveNote").Observe(time.Since(start).Seconds())
+	}()
+	query := `DELETE FROM user_notes WHERE guild_id = $1 AND id = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, id)
+	return err
+}
