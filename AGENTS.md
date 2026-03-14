@@ -69,12 +69,15 @@ JulesCord/
 
 ## Current Status
 
-**Phase: 1 — Foundation**
-Starting from scratch in Go. All old Node.js files must be removed first.
+**Phase: 30 — Ticket System Enhancements**
+Continuing to iterate on additional features for JulesCord.
 
 ---
 
 ## Completed Work
+- Implemented Phase 29 Temporary Voice Channels remaining tasks:
+  - Updated `voiceStateUpdateHandler` in `internal/bot/bot.go` to listen for user joins on trigger channels to dynamically create temp channels.
+  - Implemented cleanup logic when users leave temp channels and they become empty.
 - Implemented Phase 2 Database Foundation: created `internal/db/db.go` with connection pooling via `pgxpool`, and configured automated migration runs using `golang-migrate`.
 - Authored initial migration `migrations/001_init.sql` defining `guilds`, `users`, and `command_log` tables.
 - Integrated database with the Discord bot in `internal/bot/bot.go` to handle `guildCreate` (upserting guilds) and interaction creates (upserting users and logging commands).
@@ -496,7 +499,12 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `migrations/026_temp_voice.sql` — `temp_voice_config` and `temp_voice_channels` tables
 - [x] DB operations — `SetTempVoiceConfig`, `GetTempVoiceConfig`, `CreateTempVoiceChannel`, `GetTempVoiceChannel`, `DeleteTempVoiceChannel`
 - [x] `/tempvoice` command with `setup` subcommand
-- [ ] `voiceStateUpdateHandler` to create/delete temporary voice channels
+- [x] `voiceStateUpdateHandler` to create/delete temporary voice channels
+
+### Phase 30 — Ticket System Enhancements
+- [ ] Add transcript generation for tickets on close.
+- [ ] Add `/ticket claim` to allow moderators to assign themselves to a ticket.
+- [ ] Add `/ticket transfer` to move tickets to a different category/team.
 
 - Implemented Phase 28 Birthday System features: added migrations `025_birthdays.sql` with tables `birthday_config` and `birthdays`.
 - Added DB operations `SetBirthdayChannel`, `GetBirthdayChannel`, `SetBirthday`, `RemoveBirthday`, `GetBirthdays`, `GetDueBirthdays`, and `MarkBirthdayAnnounced` in `internal/db/db.go`.
