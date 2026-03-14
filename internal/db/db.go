@@ -1101,3 +1101,117 @@ func (db *DB) ListAutoResponders(ctx context.Context, guildID string) ([]*AutoRe
 
 	return responders, nil
 }
+
+// StarboardConfig represents the starboard configuration for a guild.
+type StarboardConfig struct {
+	GuildID   string    `json:"guild_id"`
+	ChannelID string    `json:"channel_id"`
+	MinStars  int       `json:"min_stars"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// StarboardMessage represents a message that has been posted to the starboard.
+type StarboardMessage struct {
+	MessageID          string    `json:"message_id"`
+	GuildID            string    `json:"guild_id"`
+	ChannelID          string    `json:"channel_id"`
+	StarboardMessageID string    `json:"starboard_message_id"`
+	Stars              int       `json:"stars"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
+}
+
+// SetStarboardConfig sets the starboard configuration for a guild.
+func (db *DB) SetStarboardConfig(ctx context.Context, guildID, channelID string, minStars int) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("SetStarboardConfig").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		INSERT INTO starboard_config (guild_id, channel_id, min_stars, updated_at)
+		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (guild_id)
+		DO UPDATE SET channel_id = EXCLUDED.channel_id, min_stars = EXCLUDED.min_stars, updated_at = NOW()
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, minStars)
+	if err != nil {
+		slog.Error("Failed to set starboard config", "error", err, "guild_id", guildID)
+		return err
+	}
+	return nil
+}
+
+// GetStarboardConfig retrieves the starboard configuration for a guild.
+func (db *DB) GetStarboardConfig(ctx context.Context, guildID string) (*StarboardConfig, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetStarboardConfig").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		SELECT guild_id, channel_id, min_stars, created_at, updated_at
+		FROM starboard_config
+		WHERE guild_id = $1
+	`
+	config := &StarboardConfig{}
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(
+		&config.GuildID, &config.ChannelID, &config.MinStars, &config.CreatedAt, &config.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Return nil, nil if config is not found
+		}
+		slog.Error("Failed to get starboard config", "error", err, "guild_id", guildID)
+		return nil, err
+	}
+	return config, nil
+}
+
+// GetStarboardMessage retrieves a starboard message by its original message ID.
+func (db *DB) GetStarboardMessage(ctx context.Context, messageID string) (*StarboardMessage, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetStarboardMessage").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		SELECT message_id, guild_id, channel_id, starboard_message_id, stars, created_at, updated_at
+		FROM starboard_messages
+		WHERE message_id = $1
+	`
+	msg := &StarboardMessage{}
+	err := db.Pool.QueryRow(ctx, query, messageID).Scan(
+		&msg.MessageID, &msg.GuildID, &msg.ChannelID, &msg.StarboardMessageID, &msg.Stars, &msg.CreatedAt, &msg.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Return nil, nil if message is not found
+		}
+		slog.Error("Failed to get starboard message", "error", err, "message_id", messageID)
+		return nil, err
+	}
+	return msg, nil
+}
+
+// UpsertStarboardMessage upserts a starboard message record.
+func (db *DB) UpsertStarboardMessage(ctx context.Context, messageID, guildID, channelID, starboardMessageID string, stars int) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("UpsertStarboardMessage").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		INSERT INTO starboard_messages (message_id, guild_id, channel_id, starboard_message_id, stars, updated_at)
+		VALUES ($1, $2, $3, $4, $5, NOW())
+		ON CONFLICT (message_id)
+		DO UPDATE SET starboard_message_id = EXCLUDED.starboard_message_id, stars = EXCLUDED.stars, updated_at = NOW()
+	`
+	_, err := db.Pool.Exec(ctx, query, messageID, guildID, channelID, starboardMessageID, stars)
+	if err != nil {
+		slog.Error("Failed to upsert starboard message", "error", err, "message_id", messageID)
+		return err
+	}
+	return nil
+}

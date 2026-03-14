@@ -162,6 +162,10 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Added database operations `CreateTag`, `GetTag`, `DeleteTag`, and `ListTags` in `internal/db/db.go`.
 - Added `/tag` command structure in `internal/bot/commands/tag.go` with four subcommands (`create`, `list`, `delete`, `view`).
 - Implemented Phase 12 Auto-Responder System features: added migrations `009_auto_responders.sql` with table `auto_responders`.
+- Implemented Phase 13 Starboard System features: added migrations `010_starboard.sql` with tables `starboard_config` and `starboard_messages`.
+- Added DB operations `SetStarboardConfig`, `GetStarboardConfig`, `GetStarboardMessage`, and `UpsertStarboardMessage` in `internal/db/db.go`.
+- Added `/starboard setup` command in `internal/bot/commands/starboard.go` to configure the starboard channel and star threshold.
+- Added starboard reaction handler in `internal/bot/bot.go` to track `⭐` reactions, counting them and posting/updating embeds on the configured starboard channel.
 - Added database operations `AddAutoResponder`, `RemoveAutoResponder`, `ListAutoResponders`, and `ListAllAutoResponders` in `internal/db/db.go`.
 - Added `/autoresponder` command in `internal/bot/commands/autoresponder.go` with subcommands `add`, `remove`, and `list`.
 - Updated message handler in `internal/bot/bot.go` to use an in-memory cache to check incoming messages and reply if a trigger word matches without querying the database each time.
@@ -328,3 +332,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — AddAutoResponder, RemoveAutoResponder, ListAutoResponders
 - [x] `/autoresponder` subcommands — add, remove, list
 - [x] Message handler to check for triggers and respond automatically
+
+### Phase 13 — Starboard System
+- [x] `migrations/010_starboard.sql` — `starboard_config` and `starboard_messages` tables
+- [x] DB operations — `SetStarboardConfig`, `GetStarboardConfig`, `GetStarboardMessage`, `UpsertStarboardMessage`
+- [x] `/starboard setup` command — configures the starboard channel and threshold
+- [x] Message reaction handler for ⭐ — posts/updates messages on the starboard
