@@ -374,6 +374,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/serverlog setup` command in `internal/bot/commands/serverlog.go`.
 - Added `messageUpdateHandler` and `messageDeleteHandler` in `internal/bot/bot.go` to track and log edited and deleted messages.
 
+- Implemented Phase 20 Auto-Moderation System features: added migrations `017_automod.sql` with tables `automod_config` and `automod_words`.
+- Added DB operations `SetAutomodConfig`, `GetAutomodConfig`, `AddAutomodWord`, `RemoveAutomodWord`, `GetAutomodWords` in `internal/db/db.go`.
+- Added `/automod` command with `setup`, `word add`, `word remove`, and `word list` subcommands in `internal/bot/commands/automod.go`.
+- Added `checkAutomod` message handler check in `internal/bot/bot.go` to intercept and delete messages with links, invites, or bad words and send embedded logs to the configured log channel.
+
 ### Phase 15 — AFK System
 - [x] `migrations/012_afk.sql` — `afk_users` table
 - [x] DB operations — `SetAFK`, `RemoveAFK`, `GetAFK`
@@ -402,3 +407,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetServerLogChannel`, `GetServerLogChannel`
 - [x] `/serverlog` command with `setup` subcommand
 - [x] Message handlers for tracking edited and deleted messages
+
+### Phase 20 — Auto-Moderation System
+- [x] `migrations/017_automod.sql` — `automod_config` and `automod_words` tables
+- [x] DB operations — `SetAutomodConfig`, `GetAutomodConfig`, `AddAutomodWord`, `RemoveAutomodWord`, `GetAutomodWords`
+- [x] `/automod` command with `setup`, `word add`, `word remove`, `word list` subcommands
+- [x] Message handlers check for links, invites, and bad words, delete the message, and send an embed to the log channel
