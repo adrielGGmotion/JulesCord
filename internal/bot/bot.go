@@ -277,6 +277,17 @@ func (b *Bot) guildCreateHandler(s *discordgo.Session, event *discordgo.GuildCre
 // interactionCreateHandler handles all slash commands
 func (b *Bot) interactionCreateHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if b.DB != nil && i.Type == discordgo.InteractionMessageComponent {
+		if i.MessageComponentData().CustomID == "ticket_panel_button" {
+			commands.HandleCreateTicket(s, i, b.DB, []*discordgo.ApplicationCommandInteractionDataOption{
+				{
+					Name:  "reason",
+					Type:  discordgo.ApplicationCommandOptionString,
+					Value: "Panel Support Ticket",
+				},
+			})
+			return
+		}
+
 		if i.MessageComponentData().CustomID == "verify_button" {
 			config, err := b.DB.GetVerificationConfig(context.Background(), i.GuildID)
 			if err != nil || config == nil {
@@ -1040,16 +1051,6 @@ func (b *Bot) voiceStateUpdateHandler(s *discordgo.Session, v *discordgo.VoiceSt
 		return
 	}
 
-	channelIDStr, err := b.DB.GetVoiceLogChannel(context.Background(), v.GuildID)
-	if err != nil {
-		slog.Error("Failed to get voice log config", "guild_id", v.GuildID, "error", err)
-		return
-	}
-
-	if channelIDStr == nil {
-		return // Voice logging not configured for this guild
-	}
-
 	// Fetch user details. Try v.Member.User first, fallback to state cache/API
 	var user *discordgo.User
 	if v.Member != nil && v.Member.User != nil {
@@ -1060,6 +1061,83 @@ func (b *Bot) voiceStateUpdateHandler(s *discordgo.Session, v *discordgo.VoiceSt
 		if err == nil && member != nil && member.User != nil {
 			user = member.User
 		}
+	}
+
+	// Temporary Voice Channels Logic
+	if newChannelID != "" {
+		tempConfig, err := b.DB.GetTempVoiceConfig(context.Background(), v.GuildID)
+		if err == nil && tempConfig != nil && tempConfig.TriggerChannelID == newChannelID {
+			// User joined the trigger channel, create a new temp channel
+			var name string
+			if user != nil {
+				name = user.Username + "'s Channel"
+			} else {
+				name = "Temp Channel"
+			}
+
+			channelData := discordgo.GuildChannelCreateData{
+				Name:     name,
+				Type:     discordgo.ChannelTypeGuildVoice,
+				ParentID: tempConfig.CategoryID,
+			}
+
+			createdChannel, err := s.GuildChannelCreateComplex(v.GuildID, channelData)
+			if err != nil {
+				slog.Error("Failed to create temporary voice channel", "error", err)
+			} else {
+				// Move the user to the new channel
+				err = s.GuildMemberMove(v.GuildID, v.UserID, &createdChannel.ID)
+				if err != nil {
+					slog.Error("Failed to move user to temporary voice channel", "error", err)
+					// Clean up the channel if we can't move the user to it
+					_, _ = s.ChannelDelete(createdChannel.ID)
+				} else {
+					// Save to database
+					err = b.DB.CreateTempVoiceChannel(context.Background(), v.GuildID, v.UserID, createdChannel.ID)
+					if err != nil {
+						slog.Error("Failed to save temporary voice channel to DB", "error", err)
+					}
+				}
+			}
+		}
+	}
+
+	if oldChannelID != "" {
+		// Check if the old channel was a temporary voice channel
+		tempChannel, err := b.DB.GetTempVoiceChannel(context.Background(), oldChannelID)
+		if err == nil && tempChannel != nil {
+			// Check if the channel is now empty
+			guild, err := s.State.Guild(v.GuildID)
+			if err == nil {
+				isEmpty := true
+				for _, vs := range guild.VoiceStates {
+					if vs.ChannelID == oldChannelID {
+						isEmpty = false
+						break
+					}
+				}
+
+				if isEmpty {
+					// Delete the channel from Discord
+					_, err := s.ChannelDelete(oldChannelID)
+					if err != nil {
+						slog.Error("Failed to delete temporary voice channel", "error", err)
+					}
+					// Delete from DB regardless of discord deletion success to prevent zombie records
+					_ = b.DB.DeleteTempVoiceChannel(context.Background(), oldChannelID)
+				}
+			}
+		}
+	}
+
+	channelIDStr, err := b.DB.GetVoiceLogChannel(context.Background(), v.GuildID)
+	if err != nil {
+		slog.Error("Failed to get voice log config", "guild_id", v.GuildID, "error", err)
+		return
+	}
+
+	if channelIDStr == nil {
+		return // Voice logging not configured for this guild
 	}
 
 	if user == nil {
