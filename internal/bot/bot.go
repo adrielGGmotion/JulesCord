@@ -1040,14 +1040,51 @@ func (b *Bot) voiceStateUpdateHandler(s *discordgo.Session, v *discordgo.VoiceSt
 		return
 	}
 
-	channelIDStr, err := b.DB.GetVoiceLogChannel(context.Background(), v.GuildID)
-	if err != nil {
-		slog.Error("Failed to get voice log config", "guild_id", v.GuildID, "error", err)
-		return
-	}
+	// Phase 29: Temporary Voice Channels
+	// 1. Check if user LEFT a temporary channel
+	if oldChannelID != "" {
+		tempChannel, err := b.DB.GetTempVoiceChannel(context.Background(), oldChannelID)
+		if err == nil && tempChannel != nil {
+			// Check if channel is now empty
+			guildState, err := s.State.Guild(v.GuildID)
+			isEmpty := true
+			if err == nil && guildState != nil {
+				for _, vs := range guildState.VoiceStates {
+					if vs.ChannelID == oldChannelID {
+						isEmpty = false
+						break
+					}
+				}
+			} else {
+				// Fallback if state is missing: query the API
+				apiGuild, apiErr := s.Guild(v.GuildID)
+				if apiErr == nil && apiGuild != nil {
+					for _, vs := range apiGuild.VoiceStates {
+						if vs.ChannelID == oldChannelID {
+							isEmpty = false
+							break
+						}
+					}
+				} else {
+					// Cannot determine safely, err on the side of caution
+					isEmpty = false
+					slog.Warn("Failed to determine if temporary voice channel is empty", "guild_id", v.GuildID, "channel_id", oldChannelID)
+				}
+			}
 
-	if channelIDStr == nil {
-		return // Voice logging not configured for this guild
+			if isEmpty {
+				// Delete channel from Discord
+				_, err = s.ChannelDelete(oldChannelID)
+				if err != nil {
+					slog.Error("Failed to delete empty temporary voice channel", "error", err, "channel_id", oldChannelID)
+				}
+				// Remove from DB
+				err = b.DB.DeleteTempVoiceChannel(context.Background(), oldChannelID)
+				if err != nil {
+					slog.Error("Failed to delete temp channel from DB", "error", err, "channel_id", oldChannelID)
+				}
+			}
+		}
 	}
 
 	// Fetch user details. Try v.Member.User first, fallback to state cache/API
@@ -1065,6 +1102,49 @@ func (b *Bot) voiceStateUpdateHandler(s *discordgo.Session, v *discordgo.VoiceSt
 	if user == nil {
 		slog.Warn("Could not determine user for voice state update", "user_id", v.UserID)
 		return
+	}
+
+	// 2. Check if user JOINED a trigger channel
+	if newChannelID != "" {
+		tempConfig, err := b.DB.GetTempVoiceConfig(context.Background(), v.GuildID)
+		if err == nil && tempConfig != nil {
+			if newChannelID == tempConfig.TriggerChannelID {
+				// Create new channel
+				channelName := fmt.Sprintf("%s's Channel", user.Username)
+				newChan, err := s.GuildChannelCreateComplex(v.GuildID, discordgo.GuildChannelCreateData{
+					Name:     channelName,
+					Type:     discordgo.ChannelTypeGuildVoice,
+					ParentID: tempConfig.CategoryID,
+				})
+				if err != nil {
+					slog.Error("Failed to create temporary voice channel", "error", err, "user_id", v.UserID)
+				} else {
+					// Move user
+					err = s.GuildMemberMove(v.GuildID, v.UserID, &newChan.ID)
+					if err != nil {
+						slog.Error("Failed to move user to new temp channel", "error", err, "user_id", v.UserID)
+						// Cleanup the channel if move fails to avoid orphaned channels
+						_, _ = s.ChannelDelete(newChan.ID)
+					} else {
+						// Store in DB
+						err = b.DB.CreateTempVoiceChannel(context.Background(), v.GuildID, v.UserID, newChan.ID)
+						if err != nil {
+							slog.Error("Failed to store temp voice channel in DB", "error", err, "channel_id", newChan.ID)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	channelIDStr, err := b.DB.GetVoiceLogChannel(context.Background(), v.GuildID)
+	if err != nil {
+		slog.Error("Failed to get voice log config", "guild_id", v.GuildID, "error", err)
+		return
+	}
+
+	if channelIDStr == nil {
+		return // Voice logging not configured for this guild
 	}
 
 	var title string
