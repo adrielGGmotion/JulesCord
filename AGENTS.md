@@ -396,6 +396,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added DB operations `GetReputation`, `AddReputation`, and `CanGiveReputation` in `internal/db/db.go`.
 - Added `/rep` command with `give` and `check` subcommands in `internal/bot/commands/rep.go`.
 - Updated `internal/bot/bot.go` to register the `rep` command.
+
+- Implemented Phase 26 User Profiles System features: added migrations `023_profiles.sql` with table `user_profiles`.
+- Added DB operations `SetProfileBio`, `SetProfileColor`, and `GetProfile` in `internal/db/db.go`.
+- Added `/profile` command with `view`, `set-bio`, and `set-color` subcommands in `internal/bot/commands/profile.go`.
+- Updated `internal/bot/bot.go` to register the `profile` command.
 - Implemented Phase 23 Level Roles System features: added migrations `020_level_roles.sql` with table `level_roles`.
 - Added DB operations `SetLevelRole`, `RemoveLevelRole`, `GetLevelRoles`, and `GetLevelRole` in `internal/db/db.go`.
 - Added `/levelrole` command with `add`, `list`, and `remove` subcommands in `internal/bot/commands/levelrole.go`.
@@ -463,3 +468,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `migrations/022_reputation.sql` — `reputation` and `reputation_log` tables
 - [x] DB operations — `GetReputation`, `AddReputation`, `CanGiveReputation`
 - [x] `/rep` command with `give` and `check` subcommands
+
+### Phase 26 — User Profiles System
+- [x] `migrations/023_profiles.sql` — `user_profiles` table
+- [x] DB operations — `SetProfileBio`, `SetProfileColor`, `GetProfile`
+- [x] `/profile` command with `view`, `set-bio`, and `set-color` subcommands
+- [x] Profile embed displays bio, color, and integrates economy (XP, coins) and reputation stats

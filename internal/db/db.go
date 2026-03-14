@@ -2050,3 +2050,62 @@ func (db *DB) AddReputation(ctx context.Context, guildID, senderID, receiverID s
 
 	return tx.Commit(ctx)
 }
+
+// UserProfile represents a user's customized profile in a specific guild
+type UserProfile struct {
+	GuildID   string
+	UserID    string
+	Bio       *string // using pointer to handle nullable columns natively
+	Color     *string // using pointer to handle nullable columns natively
+	UpdatedAt time.Time
+}
+
+// SetProfileBio sets the bio for a user's profile
+func (db *DB) SetProfileBio(ctx context.Context, guildID, userID, bio string) error {
+	query := `
+		INSERT INTO user_profiles (guild_id, user_id, bio, updated_at)
+		VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+		ON CONFLICT (guild_id, user_id)
+		DO UPDATE SET bio = EXCLUDED.bio, updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, bio)
+	if err != nil {
+		return fmt.Errorf("failed to set profile bio: %w", err)
+	}
+	return nil
+}
+
+// SetProfileColor sets the hex color for a user's profile
+func (db *DB) SetProfileColor(ctx context.Context, guildID, userID, color string) error {
+	query := `
+		INSERT INTO user_profiles (guild_id, user_id, color, updated_at)
+		VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+		ON CONFLICT (guild_id, user_id)
+		DO UPDATE SET color = EXCLUDED.color, updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, color)
+	if err != nil {
+		return fmt.Errorf("failed to set profile color: %w", err)
+	}
+	return nil
+}
+
+// GetProfile retrieves a user's profile for a specific guild
+func (db *DB) GetProfile(ctx context.Context, guildID, userID string) (*UserProfile, error) {
+	query := `
+		SELECT guild_id, user_id, bio, color, updated_at
+		FROM user_profiles
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	var p UserProfile
+	err := db.Pool.QueryRow(ctx, query, guildID, userID).Scan(
+		&p.GuildID, &p.UserID, &p.Bio, &p.Color, &p.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No profile exists yet
+		}
+		return nil, fmt.Errorf("failed to get profile: %w", err)
+	}
+	return &p, nil
+}
