@@ -36,6 +36,11 @@ func Ticket(database *db.DB) *Command {
 					Description: "Close the current ticket",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 				},
+				{
+					Name:        "panel",
+					Description: "Create a ticket panel in the current channel (Admin only)",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
 			},
 		},
 		Handler: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -52,15 +57,79 @@ func Ticket(database *db.DB) *Command {
 			subcommand := i.ApplicationCommandData().Options[0]
 			switch subcommand.Name {
 			case "create":
-				handleCreateTicket(s, i, database, subcommand.Options)
+				HandleCreateTicket(s, i, database, subcommand.Options)
 			case "close":
 				handleCloseTicket(s, i, database)
+			case "panel":
+				handlePanelTicket(s, i, database)
 			}
 		},
 	}
 }
 
-func handleCreateTicket(s *discordgo.Session, i *discordgo.InteractionCreate, database *db.DB, options []*discordgo.ApplicationCommandInteractionDataOption) {
+func handlePanelTicket(s *discordgo.Session, i *discordgo.InteractionCreate, database *db.DB) {
+	if i.Member.Permissions&discordgo.PermissionAdministrator == 0 {
+		SendError(s, i, "You need Administrator permissions to create a ticket panel.")
+		return
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "Support Tickets",
+		Description: "Click the button below to open a new support ticket.",
+		Color:       0x3B82F6, // Blue
+	}
+
+	components := []discordgo.MessageComponent{
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{
+					Label:    "Open Ticket",
+					Style:    discordgo.PrimaryButton,
+					CustomID: "ticket_panel_button",
+					Emoji: &discordgo.ComponentEmoji{
+						Name: "🎫",
+					},
+				},
+			},
+		},
+	}
+
+	// Defer response to send the panel
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+	// Send the panel message in the channel
+	msg, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
+		Embeds:     []*discordgo.MessageEmbed{embed},
+		Components: components,
+	})
+	if err != nil {
+		slog.Error("Failed to send ticket panel message", "error", err)
+		content := "Failed to create ticket panel."
+		_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content: &content,
+		})
+		return
+	}
+
+	// Save to database
+	err = database.SetTicketPanel(context.Background(), i.GuildID, i.ChannelID, msg.ID)
+	if err != nil {
+		slog.Error("Failed to save ticket panel to DB", "error", err)
+	}
+
+	content := "Ticket panel created successfully!"
+	_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content: &content,
+	})
+}
+
+// HandleCreateTicket creates a new ticket. It is exported so it can be called by the interactionCreateHandler.
+func HandleCreateTicket(s *discordgo.Session, i *discordgo.InteractionCreate, database *db.DB, options []*discordgo.ApplicationCommandInteractionDataOption) {
 	reason := options[0].StringValue()
 
 	var userID string

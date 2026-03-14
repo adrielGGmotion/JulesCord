@@ -151,6 +151,37 @@ func (db *DB) CloseTicket(ctx context.Context, channelID string) error {
 	return err
 }
 
+// Phase 30: Ticket Panels
+
+type TicketPanel struct {
+	GuildID   string
+	ChannelID string
+	MessageID string
+}
+
+func (db *DB) SetTicketPanel(ctx context.Context, guildID, channelID, messageID string) error {
+	query := `
+		INSERT INTO ticket_panels (guild_id, channel_id, message_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id) DO UPDATE SET channel_id = EXCLUDED.channel_id, message_id = EXCLUDED.message_id, created_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, messageID)
+	return err
+}
+
+func (db *DB) GetTicketPanel(ctx context.Context, guildID string) (*TicketPanel, error) {
+	query := `SELECT guild_id, channel_id, message_id FROM ticket_panels WHERE guild_id = $1`
+	var panel TicketPanel
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&panel.GuildID, &panel.ChannelID, &panel.MessageID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &panel, nil
+}
+
 // UpsertUser inserts a new user or updates their info if they exist.
 func (db *DB) UpsertUser(ctx context.Context, id, username, globalName, avatarURL string) error {
 	query := `
