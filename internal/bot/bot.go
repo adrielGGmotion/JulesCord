@@ -81,6 +81,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Verification(database))
 	registry.Add(commands.NoteCommand(database))
 	registry.Add(commands.LevelRole(database))
+	registry.Add(commands.NewProfileCommand(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
