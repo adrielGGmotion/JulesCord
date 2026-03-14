@@ -2393,3 +2393,68 @@ func (db *DB) GetGuildBirthdays(ctx context.Context, guildID string) ([]Birthday
 	}
 	return birthdays, nil
 }
+
+// Phase 29: Temporary Voice Channels
+
+type TempVoiceConfig struct {
+	GuildID          string
+	CategoryID       string
+	TriggerChannelID string
+}
+
+func (db *DB) SetTempVoiceConfig(ctx context.Context, guildID, categoryID, triggerChannelID string) error {
+	query := `
+		INSERT INTO temp_voice_config (guild_id, category_id, trigger_channel_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id) DO UPDATE SET category_id = EXCLUDED.category_id, trigger_channel_id = EXCLUDED.trigger_channel_id
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, categoryID, triggerChannelID)
+	return err
+}
+
+func (db *DB) GetTempVoiceConfig(ctx context.Context, guildID string) (*TempVoiceConfig, error) {
+	query := `SELECT guild_id, category_id, trigger_channel_id FROM temp_voice_config WHERE guild_id = $1`
+	var config TempVoiceConfig
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&config.GuildID, &config.CategoryID, &config.TriggerChannelID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No config set
+		}
+		return nil, err
+	}
+	return &config, nil
+}
+
+type TempVoiceChannel struct {
+	GuildID   string
+	UserID    string
+	ChannelID string
+}
+
+func (db *DB) CreateTempVoiceChannel(ctx context.Context, guildID, userID, channelID string) error {
+	query := `
+		INSERT INTO temp_voice_channels (guild_id, user_id, channel_id)
+		VALUES ($1, $2, $3)
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, channelID)
+	return err
+}
+
+func (db *DB) GetTempVoiceChannel(ctx context.Context, channelID string) (*TempVoiceChannel, error) {
+	query := `SELECT guild_id, user_id, channel_id FROM temp_voice_channels WHERE channel_id = $1`
+	var channel TempVoiceChannel
+	err := db.Pool.QueryRow(ctx, query, channelID).Scan(&channel.GuildID, &channel.UserID, &channel.ChannelID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &channel, nil
+}
+
+func (db *DB) DeleteTempVoiceChannel(ctx context.Context, channelID string) error {
+	query := `DELETE FROM temp_voice_channels WHERE channel_id = $1`
+	_, err := db.Pool.Exec(ctx, query, channelID)
+	return err
+}
