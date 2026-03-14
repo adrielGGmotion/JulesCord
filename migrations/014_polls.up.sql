@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS polls (
+    id SERIAL PRIMARY KEY,
+    guild_id VARCHAR(255) NOT NULL,
+    channel_id VARCHAR(255) NOT NULL,
+    message_id VARCHAR(255) NOT NULL UNIQUE,
+    creator_id VARCHAR(255) NOT NULL,
+    question TEXT NOT NULL,
+    options TEXT[] NOT NULL,
+    is_closed BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);

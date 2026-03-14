@@ -1423,6 +1423,78 @@ func (db *DB) GetAFK(ctx context.Context, userID, guildID string) (string, time.
 	return reason, createdAt, nil
 }
 
+// Poll represents a poll in a guild.
+type Poll struct {
+	ID        int
+	GuildID   string
+	ChannelID string
+	MessageID string
+	CreatorID string
+	Question  string
+	Options   []string
+	IsClosed  bool
+	CreatedAt time.Time
+}
+
+// CreatePoll inserts a new poll into the database.
+func (db *DB) CreatePoll(ctx context.Context, p *Poll) error {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("CreatePoll").Observe(time.Since(start).Seconds())
+
+	query := `
+		INSERT INTO polls (guild_id, channel_id, message_id, creator_id, question, options)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`
+	_, err := db.Pool.Exec(ctx, query, p.GuildID, p.ChannelID, p.MessageID, p.CreatorID, p.Question, p.Options)
+	if err != nil {
+		slog.Error("Failed to create poll", "error", err, "guild_id", p.GuildID)
+		return err
+	}
+	return nil
+}
+
+// GetPoll retrieves a poll by its message ID.
+func (db *DB) GetPoll(ctx context.Context, messageID string) (*Poll, error) {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("GetPoll").Observe(time.Since(start).Seconds())
+
+	query := `
+		SELECT id, guild_id, channel_id, message_id, creator_id, question, options, is_closed, created_at
+		FROM polls
+		WHERE message_id = $1
+	`
+	var p Poll
+	err := db.Pool.QueryRow(ctx, query, messageID).Scan(
+		&p.ID, &p.GuildID, &p.ChannelID, &p.MessageID, &p.CreatorID, &p.Question, &p.Options, &p.IsClosed, &p.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Return nil, nil if poll is not found
+		}
+		slog.Error("Failed to get poll by message", "error", err, "message_id", messageID)
+		return nil, err
+	}
+	return &p, nil
+}
+
+// ClosePoll marks a poll as closed.
+func (db *DB) ClosePoll(ctx context.Context, messageID string) error {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("ClosePoll").Observe(time.Since(start).Seconds())
+
+	query := `
+		UPDATE polls
+		SET is_closed = true
+		WHERE message_id = $1
+	`
+	_, err := db.Pool.Exec(ctx, query, messageID)
+	if err != nil {
+		slog.Error("Failed to close poll", "error", err, "message_id", messageID)
+		return err
+	}
+	return nil
+}
+
 // StickyMessage represents a sticky message in a channel.
 type StickyMessage struct {
 	ChannelID     string
