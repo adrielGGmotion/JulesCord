@@ -1651,3 +1651,29 @@ func (db *DB) UpdateSuggestionStatus(ctx context.Context, suggestionID int, stat
 	_, err := db.Pool.Exec(ctx, query, status, suggestionID)
 	return err
 }
+
+// SetServerLogChannel sets the server log channel for a guild
+func (db *DB) SetServerLogChannel(ctx context.Context, guildID, channelID string) error {
+	query := `
+		INSERT INTO server_log_config (guild_id, channel_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE
+		SET channel_id = $2, updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+// GetServerLogChannel gets the configured server log channel for a guild
+func (db *DB) GetServerLogChannel(ctx context.Context, guildID string) (string, error) {
+	query := `SELECT channel_id FROM server_log_config WHERE guild_id = $1`
+	var channelID string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&channelID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil // No config set
+		}
+		return "", err
+	}
+	return channelID, nil
+}
