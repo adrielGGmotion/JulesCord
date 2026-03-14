@@ -74,6 +74,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.NewStickyCommand(bot))
 	registry.Add(commands.Poll(database))
 	registry.Add(commands.NewSuggestCommand(bot))
+	registry.Add(commands.ServerLog(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -113,8 +114,14 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	// Register message reaction remove handler
 	bot.Session.AddHandler(bot.messageReactionRemoveHandler)
 
+	// Register message update handler
+	bot.Session.AddHandler(bot.messageUpdateHandler)
+
+	// Register message delete handler
+	bot.Session.AddHandler(bot.messageDeleteHandler)
+
 	// Set intentions
-	bot.Session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMembers | discordgo.IntentsGuildMessageReactions
+	bot.Session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMembers | discordgo.IntentsGuildMessageReactions | discordgo.IntentsMessageContent
 
 	return bot, nil
 }
@@ -690,6 +697,163 @@ func (b *Bot) checkGiveaways() {
 		}
 
 		<-ticker.C
+	}
+}
+
+// messageUpdateHandler is called when a message is updated
+func (b *Bot) messageUpdateHandler(s *discordgo.Session, m *discordgo.MessageUpdate) {
+	if b.DB == nil || m.GuildID == "" {
+		return
+	}
+
+	// Avoid logging bot messages or system messages (author might be nil in partial update)
+	if m.Author != nil && (m.Author.ID == s.State.User.ID || m.Author.Bot) {
+		return
+	}
+
+	// Message updates can be partial, so we check if there's actually content updated
+	if m.BeforeUpdate != nil && m.Content == m.BeforeUpdate.Content {
+		return
+	}
+
+	// For partial updates without before cache where the content didn't change (e.g. embed loads)
+	// It's safer to ignore if we don't have the old content to compare against and it's missing author info
+	if m.BeforeUpdate == nil && m.Author == nil {
+		return
+	}
+
+	logChannelID, err := b.DB.GetServerLogChannel(context.Background(), m.GuildID)
+	if err != nil || logChannelID == "" {
+		return
+	}
+
+	// Try to get author info safely
+	var authorName, authorID string
+	if m.Author != nil {
+		authorName = m.Author.Username
+		if m.Author.GlobalName != "" {
+			authorName = m.Author.GlobalName
+		}
+		authorID = m.Author.ID
+	} else if m.BeforeUpdate != nil && m.BeforeUpdate.Author != nil {
+		authorName = m.BeforeUpdate.Author.Username
+		if m.BeforeUpdate.Author.GlobalName != "" {
+			authorName = m.BeforeUpdate.Author.GlobalName
+		}
+		authorID = m.BeforeUpdate.Author.ID
+	} else {
+		// Can't identify author, skip
+		return
+	}
+
+	beforeContent := "*(Content not available in cache)*"
+	if m.BeforeUpdate != nil {
+		beforeContent = m.BeforeUpdate.Content
+		if beforeContent == "" {
+			beforeContent = "*(Empty message or only attachment)*"
+		}
+	}
+
+	afterContent := m.Content
+	if afterContent == "" {
+		afterContent = "*(Empty message or only attachment)*"
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "Message Edited",
+		Description: fmt.Sprintf("**Message by <@%s> edited in <#%s>**\n\n[Jump to Message](https://discord.com/channels/%s/%s/%s)", authorID, m.ChannelID, m.GuildID, m.ChannelID, m.ID),
+		Color:       0xFFA500, // Orange
+		Fields: []*discordgo.MessageEmbedField{
+			{
+				Name:   "Before",
+				Value:  beforeContent,
+				Inline: false,
+			},
+			{
+				Name:   "After",
+				Value:  afterContent,
+				Inline: false,
+			},
+		},
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("User ID: %s | Message ID: %s", authorID, m.ID),
+		},
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+
+	if m.Author != nil {
+		embed.Author = &discordgo.MessageEmbedAuthor{
+			Name:    authorName,
+			IconURL: m.Author.AvatarURL(""),
+		}
+	}
+
+	_, err = s.ChannelMessageSendEmbed(logChannelID, embed)
+	if err != nil {
+		slog.Error("Failed to send message update log", "error", err, "channel_id", logChannelID)
+	}
+}
+
+// messageDeleteHandler is called when a message is deleted
+func (b *Bot) messageDeleteHandler(s *discordgo.Session, m *discordgo.MessageDelete) {
+	if b.DB == nil || m.GuildID == "" {
+		return
+	}
+
+	logChannelID, err := b.DB.GetServerLogChannel(context.Background(), m.GuildID)
+	if err != nil || logChannelID == "" {
+		return
+	}
+
+	var authorName, authorID, content string
+	var authorAvatarURL string
+
+	if m.BeforeDelete != nil && m.BeforeDelete.Author != nil {
+		// Ignore bot deletions if we have the info
+		if m.BeforeDelete.Author.ID == s.State.User.ID || m.BeforeDelete.Author.Bot {
+			return
+		}
+		authorName = m.BeforeDelete.Author.Username
+		if m.BeforeDelete.Author.GlobalName != "" {
+			authorName = m.BeforeDelete.Author.GlobalName
+		}
+		authorID = m.BeforeDelete.Author.ID
+		authorAvatarURL = m.BeforeDelete.Author.AvatarURL("")
+		content = m.BeforeDelete.Content
+		if content == "" {
+			content = "*(Empty message or only attachment)*"
+		}
+	} else {
+		// Without message cache, we don't know who sent it or what it was
+		authorName = "Unknown User"
+		authorID = "Unknown"
+		content = "*(Message content not available in cache)*"
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "Message Deleted",
+		Description: fmt.Sprintf("**Message sent by <@%s> deleted in <#%s>**\n\n%s", authorID, m.ChannelID, content),
+		Color:       0xFF0000, // Red
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("User ID: %s | Message ID: %s", authorID, m.ID),
+		},
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+
+	if authorAvatarURL != "" {
+		embed.Author = &discordgo.MessageEmbedAuthor{
+			Name:    authorName,
+			IconURL: authorAvatarURL,
+		}
+	} else {
+		embed.Author = &discordgo.MessageEmbedAuthor{
+			Name: authorName,
+		}
+	}
+
+	_, err = s.ChannelMessageSendEmbed(logChannelID, embed)
+	if err != nil {
+		slog.Error("Failed to send message delete log", "error", err, "channel_id", logChannelID)
 	}
 }
 

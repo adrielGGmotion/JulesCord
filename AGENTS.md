@@ -369,6 +369,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/poll create` and `/poll close` commands in `internal/bot/commands/poll.go`.
 - Added logic to handle adding number reactions to poll options and dynamically counting reactions to display poll results when closing a poll.
 
+- Implemented Phase 19 Server Logs System features: added migrations `016_server_logs.sql` with table `server_log_config`.
+- Added DB operations `SetServerLogChannel` and `GetServerLogChannel` in `internal/db/db.go`.
+- Added `/serverlog setup` command in `internal/bot/commands/serverlog.go`.
+- Added `messageUpdateHandler` and `messageDeleteHandler` in `internal/bot/bot.go` to track and log edited and deleted messages.
+
 ### Phase 15 — AFK System
 - [x] `migrations/012_afk.sql` — `afk_users` table
 - [x] DB operations — `SetAFK`, `RemoveAFK`, `GetAFK`
@@ -391,3 +396,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `migrations/015_suggestions.sql` — `suggestion_config` and `suggestions` tables
 - [x] DB operations — `SetSuggestionChannel`, `GetSuggestionChannel`, `CreateSuggestion`, `GetSuggestionByID`, `UpdateSuggestionStatus`
 - [x] `/suggest` command with `setup`, `submit`, `accept`, and `reject` subcommands
+
+### Phase 19 — Server Logs System
+- [x] `migrations/016_server_logs.sql` — `server_log_config` table
+- [x] DB operations — `SetServerLogChannel`, `GetServerLogChannel`
+- [x] `/serverlog` command with `setup` subcommand
+- [x] Message handlers for tracking edited and deleted messages
