@@ -73,6 +73,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Starboard(database))
 	registry.Add(commands.NewStickyCommand(bot))
 	registry.Add(commands.Poll(database))
+	registry.Add(commands.NewSuggestCommand(bot))
 
 	// Load auto-responders into memory cache
 	if database != nil {

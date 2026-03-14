@@ -1568,3 +1568,86 @@ func (db *DB) UpdateStickyMessageID(ctx context.Context, channelID, messageID st
 	}
 	return err
 }
+
+// SuggestionConfig represents the configuration for suggestions in a guild
+type SuggestionConfig struct {
+	GuildID             string
+	SuggestionChannelID string
+}
+
+// Suggestion represents a single user suggestion
+type Suggestion struct {
+	ID        int
+	GuildID   string
+	UserID    string
+	MessageID string
+	Content   string
+	Status    string
+}
+
+// SetSuggestionChannel configures the channel where suggestions will be posted
+func (db *DB) SetSuggestionChannel(ctx context.Context, guildID, channelID string) error {
+	query := `
+		INSERT INTO suggestion_config (guild_id, suggestion_channel_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE
+		SET suggestion_channel_id = $2, updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+// GetSuggestionChannel gets the configured suggestion channel for a guild
+func (db *DB) GetSuggestionChannel(ctx context.Context, guildID string) (string, error) {
+	query := `SELECT suggestion_channel_id FROM suggestion_config WHERE guild_id = $1`
+	var channelID string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&channelID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil // No config set
+		}
+		return "", err
+	}
+	return channelID, nil
+}
+
+// CreateSuggestion creates a new suggestion and returns its ID
+func (db *DB) CreateSuggestion(ctx context.Context, guildID, userID, messageID, content string) (int, error) {
+	query := `
+		INSERT INTO suggestions (guild_id, user_id, message_id, content, status)
+		VALUES ($1, $2, $3, $4, 'pending')
+		RETURNING id
+	`
+	var id int
+	err := db.Pool.QueryRow(ctx, query, guildID, userID, messageID, content).Scan(&id)
+	return id, err
+}
+
+// GetSuggestionByID gets a suggestion by its ID
+func (db *DB) GetSuggestionByID(ctx context.Context, suggestionID int) (*Suggestion, error) {
+	query := `
+		SELECT id, guild_id, user_id, message_id, content, status
+		FROM suggestions
+		WHERE id = $1
+	`
+	var s Suggestion
+	err := db.Pool.QueryRow(ctx, query, suggestionID).Scan(&s.ID, &s.GuildID, &s.UserID, &s.MessageID, &s.Content, &s.Status)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Not found
+		}
+		return nil, err
+	}
+	return &s, nil
+}
+
+// UpdateSuggestionStatus updates the status of a suggestion
+func (db *DB) UpdateSuggestionStatus(ctx context.Context, suggestionID int, status string) error {
+	query := `
+		UPDATE suggestions
+		SET status = $1, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, status, suggestionID)
+	return err
+}
