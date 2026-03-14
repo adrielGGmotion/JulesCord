@@ -487,12 +487,22 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `/inventory` command to view purchased items
 
 ### Phase 28 — Birthday System
-- [ ] `migrations/025_birthdays.sql` — `birthday_config` and `birthdays` tables
- - [x] DB operations — `SetBirthdayChannel`, `GetBirthdayChannel`, `SetBirthday`, `RemoveBirthday`, `GetBirthdays`, `GetDueBirthdays`, `MarkBirthdayAnnounced`
-- [ ] `/birthday` command with `setup`, `set`, `remove`, and `list` subcommands
+- [x] `migrations/025_birthdays.sql` — `birthday_config` and `birthdays` tables
+- [x] DB operations — `SetBirthdayChannel`, `GetBirthdayChannel`, `SetBirthday`, `RemoveBirthday`, `GetBirthdays`, `GetDueBirthdays`, `MarkBirthdayAnnounced`
+- [x] `/birthday` command with `setup`, `set`, `remove`, and `list` subcommands
 - [x] Background goroutine for daily birthday announcements
+
+### Phase 29 — Temporary Voice Channels
+- [x] `migrations/026_temp_voice.sql` — `temp_voice_config` and `temp_voice_channels` tables
+- [x] DB operations — `SetTempVoiceConfig`, `GetTempVoiceConfig`, `CreateTempVoiceChannel`, `GetTempVoiceChannel`, `DeleteTempVoiceChannel`
+- [x] `/tempvoice` command with `setup` subcommand
+- [ ] `voiceStateUpdateHandler` to create/delete temporary voice channels
 
 - Implemented Phase 28 Birthday System features: added migrations `025_birthdays.sql` with tables `birthday_config` and `birthdays`.
 - Added DB operations `SetBirthdayChannel`, `GetBirthdayChannel`, `SetBirthday`, `RemoveBirthday`, `GetBirthdays`, `GetDueBirthdays`, and `MarkBirthdayAnnounced` in `internal/db/db.go`.
 - Added `/birthday` command with `setup`, `set`, `remove`, and `list` subcommands in `internal/bot/commands/birthday.go`.
 - Added background goroutine `checkBirthdays` in `internal/bot/bot.go` to announce birthdays daily.
+
+- Implemented Phase 29 Temporary Voice Channels foundation: added migrations `026_temp_voice.sql` with tables `temp_voice_config` and `temp_voice_channels`.
+- Added DB operations `SetTempVoiceConfig`, `GetTempVoiceConfig`, `CreateTempVoiceChannel`, `GetTempVoiceChannel`, and `DeleteTempVoiceChannel` in `internal/db/db.go`.
+- Added `/tempvoice setup` command in `internal/bot/commands/tempvoice.go` to configure category and trigger channel.
