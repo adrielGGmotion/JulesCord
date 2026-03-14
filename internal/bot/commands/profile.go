@@ -122,6 +122,12 @@ func handleProfileView(s *discordgo.Session, i *discordgo.InteractionCreate, dat
 		// We don't fail, we just show 0
 	}
 
+	// 4. Fetch Marriage Status
+	marriage, err := database.GetMarriage(ctx, i.GuildID, targetUser.ID)
+	if err != nil && err.Error() != "no rows in result set" {
+		slog.Error("Failed to fetch marriage status", "guild", i.GuildID, "user", targetUser.ID, "err", err)
+	}
+
 	// Format embed color
 	embedColor := 0x5865F2 // Default Blurple
 	if profile != nil && profile.Color != nil {
@@ -146,6 +152,20 @@ func handleProfileView(s *discordgo.Session, i *discordgo.InteractionCreate, dat
         coins = economy.Coins
     }
 
+	// Format Marriage
+	marriageStatus := "Single"
+	if marriage != nil {
+		partnerID := marriage.User2ID
+		if targetUser.ID == marriage.User2ID {
+			partnerID = marriage.User1ID
+		}
+		if marriage.Status == "accepted" {
+			marriageStatus = fmt.Sprintf("Married to <@%s> 💖", partnerID)
+		} else {
+			marriageStatus = fmt.Sprintf("Pending proposal with <@%s> 💍", partnerID)
+		}
+	}
+
 	// Build Embed fields
 	fields := []*discordgo.MessageEmbedField{
 		{
@@ -156,6 +176,11 @@ func handleProfileView(s *discordgo.Session, i *discordgo.InteractionCreate, dat
 		{
 			Name:   "Reputation",
 			Value:  fmt.Sprintf("Rep Points: **%d**", rep),
+			Inline: true,
+		},
+		{
+			Name:   "Marriage",
+			Value:  marriageStatus,
 			Inline: true,
 		},
 	}

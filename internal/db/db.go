@@ -2489,3 +2489,105 @@ func (db *DB) DeleteTempVoiceChannel(ctx context.Context, channelID string) erro
 	_, err := db.Pool.Exec(ctx, query, channelID)
 	return err
 }
+
+// Marriage represents a marriage proposal or active marriage.
+type Marriage struct {
+	ID        int       `json:"id"`
+	GuildID   string    `json:"guild_id"`
+	User1ID   string    `json:"user1_id"`
+	User2ID   string    `json:"user2_id"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// ProposeMarriage creates a new marriage proposal.
+func (db *DB) ProposeMarriage(ctx context.Context, guildID, proposerID, proposeeID string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("ProposeMarriage").Observe(time.Since(start).Seconds())
+	}()
+
+	// Ensure neither user is already in a marriage/proposal in this guild
+	var count int
+	err := db.Pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM marriages
+		WHERE guild_id = $1 AND (user1_id = $2 OR user2_id = $2 OR user1_id = $3 OR user2_id = $3)
+	`, guildID, proposerID, proposeeID).Scan(&count)
+
+	if err != nil {
+		return err
+	}
+	if count > 0 {
+		return fmt.Errorf("one or both users are already married or have a pending proposal")
+	}
+
+	_, err = db.Pool.Exec(ctx, `
+		INSERT INTO marriages (guild_id, user1_id, user2_id, status)
+		VALUES ($1, $2, $3, 'pending')
+	`, guildID, proposerID, proposeeID)
+	return err
+}
+
+// AcceptMarriage updates a proposal status to accepted.
+func (db *DB) AcceptMarriage(ctx context.Context, guildID, proposeeID, proposerID string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("AcceptMarriage").Observe(time.Since(start).Seconds())
+	}()
+
+	cmd, err := db.Pool.Exec(ctx, `
+		UPDATE marriages
+		SET status = 'accepted', updated_at = CURRENT_TIMESTAMP
+		WHERE guild_id = $1 AND user1_id = $2 AND user2_id = $3 AND status = 'pending'
+	`, guildID, proposerID, proposeeID)
+
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return fmt.Errorf("no pending proposal found from that user")
+	}
+	return nil
+}
+
+// Divorce removes a marriage or pending proposal.
+func (db *DB) Divorce(ctx context.Context, guildID, userID string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("Divorce").Observe(time.Since(start).Seconds())
+	}()
+
+	cmd, err := db.Pool.Exec(ctx, `
+		DELETE FROM marriages
+		WHERE guild_id = $1 AND (user1_id = $2 OR user2_id = $2)
+	`, guildID, userID)
+
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return fmt.Errorf("you are not married or have no pending proposals")
+	}
+	return nil
+}
+
+// GetMarriage returns the active marriage or proposal for a user.
+func (db *DB) GetMarriage(ctx context.Context, guildID, userID string) (*Marriage, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetMarriage").Observe(time.Since(start).Seconds())
+	}()
+
+	var m Marriage
+	err := db.Pool.QueryRow(ctx, `
+		SELECT id, guild_id, user1_id, user2_id, status, created_at, updated_at
+		FROM marriages
+		WHERE guild_id = $1 AND (user1_id = $2 OR user2_id = $2)
+	`, guildID, userID).Scan(&m.ID, &m.GuildID, &m.User1ID, &m.User2ID, &m.Status, &m.CreatedAt, &m.UpdatedAt)
+
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}

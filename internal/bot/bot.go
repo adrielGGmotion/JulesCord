@@ -83,6 +83,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.LevelRole(database))
 	registry.Add(commands.NewProfileCommand(database))
 	registry.Add(commands.Shop(database))
+	registry.Add(commands.NewMarryCommand(database))
 	registry.Add(commands.Inventory(database))
 	registry.Add(commands.Birthday(database))
 	registry.Add(commands.TempVoice(database))
