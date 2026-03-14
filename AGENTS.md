@@ -388,6 +388,10 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added DB operations `AddNote`, `GetNotes`, and `RemoveNote` in `internal/db/db.go`.
 - Added `/note` command with `add`, `list`, and `remove` subcommands in `internal/bot/commands/note.go`.
 
+- Implemented Phase 24 Voice Logging System features: added migrations `021_voice_logs.sql` with table `voice_log_config`.
+- Added DB operations `SetVoiceLogChannel` and `GetVoiceLogChannel` in `internal/db/db.go`.
+- Added `/voicelog` command with `setup` subcommand in `internal/bot/commands/voicelog.go`.
+- Added `voiceStateUpdateHandler` in `internal/bot/bot.go` to track and log voice joins, leaves, and moves and send embed logs to the configured channel.
 - Implemented Phase 23 Level Roles System features: added migrations `020_level_roles.sql` with table `level_roles`.
 - Added DB operations `SetLevelRole`, `RemoveLevelRole`, `GetLevelRoles`, and `GetLevelRole` in `internal/db/db.go`.
 - Added `/levelrole` command with `add`, `list`, and `remove` subcommands in `internal/bot/commands/levelrole.go`.
@@ -444,3 +448,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetLevelRole`, `RemoveLevelRole`, `GetLevelRoles`, `GetLevelRole`
 - [x] `/levelrole` command with `add`, `remove`, `list` subcommands
 - [x] Assign role on level up in XP system
+
+### Phase 24 — Voice Logging System
+- [x] `migrations/021_voice_logs.sql` — `voice_log_config` table
+- [x] DB operations — `SetVoiceLogChannel`, `GetVoiceLogChannel`
+- [x] `/voicelog` command with `setup` subcommand
+- [x] `voiceStateUpdateHandler` to track and log voice joins, leaves, and moves

@@ -1940,3 +1940,34 @@ func (db *DB) GetLevelRole(ctx context.Context, guildID string, level int) (*str
 	}
 	return &roleID, nil
 }
+
+// SetVoiceLogChannel sets the voice log channel for a guild.
+func (db *DB) SetVoiceLogChannel(ctx context.Context, guildID string, channelID string) error {
+	query := `
+		INSERT INTO voice_log_config (guild_id, channel_id, updated_at)
+		VALUES ($1, $2, CURRENT_TIMESTAMP)
+		ON CONFLICT (guild_id) DO UPDATE
+		SET channel_id = EXCLUDED.channel_id,
+		    updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+// GetVoiceLogChannel retrieves the voice log channel for a guild.
+func (db *DB) GetVoiceLogChannel(ctx context.Context, guildID string) (*string, error) {
+	query := `
+		SELECT channel_id
+		FROM voice_log_config
+		WHERE guild_id = $1
+	`
+	var channelID string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&channelID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No config found
+		}
+		return nil, err
+	}
+	return &channelID, nil
+}

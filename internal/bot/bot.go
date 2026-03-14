@@ -53,6 +53,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Daily(database))
 	registry.Add(commands.Coins(database))
 	registry.Add(commands.Config(database))
+	registry.Add(commands.VoiceLog(database))
 	registry.Add(commands.ReactionRole(database))
 	registry.Add(commands.Schedule(database))
 	registry.Add(commands.Changelog())
@@ -123,9 +124,10 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 
 	// Register message delete handler
 	bot.Session.AddHandler(bot.messageDeleteHandler)
+	bot.Session.AddHandler(bot.voiceStateUpdateHandler)
 
 	// Set intentions
-	bot.Session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMembers | discordgo.IntentsGuildMessageReactions | discordgo.IntentsMessageContent
+	bot.Session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMembers | discordgo.IntentsGuildMessageReactions | discordgo.IntentsMessageContent | discordgo.IntentsGuildVoiceStates
 
 	return bot, nil
 }
@@ -1008,4 +1010,94 @@ func (b *Bot) checkAutomod(s *discordgo.Session, guildID, channelID, messageID, 
 	}
 
 	return false
+}
+
+// voiceStateUpdateHandler tracks voice joins, leaves, and moves and logs them.
+func (b *Bot) voiceStateUpdateHandler(s *discordgo.Session, v *discordgo.VoiceStateUpdate) {
+	if b.DB == nil || v.GuildID == "" {
+		return
+	}
+
+	// Filter out state updates that don't involve channel changes (like mute/deafen)
+	// We only care if the ChannelID changed.
+	// v.BeforeUpdate can be nil if the user just joined a voice channel.
+	var oldChannelID string
+	if v.BeforeUpdate != nil {
+		oldChannelID = v.BeforeUpdate.ChannelID
+	}
+
+	newChannelID := v.ChannelID
+
+	// If the channel ID didn't change, it's a mute/deafen or similar state update
+	if oldChannelID == newChannelID {
+		return
+	}
+
+	channelIDStr, err := b.DB.GetVoiceLogChannel(context.Background(), v.GuildID)
+	if err != nil {
+		slog.Error("Failed to get voice log config", "guild_id", v.GuildID, "error", err)
+		return
+	}
+
+	if channelIDStr == nil {
+		return // Voice logging not configured for this guild
+	}
+
+	// Fetch user details. Try v.Member.User first, fallback to state cache/API
+	var user *discordgo.User
+	if v.Member != nil && v.Member.User != nil {
+		user = v.Member.User
+	} else {
+		// Fallback (might cause API call if not cached, but necessary if Member is nil)
+		member, err := s.GuildMember(v.GuildID, v.UserID)
+		if err == nil && member != nil && member.User != nil {
+			user = member.User
+		}
+	}
+
+	if user == nil {
+		slog.Warn("Could not determine user for voice state update", "user_id", v.UserID)
+		return
+	}
+
+	var title string
+	var description string
+	var color int
+
+	if oldChannelID == "" && newChannelID != "" {
+		// Joined
+		title = "🎙️ Voice Join"
+		description = fmt.Sprintf("<@%s> joined voice channel <#%s>", v.UserID, newChannelID)
+		color = 0x00FF00 // Green
+	} else if oldChannelID != "" && newChannelID == "" {
+		// Left
+		title = "🎙️ Voice Leave"
+		description = fmt.Sprintf("<@%s> left voice channel <#%s>", v.UserID, oldChannelID)
+		color = 0xFF0000 // Red
+	} else if oldChannelID != "" && newChannelID != "" {
+		// Moved
+		title = "🎙️ Voice Move"
+		description = fmt.Sprintf("<@%s> moved from <#%s> to <#%s>", v.UserID, oldChannelID, newChannelID)
+		color = 0xFFA500 // Orange
+	} else {
+		return
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       title,
+		Description: description,
+		Color:       color,
+		Author: &discordgo.MessageEmbedAuthor{
+			Name:    user.String(),
+			IconURL: user.AvatarURL(""),
+		},
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("User ID: %s", v.UserID),
+		},
+	}
+
+	_, err = s.ChannelMessageSendEmbed(*channelIDStr, embed)
+	if err != nil {
+		slog.Error("Failed to send voice log embed", "channel_id", *channelIDStr, "error", err)
+	}
 }
