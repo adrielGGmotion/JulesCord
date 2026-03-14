@@ -1971,3 +1971,82 @@ func (db *DB) GetVoiceLogChannel(ctx context.Context, guildID string) (*string, 
 	}
 	return &channelID, nil
 }
+
+// GetReputation retrieves a user's reputation points in a guild.
+func (db *DB) GetReputation(ctx context.Context, guildID, userID string) (int64, error) {
+	query := `
+		SELECT rep
+		FROM reputation
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	var rep int64
+	err := db.Pool.QueryRow(ctx, query, guildID, userID).Scan(&rep)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return rep, nil
+}
+
+// CanGiveReputation checks if a user has given reputation in the last 24 hours.
+// Returns a boolean indicating if they can give rep, and the duration until they can.
+func (db *DB) CanGiveReputation(ctx context.Context, guildID, senderID string) (bool, time.Duration, error) {
+	query := `
+		SELECT given_at
+		FROM reputation_log
+		WHERE guild_id = $1 AND sender_id = $2
+		ORDER BY given_at DESC
+		LIMIT 1
+	`
+	var lastGiven time.Time
+	err := db.Pool.QueryRow(ctx, query, guildID, senderID).Scan(&lastGiven)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return true, 0, nil
+		}
+		return false, 0, err
+	}
+
+	cooldown := 24 * time.Hour
+	timeSinceLastGiven := time.Since(lastGiven)
+	if timeSinceLastGiven >= cooldown {
+		return true, 0, nil
+	}
+
+	return false, cooldown - timeSinceLastGiven, nil
+}
+
+// AddReputation adds 1 reputation point to a user and logs the transaction.
+func (db *DB) AddReputation(ctx context.Context, guildID, senderID, receiverID string) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Upsert reputation
+	upsertQuery := `
+		INSERT INTO reputation (guild_id, user_id, rep)
+		VALUES ($1, $2, 1)
+		ON CONFLICT (guild_id, user_id)
+		DO UPDATE SET rep = reputation.rep + 1
+	`
+	_, err = tx.Exec(ctx, upsertQuery, guildID, receiverID)
+	if err != nil {
+		return err
+	}
+
+	// Log transaction
+	logQuery := `
+		INSERT INTO reputation_log (guild_id, sender_id, receiver_id)
+		VALUES ($1, $2, $3)
+	`
+	_, err = tx.Exec(ctx, logQuery, guildID, senderID, receiverID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
