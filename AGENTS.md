@@ -379,6 +379,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/automod` command with `setup`, `word add`, `word remove`, and `word list` subcommands in `internal/bot/commands/automod.go`.
 - Added `checkAutomod` message handler check in `internal/bot/bot.go` to intercept and delete messages with links, invites, or bad words and send embedded logs to the configured log channel.
 
+- Implemented Phase 21 Verification System features: added migrations `018_verification.sql` with table `verification_config`.
+- Added DB operations `SetVerificationConfig` and `GetVerificationConfig` in `internal/db/db.go`.
+- Added `/verify setup` command in `internal/bot/commands/verification.go` that posts an interactive verification panel.
+- Added a component interaction handler in `internal/bot/bot.go` to listen for clicks on the `verify_button` and assign the designated role.
+
 ### Phase 15 — AFK System
 - [x] `migrations/012_afk.sql` — `afk_users` table
 - [x] DB operations — `SetAFK`, `RemoveAFK`, `GetAFK`
@@ -413,3 +418,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetAutomodConfig`, `GetAutomodConfig`, `AddAutomodWord`, `RemoveAutomodWord`, `GetAutomodWords`
 - [x] `/automod` command with `setup`, `word add`, `word remove`, `word list` subcommands
 - [x] Message handlers check for links, invites, and bad words, delete the message, and send an embed to the log channel
+
+### Phase 21 — Verification System
+- [x] `migrations/018_verification.sql` — `verification_config` table
+- [x] DB operations — `SetVerificationConfig`, `GetVerificationConfig`
+- [x] `/verify setup` command — creates an interactive verification panel with a button
+- [x] Message component handler — assigns the verification role when the button is clicked

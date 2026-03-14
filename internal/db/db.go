@@ -1611,6 +1611,38 @@ func (db *DB) GetSuggestionChannel(ctx context.Context, guildID string) (string,
 	return channelID, nil
 }
 
+// VerificationConfig represents the verification configuration for a guild.
+type VerificationConfig struct {
+	GuildID string
+	RoleID  string
+}
+
+// SetVerificationConfig sets the verification configuration for a guild.
+func (db *DB) SetVerificationConfig(ctx context.Context, guildID, roleID string) error {
+	query := `
+		INSERT INTO verification_config (guild_id, role_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE
+		SET role_id = EXCLUDED.role_id, updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, roleID)
+	return err
+}
+
+// GetVerificationConfig gets the verification configuration for a guild.
+func (db *DB) GetVerificationConfig(ctx context.Context, guildID string) (*VerificationConfig, error) {
+	query := `SELECT role_id FROM verification_config WHERE guild_id = $1`
+	var roleID string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&roleID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No config set
+		}
+		return nil, err
+	}
+	return &VerificationConfig{GuildID: guildID, RoleID: roleID}, nil
+}
+
 // AutomodConfig represents the automod configuration for a guild.
 type AutomodConfig struct {
 	GuildID       string
