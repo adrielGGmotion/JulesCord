@@ -384,6 +384,10 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/verify setup` command in `internal/bot/commands/verification.go` that posts an interactive verification panel.
 - Added a component interaction handler in `internal/bot/bot.go` to listen for clicks on the `verify_button` and assign the designated role.
 
+- Implemented Phase 22 User Notes System features: added migrations `019_notes.sql` with table `user_notes`.
+- Added DB operations `AddNote`, `GetNotes`, and `RemoveNote` in `internal/db/db.go`.
+- Added `/note` command with `add`, `list`, and `remove` subcommands in `internal/bot/commands/note.go`.
+
 ### Phase 15 — AFK System
 - [x] `migrations/012_afk.sql` — `afk_users` table
 - [x] DB operations — `SetAFK`, `RemoveAFK`, `GetAFK`
@@ -424,3 +428,8 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetVerificationConfig`, `GetVerificationConfig`
 - [x] `/verify setup` command — creates an interactive verification panel with a button
 - [x] Message component handler — assigns the verification role when the button is clicked
+
+### Phase 22 — User Notes System
+- [x] `migrations/019_notes.sql` — `user_notes` table
+- [x] DB operations — `AddNote`, `GetNotes`, `RemoveNote`
+- [x] `/note` command with `add`, `list`, and `remove` subcommands
