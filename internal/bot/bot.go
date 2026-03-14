@@ -68,6 +68,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	}
 
 	registry.Add(commands.AutoResponder(database, bot))
+	registry.Add(commands.Starboard(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -360,6 +361,10 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 
 // messageReactionAddHandler is called when a user adds a reaction to a message
 func (b *Bot) messageReactionAddHandler(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
+
+	// Starboard check
+	b.handleStarboardReaction(s, r.GuildID, r.ChannelID, r.MessageID, r.Emoji.Name)
+
 	if b.DB == nil || r.GuildID == "" || r.UserID == s.State.User.ID {
 		return
 	}
@@ -385,6 +390,10 @@ func (b *Bot) messageReactionAddHandler(s *discordgo.Session, r *discordgo.Messa
 
 // messageReactionRemoveHandler is called when a user removes a reaction from a message
 func (b *Bot) messageReactionRemoveHandler(s *discordgo.Session, r *discordgo.MessageReactionRemove) {
+
+	// Starboard check
+	b.handleStarboardReaction(s, r.GuildID, r.ChannelID, r.MessageID, r.Emoji.Name)
+
 	if b.DB == nil || r.GuildID == "" || r.UserID == s.State.User.ID {
 		return
 	}
@@ -465,5 +474,128 @@ func (b *Bot) checkReminders() {
 		}
 
 		<-ticker.C
+	}
+}
+
+// handleStarboardReaction processes reactions to check if they should be added/updated on the starboard.
+func (b *Bot) handleStarboardReaction(s *discordgo.Session, guildID, channelID, messageID, emojiName string) {
+	if b.DB == nil || guildID == "" || emojiName != "⭐" {
+		return
+	}
+
+	config, err := b.DB.GetStarboardConfig(context.Background(), guildID)
+	if err != nil || config == nil {
+		// Not configured or error
+		return
+	}
+
+	// Prevent starboard-ception: don't track reactions on messages inside the starboard channel itself
+	if channelID == config.ChannelID {
+		return
+	}
+
+	// Fetch the message to count reactions
+	msg, err := s.ChannelMessage(channelID, messageID)
+	if err != nil {
+		slog.Error("Failed to fetch message for starboard", "error", err, "message_id", messageID)
+		return
+	}
+
+	// Calculate total star reactions
+	var starCount int
+	for _, reaction := range msg.Reactions {
+		if reaction.Emoji.Name == "⭐" {
+			starCount = reaction.Count
+			break
+		}
+	}
+
+	// Determine action based on threshold
+	sbMsg, err := b.DB.GetStarboardMessage(context.Background(), messageID)
+	if err != nil {
+		slog.Error("Failed to fetch starboard message config", "error", err, "message_id", messageID)
+		return
+	}
+
+	// Create embed for the starboard
+	authorName := msg.Author.Username
+	if msg.Author.GlobalName != "" {
+		authorName = msg.Author.GlobalName
+	}
+
+	// Default embed color (gold for stars)
+	embedColor := 0xFFD700
+
+	// Create the embed with the message content
+	embed := &discordgo.MessageEmbed{
+		Author: &discordgo.MessageEmbedAuthor{
+			Name:    authorName,
+			IconURL: msg.Author.AvatarURL(""),
+		},
+		Description: msg.Content,
+		Color:       embedColor,
+		Timestamp:   msg.Timestamp.Format(time.RFC3339),
+	}
+
+	// Add link to original message
+	embed.Description += fmt.Sprintf("\n\n[Jump to Message](https://discord.com/channels/%s/%s/%s)", guildID, channelID, messageID)
+
+	// Add first attachment if exists
+	if len(msg.Attachments) > 0 {
+		embed.Image = &discordgo.MessageEmbedImage{
+			URL: msg.Attachments[0].URL,
+		}
+	}
+
+	starText := fmt.Sprintf("⭐ **%d** | <#%s>", starCount, channelID)
+
+	if starCount >= config.MinStars {
+		if sbMsg == nil || sbMsg.StarboardMessageID == "" {
+			// Threshold reached for the first time, send new message to starboard
+			sentMsg, err := s.ChannelMessageSendComplex(config.ChannelID, &discordgo.MessageSend{
+				Content: starText,
+				Embeds:  []*discordgo.MessageEmbed{embed},
+			})
+			if err != nil {
+				slog.Error("Failed to send message to starboard channel", "error", err, "channel_id", config.ChannelID)
+				return
+			}
+
+			// Upsert to database
+			err = b.DB.UpsertStarboardMessage(context.Background(), messageID, guildID, channelID, sentMsg.ID, starCount)
+			if err != nil {
+				slog.Error("Failed to upsert starboard message to database", "error", err, "message_id", messageID)
+			}
+		} else {
+			// Update existing starboard message
+			_, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
+				Channel: config.ChannelID,
+				ID:      sbMsg.StarboardMessageID,
+				Content: &starText,
+				Embeds:  &[]*discordgo.MessageEmbed{embed},
+			})
+			if err != nil {
+				slog.Error("Failed to update starboard message", "error", err, "starboard_message_id", sbMsg.StarboardMessageID)
+				return
+			}
+
+			// Update count in database
+			err = b.DB.UpsertStarboardMessage(context.Background(), messageID, guildID, channelID, sbMsg.StarboardMessageID, starCount)
+			if err != nil {
+				slog.Error("Failed to update starboard message count in database", "error", err, "message_id", messageID)
+			}
+		}
+	} else if sbMsg != nil && sbMsg.StarboardMessageID != "" {
+		// Fell below threshold, delete from starboard
+		err := s.ChannelMessageDelete(config.ChannelID, sbMsg.StarboardMessageID)
+		if err != nil {
+			slog.Error("Failed to delete starboard message", "error", err, "starboard_message_id", sbMsg.StarboardMessageID)
+		}
+
+		// Remove mapping in database or mark as 0 stars
+		err = b.DB.UpsertStarboardMessage(context.Background(), messageID, guildID, channelID, "", starCount)
+		if err != nil {
+			slog.Error("Failed to remove starboard message mapping from database", "error", err, "message_id", messageID)
+		}
 	}
 }
