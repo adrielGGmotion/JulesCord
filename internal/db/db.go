@@ -1215,3 +1215,167 @@ func (db *DB) UpsertStarboardMessage(ctx context.Context, messageID, guildID, ch
 	}
 	return nil
 }
+
+// Giveaway represents a giveaway record in the database.
+type Giveaway struct {
+	ID          int       `json:"id"`
+	GuildID     string    `json:"guild_id"`
+	ChannelID   string    `json:"channel_id"`
+	MessageID   string    `json:"message_id"`
+	Prize       string    `json:"prize"`
+	WinnerCount int       `json:"winner_count"`
+	EndAt       time.Time `json:"end_at"`
+	Ended       bool      `json:"ended"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// CreateGiveaway inserts a new giveaway into the database.
+func (db *DB) CreateGiveaway(ctx context.Context, guildID, channelID, messageID, prize string, winnerCount int, endAt time.Time) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("CreateGiveaway").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		INSERT INTO giveaways (guild_id, channel_id, message_id, prize, winner_count, end_at, ended, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, false, NOW())
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, messageID, prize, winnerCount, endAt)
+	if err != nil {
+		slog.Error("Failed to create giveaway", "error", err, "guild_id", guildID, "message_id", messageID)
+		return err
+	}
+	return nil
+}
+
+// GetActiveGiveaways retrieves all giveaways that have ended=false and their end_at time is in the past.
+func (db *DB) GetActiveGiveaways(ctx context.Context) ([]*Giveaway, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetActiveGiveaways").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		SELECT id, guild_id, channel_id, message_id, prize, winner_count, end_at, ended, created_at
+		FROM giveaways
+		WHERE ended = false AND end_at <= NOW()
+	`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		slog.Error("Failed to get active giveaways", "error", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var giveaways []*Giveaway
+	for rows.Next() {
+		g := &Giveaway{}
+		err := rows.Scan(
+			&g.ID, &g.GuildID, &g.ChannelID, &g.MessageID, &g.Prize, &g.WinnerCount, &g.EndAt, &g.Ended, &g.CreatedAt,
+		)
+		if err != nil {
+			slog.Error("Failed to scan giveaway", "error", err)
+			return nil, err
+		}
+		giveaways = append(giveaways, g)
+	}
+	return giveaways, nil
+}
+
+// EndGiveaway marks a giveaway as ended.
+func (db *DB) EndGiveaway(ctx context.Context, messageID string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("EndGiveaway").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		UPDATE giveaways
+		SET ended = true
+		WHERE message_id = $1
+	`
+	_, err := db.Pool.Exec(ctx, query, messageID)
+	if err != nil {
+		slog.Error("Failed to end giveaway", "error", err, "message_id", messageID)
+		return err
+	}
+	return nil
+}
+
+// GetGiveawayByMessage retrieves a giveaway by its message ID.
+func (db *DB) GetGiveawayByMessage(ctx context.Context, messageID string) (*Giveaway, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetGiveawayByMessage").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		SELECT id, guild_id, channel_id, message_id, prize, winner_count, end_at, ended, created_at
+		FROM giveaways
+		WHERE message_id = $1
+	`
+	g := &Giveaway{}
+	err := db.Pool.QueryRow(ctx, query, messageID).Scan(
+		&g.ID, &g.GuildID, &g.ChannelID, &g.MessageID, &g.Prize, &g.WinnerCount, &g.EndAt, &g.Ended, &g.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Return nil, nil if giveaway is not found
+		}
+		slog.Error("Failed to get giveaway by message", "error", err, "message_id", messageID)
+		return nil, err
+	}
+	return g, nil
+}
+
+// AddGiveawayEntrant adds a user to a giveaway.
+func (db *DB) AddGiveawayEntrant(ctx context.Context, giveawayID int, userID string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("AddGiveawayEntrant").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		INSERT INTO giveaway_entrants (giveaway_id, user_id, created_at)
+		VALUES ($1, $2, NOW())
+		ON CONFLICT ON CONSTRAINT giveaway_entrants_unique DO NOTHING
+	`
+	_, err := db.Pool.Exec(ctx, query, giveawayID, userID)
+	if err != nil {
+		slog.Error("Failed to add giveaway entrant", "error", err, "giveaway_id", giveawayID, "user_id", userID)
+		return err
+	}
+	return nil
+}
+
+// GetGiveawayEntrants retrieves all entrants for a giveaway.
+func (db *DB) GetGiveawayEntrants(ctx context.Context, giveawayID int) ([]string, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetGiveawayEntrants").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		SELECT user_id
+		FROM giveaway_entrants
+		WHERE giveaway_id = $1
+	`
+	rows, err := db.Pool.Query(ctx, query, giveawayID)
+	if err != nil {
+		slog.Error("Failed to get giveaway entrants", "error", err, "giveaway_id", giveawayID)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entrants []string
+	for rows.Next() {
+		var userID string
+		err := rows.Scan(&userID)
+		if err != nil {
+			slog.Error("Failed to scan giveaway entrant", "error", err)
+			return nil, err
+		}
+		entrants = append(entrants, userID)
+	}
+	return entrants, nil
+}

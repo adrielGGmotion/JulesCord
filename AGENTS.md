@@ -169,6 +169,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Added database operations `AddAutoResponder`, `RemoveAutoResponder`, `ListAutoResponders`, and `ListAllAutoResponders` in `internal/db/db.go`.
 - Added `/autoresponder` command in `internal/bot/commands/autoresponder.go` with subcommands `add`, `remove`, and `list`.
 - Updated message handler in `internal/bot/bot.go` to use an in-memory cache to check incoming messages and reply if a trigger word matches without querying the database each time.
+- Implemented Phase 14 Giveaways System features: added migrations `011_giveaways.sql` with tables `giveaways` and `giveaway_entrants`.
+- Added DB operations `CreateGiveaway`, `GetActiveGiveaways`, `EndGiveaway`, `GetGiveawayByMessage`, `AddGiveawayEntrant`, and `GetGiveawayEntrants` in `internal/db/db.go`.
+- Added `/giveaway create` and `/giveaway end` commands in `internal/bot/commands/giveaway.go`.
+- Added message reaction handler in `internal/bot/bot.go` for the `🎉` emoji to allow users to enter giveaways.
+- Added a background goroutine `checkGiveaways` in `internal/bot/bot.go` that picks winners for ended giveaways every minute and announces them.
 
 ---
 
@@ -338,3 +343,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetStarboardConfig`, `GetStarboardConfig`, `GetStarboardMessage`, `UpsertStarboardMessage`
 - [x] `/starboard setup` command — configures the starboard channel and threshold
 - [x] Message reaction handler for ⭐ — posts/updates messages on the starboard
+
+### Phase 14 — Giveaways System
+- [x] `migrations/011_giveaways.sql` — `giveaways` and `giveaway_entrants` tables
+- [x] DB operations — `CreateGiveaway`, `GetActiveGiveaways`, `EndGiveaway`, `AddGiveawayEntrant`, `GetGiveawayEntrants`
+- [x] `/giveaway create` and `/giveaway end` commands
+- [x] Message reaction handler for 🎉 to enter giveaways, and background goroutine to pick winners
