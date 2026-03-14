@@ -1422,3 +1422,77 @@ func (db *DB) GetAFK(ctx context.Context, userID, guildID string) (string, time.
 	}
 	return reason, createdAt, nil
 }
+
+// StickyMessage represents a sticky message in a channel.
+type StickyMessage struct {
+	ChannelID     string
+	GuildID       string
+	MessageText   string
+	LastMessageID string
+}
+
+// SetSticky creates or updates a sticky message for a channel.
+func (db *DB) SetSticky(ctx context.Context, channelID, guildID, messageText string) error {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("SetSticky").Observe(time.Since(start).Seconds())
+
+	query := `
+		INSERT INTO sticky_messages (channel_id, guild_id, message_text)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (channel_id) DO UPDATE
+		SET message_text = EXCLUDED.message_text, last_message_id = NULL, updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, channelID, guildID, messageText)
+	if err != nil {
+		slog.Error("Failed to set sticky message", "error", err, "channel_id", channelID)
+	}
+	return err
+}
+
+// RemoveSticky removes a sticky message from a channel.
+func (db *DB) RemoveSticky(ctx context.Context, channelID string) error {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("RemoveSticky").Observe(time.Since(start).Seconds())
+
+	query := `DELETE FROM sticky_messages WHERE channel_id = $1`
+	_, err := db.Pool.Exec(ctx, query, channelID)
+	if err != nil {
+		slog.Error("Failed to remove sticky message", "error", err, "channel_id", channelID)
+	}
+	return err
+}
+
+// GetSticky retrieves the sticky message configuration for a channel.
+func (db *DB) GetSticky(ctx context.Context, channelID string) (*StickyMessage, error) {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("GetSticky").Observe(time.Since(start).Seconds())
+
+	query := `SELECT channel_id, guild_id, message_text, last_message_id FROM sticky_messages WHERE channel_id = $1`
+	var sticky StickyMessage
+	var lastMessageID *string
+	err := db.Pool.QueryRow(ctx, query, channelID).Scan(&sticky.ChannelID, &sticky.GuildID, &sticky.MessageText, &lastMessageID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Not an error, just no sticky message
+		}
+		slog.Error("Failed to get sticky message", "error", err, "channel_id", channelID)
+		return nil, err
+	}
+	if lastMessageID != nil {
+		sticky.LastMessageID = *lastMessageID
+	}
+	return &sticky, nil
+}
+
+// UpdateStickyMessageID updates the last message ID of a sticky message.
+func (db *DB) UpdateStickyMessageID(ctx context.Context, channelID, messageID string) error {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("UpdateStickyMessageID").Observe(time.Since(start).Seconds())
+
+	query := `UPDATE sticky_messages SET last_message_id = $1, updated_at = CURRENT_TIMESTAMP WHERE channel_id = $2`
+	_, err := db.Pool.Exec(ctx, query, messageID, channelID)
+	if err != nil {
+		slog.Error("Failed to update sticky message ID", "error", err, "channel_id", channelID)
+	}
+	return err
+}

@@ -71,6 +71,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 
 	registry.Add(commands.AutoResponder(database, bot))
 	registry.Add(commands.Starboard(database))
+	registry.Add(commands.NewStickyCommand(bot))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -282,9 +283,25 @@ func (b *Bot) interactionCreateHandler(s *discordgo.Session, i *discordgo.Intera
 
 // messageCreateHandler is called every time a new message is created
 func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCreate) {
+
 	// Ignore all messages created by the bot itself or other bots
 	if m.Author.ID == s.State.User.ID || m.Author.Bot {
 		return
+	}
+
+	// Sticky Messages System
+	if b.DB != nil && m.GuildID != "" {
+		// Check for sticky message in channel
+		sticky, err := b.DB.GetSticky(context.Background(), m.ChannelID)
+		if err == nil && sticky != nil {
+			if sticky.LastMessageID != "" {
+				_ = s.ChannelMessageDelete(m.ChannelID, sticky.LastMessageID)
+			}
+			newMsg, err := s.ChannelMessageSend(m.ChannelID, sticky.MessageText)
+			if err == nil {
+				_ = b.DB.UpdateStickyMessageID(context.Background(), m.ChannelID, newMsg.ID)
+			}
+		}
 	}
 
 	// AFK System
@@ -672,4 +689,9 @@ func (b *Bot) checkGiveaways() {
 
 		<-ticker.C
 	}
+}
+
+// GetDB returns the database instance for commands to use.
+func (b *Bot) GetDB() *db.DB {
+	return b.DB
 }

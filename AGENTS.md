@@ -355,8 +355,19 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `/giveaway create` and `/giveaway end` commands
 - [x] Message reaction handler for 🎉 to enter giveaways, and background goroutine to pick winners
 
+- Implemented Phase 16 Sticky Messages System features: added migrations 013_sticky_messages.sql with table sticky_messages.
+- Added DB operations SetSticky, RemoveSticky, GetSticky, and UpdateStickyMessageID in internal/db/db.go.
+- Added /sticky command with set and remove subcommands in internal/bot/commands/sticky.go.
+- Updated message handler in internal/bot/bot.go to maintain sticky messages at the bottom of channels.
+
 ### Phase 15 — AFK System
 - [x] `migrations/012_afk.sql` — `afk_users` table
 - [x] DB operations — `SetAFK`, `RemoveAFK`, `GetAFK`
 - [x] `/afk` command
 - [x] Message handler checks for mentions to notify channel and removes AFK status when an AFK user types
+
+### Phase 16 — Sticky Messages System
+- [x] `migrations/013_sticky_messages.sql` — `sticky_messages` table
+- [x] DB operations — `SetSticky`, `RemoveSticky`, `GetSticky`, `UpdateStickyMessageID`
+- [x] `/sticky` command with `set` and `remove` subcommands
+- [x] Message handler to maintain the sticky message at the bottom of the channel
