@@ -1,0 +1,16 @@
+CREATE TABLE IF NOT EXISTS automod_config (
+    guild_id TEXT PRIMARY KEY,
+    log_channel_id TEXT,
+    filter_links BOOLEAN DEFAULT FALSE,
+    filter_invites BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS automod_words (
+    id SERIAL PRIMARY KEY,
+    guild_id TEXT NOT NULL,
+    word TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(guild_id, word)
+);

@@ -1611,6 +1611,86 @@ func (db *DB) GetSuggestionChannel(ctx context.Context, guildID string) (string,
 	return channelID, nil
 }
 
+// AutomodConfig represents the automod configuration for a guild.
+type AutomodConfig struct {
+	GuildID       string
+	LogChannelID  string
+	FilterLinks   bool
+	FilterInvites bool
+}
+
+// SetAutomodConfig upserts the automod configuration for a guild.
+func (db *DB) SetAutomodConfig(ctx context.Context, guildID, logChannelID string, filterLinks, filterInvites bool) error {
+	query := `
+		INSERT INTO automod_config (guild_id, log_channel_id, filter_links, filter_invites)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (guild_id) DO UPDATE
+		SET log_channel_id = $2, filter_links = $3, filter_invites = $4, updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, logChannelID, filterLinks, filterInvites)
+	return err
+}
+
+// GetAutomodConfig retrieves the automod configuration for a guild.
+func (db *DB) GetAutomodConfig(ctx context.Context, guildID string) (*AutomodConfig, error) {
+	query := `SELECT log_channel_id, filter_links, filter_invites FROM automod_config WHERE guild_id = $1`
+	var config AutomodConfig
+	config.GuildID = guildID
+
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&config.LogChannelID, &config.FilterLinks, &config.FilterInvites)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Not configured
+		}
+		return nil, err
+	}
+
+	return &config, nil
+}
+
+// AddAutomodWord adds a restricted word to the automod configuration for a guild.
+func (db *DB) AddAutomodWord(ctx context.Context, guildID, word string) error {
+	query := `
+		INSERT INTO automod_words (guild_id, word)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id, word) DO NOTHING
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, word)
+	return err
+}
+
+// RemoveAutomodWord removes a restricted word from the automod configuration for a guild.
+func (db *DB) RemoveAutomodWord(ctx context.Context, guildID, word string) error {
+	query := `DELETE FROM automod_words WHERE guild_id = $1 AND word = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, word)
+	return err
+}
+
+// GetAutomodWords retrieves all restricted words for a guild.
+func (db *DB) GetAutomodWords(ctx context.Context, guildID string) ([]string, error) {
+	query := `SELECT word FROM automod_words WHERE guild_id = $1`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var words []string
+	for rows.Next() {
+		var word string
+		if err := rows.Scan(&word); err != nil {
+			return nil, err
+		}
+		words = append(words, word)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return words, nil
+}
+
 // CreateSuggestion creates a new suggestion and returns its ID
 func (db *DB) CreateSuggestion(ctx context.Context, guildID, userID, messageID, content string) (int, error) {
 	query := `

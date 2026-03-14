@@ -75,6 +75,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Poll(database))
 	registry.Add(commands.NewSuggestCommand(bot))
 	registry.Add(commands.ServerLog(database))
+	registry.Add(commands.Automod(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -295,6 +296,11 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 
 	// Ignore all messages created by the bot itself or other bots
 	if m.Author.ID == s.State.User.ID || m.Author.Bot {
+		return
+	}
+
+	// Auto-Moderation System
+	if b.checkAutomod(s, m.GuildID, m.ChannelID, m.ID, m.Content, m.Author.ID, m.Author.String(), m.Author.AvatarURL("")) {
 		return
 	}
 
@@ -722,13 +728,30 @@ func (b *Bot) messageUpdateHandler(s *discordgo.Session, m *discordgo.MessageUpd
 		return
 	}
 
+	// Auto-Moderation System
+	authorID := ""
+	authorName := ""
+	authorAvatarURL := ""
+	if m.Author != nil {
+		authorID = m.Author.ID
+		authorName = m.Author.String()
+		authorAvatarURL = m.Author.AvatarURL("")
+	} else if m.BeforeUpdate != nil && m.BeforeUpdate.Author != nil {
+		authorID = m.BeforeUpdate.Author.ID
+		authorName = m.BeforeUpdate.Author.String()
+		authorAvatarURL = m.BeforeUpdate.Author.AvatarURL("")
+	}
+
+	if b.checkAutomod(s, m.GuildID, m.ChannelID, m.ID, m.Content, authorID, authorName, authorAvatarURL) {
+		return
+	}
+
 	logChannelID, err := b.DB.GetServerLogChannel(context.Background(), m.GuildID)
 	if err != nil || logChannelID == "" {
 		return
 	}
 
 	// Try to get author info safely
-	var authorName, authorID string
 	if m.Author != nil {
 		authorName = m.Author.Username
 		if m.Author.GlobalName != "" {
@@ -860,4 +883,71 @@ func (b *Bot) messageDeleteHandler(s *discordgo.Session, m *discordgo.MessageDel
 // GetDB returns the database instance for commands to use.
 func (b *Bot) GetDB() *db.DB {
 	return b.DB
+}
+
+// checkAutomod verifies if a message violates automod rules.
+// Returns true if the message was deleted.
+func (b *Bot) checkAutomod(s *discordgo.Session, guildID, channelID, messageID, content, authorID, authorName, authorIconURL string) bool {
+	if b.DB == nil || guildID == "" {
+		return false
+	}
+
+	config, err := b.DB.GetAutomodConfig(context.Background(), guildID)
+	if err != nil || config == nil {
+		return false
+	}
+
+	contentLower := strings.ToLower(content)
+	violation := ""
+
+	// Check links
+	if config.FilterLinks && (strings.Contains(contentLower, "http://") || strings.Contains(contentLower, "https://")) {
+		violation = "Unauthorized Link"
+	}
+
+	// Check invites
+	if violation == "" && config.FilterInvites && (strings.Contains(contentLower, "discord.gg/") || strings.Contains(contentLower, "discord.com/invite/")) {
+		violation = "Discord Invite"
+	}
+
+	// Check bad words
+	if violation == "" {
+		words, err := b.DB.GetAutomodWords(context.Background(), guildID)
+		if err == nil {
+			for _, word := range words {
+				if strings.Contains(contentLower, strings.ToLower(word)) {
+					violation = fmt.Sprintf("Restricted Word (`%s`)", word)
+					break
+				}
+			}
+		}
+	}
+
+	if violation != "" {
+		err := s.ChannelMessageDelete(channelID, messageID)
+		if err != nil {
+			slog.Error("Failed to delete automod message", "message_id", messageID, "error", err)
+			return false
+		}
+
+		if config.LogChannelID != "" {
+			embed := &discordgo.MessageEmbed{
+				Title:       "Auto-Moderation Action",
+				Description: fmt.Sprintf("**Message deleted in <#%s>**\n\n**Reason:** %s\n**Content:** %s", channelID, violation, content),
+				Color:       0xFF0000,
+				Author: &discordgo.MessageEmbedAuthor{
+					Name:    authorName,
+					IconURL: authorIconURL,
+				},
+				Footer: &discordgo.MessageEmbedFooter{
+					Text: fmt.Sprintf("User ID: %s", authorID),
+				},
+				Timestamp: time.Now().Format(time.RFC3339),
+			}
+			_, _ = s.ChannelMessageSendEmbed(config.LogChannelID, embed)
+		}
+		return true
+	}
+
+	return false
 }
