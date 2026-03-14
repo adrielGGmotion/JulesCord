@@ -485,3 +485,14 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `AddShopItem`, `RemoveShopItem`, `GetShopItems`, `GetShopItem`, `BuyItem`, `GetUserInventory`
 - [x] `/shop` command with `add`, `remove`, `list`, and `buy` subcommands
 - [x] `/inventory` command to view purchased items
+
+### Phase 28 — Birthday System
+- [ ] `migrations/025_birthdays.sql` — `birthday_config` and `birthdays` tables
+ - [x] DB operations — `SetBirthdayChannel`, `GetBirthdayChannel`, `SetBirthday`, `RemoveBirthday`, `GetBirthdays`, `GetDueBirthdays`, `MarkBirthdayAnnounced`
+- [ ] `/birthday` command with `setup`, `set`, `remove`, and `list` subcommands
+- [x] Background goroutine for daily birthday announcements
+
+- Implemented Phase 28 Birthday System features: added migrations `025_birthdays.sql` with tables `birthday_config` and `birthdays`.
+- Added DB operations `SetBirthdayChannel`, `GetBirthdayChannel`, `SetBirthday`, `RemoveBirthday`, `GetBirthdays`, `GetDueBirthdays`, and `MarkBirthdayAnnounced` in `internal/db/db.go`.
+- Added `/birthday` command with `setup`, `set`, `remove`, and `list` subcommands in `internal/bot/commands/birthday.go`.
+- Added background goroutine `checkBirthdays` in `internal/bot/bot.go` to announce birthdays daily.

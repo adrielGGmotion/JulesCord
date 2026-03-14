@@ -2259,3 +2259,137 @@ func (db *DB) GetUserInventory(ctx context.Context, guildID, userID string) ([]I
 	}
 	return items, rows.Err()
 }
+
+// BirthdayConfig represents a server's birthday configuration.
+type BirthdayConfig struct {
+	GuildID   string
+	ChannelID string
+}
+
+// Birthday represents a user's birthday.
+type Birthday struct {
+	GuildID           string
+	UserID            string
+	BirthMonth        int
+	BirthDay          int
+	LastAnnouncedYear *int
+}
+
+// SetBirthdayChannel sets the channel where birthdays will be announced.
+func (db *DB) SetBirthdayChannel(ctx context.Context, guildID, channelID string) error {
+	query := `
+		INSERT INTO birthday_config (guild_id, channel_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE SET channel_id = EXCLUDED.channel_id
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+// GetBirthdayChannel gets the configured birthday channel for a guild.
+func (db *DB) GetBirthdayChannel(ctx context.Context, guildID string) (string, error) {
+	var channelID string
+	err := db.Pool.QueryRow(ctx, "SELECT channel_id FROM birthday_config WHERE guild_id = $1", guildID).Scan(&channelID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return channelID, err
+}
+
+// SetBirthday sets a user's birthday in a guild.
+func (db *DB) SetBirthday(ctx context.Context, guildID, userID string, month, day int) error {
+	query := `
+		INSERT INTO birthdays (guild_id, user_id, birth_month, birth_day)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (guild_id, user_id) DO UPDATE SET birth_month = EXCLUDED.birth_month, birth_day = EXCLUDED.birth_day, last_announced_year = NULL
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, month, day)
+	return err
+}
+
+// RemoveBirthday removes a user's birthday in a guild.
+func (db *DB) RemoveBirthday(ctx context.Context, guildID, userID string) error {
+	query := "DELETE FROM birthdays WHERE guild_id = $1 AND user_id = $2"
+	_, err := db.Pool.Exec(ctx, query, guildID, userID)
+	return err
+}
+
+// GetBirthdays gets all birthdays for a given month and day across all guilds.
+func (db *DB) GetBirthdays(ctx context.Context, month, day int) ([]Birthday, error) {
+	query := `
+		SELECT guild_id, user_id, birth_month, birth_day, last_announced_year
+		FROM birthdays
+		WHERE birth_month = $1 AND birth_day = $2
+	`
+	rows, err := db.Pool.Query(ctx, query, month, day)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var birthdays []Birthday
+	for rows.Next() {
+		var b Birthday
+		if err := rows.Scan(&b.GuildID, &b.UserID, &b.BirthMonth, &b.BirthDay, &b.LastAnnouncedYear); err != nil {
+			return nil, err
+		}
+		birthdays = append(birthdays, b)
+	}
+	return birthdays, nil
+}
+
+// GetDueBirthdays gets birthdays that need to be announced today (haven't been announced this year).
+func (db *DB) GetDueBirthdays(ctx context.Context, month, day, year int) ([]Birthday, error) {
+	query := `
+		SELECT guild_id, user_id, birth_month, birth_day, last_announced_year
+		FROM birthdays
+		WHERE birth_month = $1 AND birth_day = $2 AND (last_announced_year IS NULL OR last_announced_year != $3)
+	`
+	rows, err := db.Pool.Query(ctx, query, month, day, year)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var birthdays []Birthday
+	for rows.Next() {
+		var b Birthday
+		if err := rows.Scan(&b.GuildID, &b.UserID, &b.BirthMonth, &b.BirthDay, &b.LastAnnouncedYear); err != nil {
+			return nil, err
+		}
+		birthdays = append(birthdays, b)
+	}
+	return birthdays, nil
+}
+
+// MarkBirthdayAnnounced marks a birthday as announced for the current year.
+func (db *DB) MarkBirthdayAnnounced(ctx context.Context, guildID, userID string, year int) error {
+	query := "UPDATE birthdays SET last_announced_year = $1 WHERE guild_id = $2 AND user_id = $3"
+	_, err := db.Pool.Exec(ctx, query, year, guildID, userID)
+	return err
+}
+
+// GetGuildBirthdays gets all birthdays for a specific guild.
+func (db *DB) GetGuildBirthdays(ctx context.Context, guildID string) ([]Birthday, error) {
+	query := `
+		SELECT guild_id, user_id, birth_month, birth_day, last_announced_year
+		FROM birthdays
+		WHERE guild_id = $1
+		ORDER BY birth_month, birth_day
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var birthdays []Birthday
+	for rows.Next() {
+		var b Birthday
+		if err := rows.Scan(&b.GuildID, &b.UserID, &b.BirthMonth, &b.BirthDay, &b.LastAnnouncedYear); err != nil {
+			return nil, err
+		}
+		birthdays = append(birthdays, b)
+	}
+	return birthdays, nil
+}

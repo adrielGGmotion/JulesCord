@@ -84,6 +84,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.NewProfileCommand(database))
 	registry.Add(commands.Shop(database))
 	registry.Add(commands.Inventory(database))
+	registry.Add(commands.Birthday(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -196,6 +197,7 @@ func (b *Bot) readyHandler(s *discordgo.Session, event *discordgo.Ready) {
 
 	// Start giveaway checker
 	go b.checkGiveaways()
+	go b.checkBirthdays()
 }
 
 // checkScheduledAnnouncements checks for pending announcements and sends them.
@@ -1103,5 +1105,52 @@ func (b *Bot) voiceStateUpdateHandler(s *discordgo.Session, v *discordgo.VoiceSt
 	_, err = s.ChannelMessageSendEmbed(*channelIDStr, embed)
 	if err != nil {
 		slog.Error("Failed to send voice log embed", "channel_id", *channelIDStr, "error", err)
+	}
+}
+
+// checkBirthdays runs daily (or hourly to catch all timezones in a real app, but minutely for this loop context)
+// to announce birthdays for the current day.
+func (b *Bot) checkBirthdays() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if b.DB == nil {
+			continue
+		}
+
+		now := time.Now()
+		month := int(now.Month())
+		day := now.Day()
+		year := now.Year()
+
+		birthdays, err := b.DB.GetDueBirthdays(context.Background(), month, day, year)
+		if err != nil {
+			slog.Error("Failed to fetch due birthdays", "error", err)
+			continue
+		}
+
+		for _, bday := range birthdays {
+			channelID, err := b.DB.GetBirthdayChannel(context.Background(), bday.GuildID)
+			if err == nil && channelID != "" {
+				// Announce birthday
+				embed := &discordgo.MessageEmbed{
+					Title:       "🎉 Happy Birthday! 🎉",
+					Description: fmt.Sprintf("Wishing a very happy birthday to <@%s>! 🎂🎈", bday.UserID),
+					Color:       0xFF1493, // Deep Pink
+				}
+
+				_, err = b.Session.ChannelMessageSendEmbed(channelID, embed)
+				if err != nil {
+					slog.Error("Failed to send birthday announcement", "error", err)
+				}
+			}
+
+			// Mark as announced for the year
+			err = b.DB.MarkBirthdayAnnounced(context.Background(), bday.GuildID, bday.UserID, year)
+			if err != nil {
+				slog.Error("Failed to mark birthday as announced", "error", err)
+			}
+		}
 	}
 }
