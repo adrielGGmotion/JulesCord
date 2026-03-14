@@ -2338,6 +2338,29 @@ func (db *DB) GetBirthdays(ctx context.Context, month, day int) ([]Birthday, err
 	return birthdays, nil
 }
 
+// SetAuditLogChannel sets the audit log channel for a guild.
+func (db *DB) SetAuditLogChannel(ctx context.Context, guildID, channelID string) error {
+	query := `
+		INSERT INTO audit_log_config (guild_id, channel_id, updated_at)
+		VALUES ($1, $2, CURRENT_TIMESTAMP)
+		ON CONFLICT (guild_id) DO UPDATE
+		SET channel_id = EXCLUDED.channel_id, updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+// GetAuditLogChannel retrieves the audit log channel for a guild.
+func (db *DB) GetAuditLogChannel(ctx context.Context, guildID string) (string, error) {
+	query := "SELECT channel_id FROM audit_log_config WHERE guild_id = $1"
+	var channelID string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&channelID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil // No config set
+	}
+	return channelID, err
+}
+
 // GetDueBirthdays gets birthdays that need to be announced today (haven't been announced this year).
 func (db *DB) GetDueBirthdays(ctx context.Context, month, day, year int) ([]Birthday, error) {
 	query := `

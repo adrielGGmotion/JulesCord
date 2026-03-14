@@ -85,6 +85,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Shop(database))
 	registry.Add(commands.Inventory(database))
 	registry.Add(commands.Birthday(database))
+	registry.Add(commands.AuditLog(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -130,6 +131,14 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	// Register message delete handler
 	bot.Session.AddHandler(bot.messageDeleteHandler)
 	bot.Session.AddHandler(bot.voiceStateUpdateHandler)
+
+	// Register audit log handlers
+	bot.Session.AddHandler(bot.guildRoleCreateHandler)
+	bot.Session.AddHandler(bot.guildRoleUpdateHandler)
+	bot.Session.AddHandler(bot.guildRoleDeleteHandler)
+	bot.Session.AddHandler(bot.channelCreateHandler)
+	bot.Session.AddHandler(bot.channelUpdateHandler)
+	bot.Session.AddHandler(bot.channelDeleteHandler)
 
 	// Set intentions
 	bot.Session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMembers | discordgo.IntentsGuildMessageReactions | discordgo.IntentsMessageContent | discordgo.IntentsGuildVoiceStates
@@ -488,6 +497,110 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 			}
 		}
 	}
+}
+
+// Audit Log Handlers
+
+func (b *Bot) getAuditLogChannel(guildID string) string {
+	if b.DB == nil {
+		return ""
+	}
+	channelID, err := b.DB.GetAuditLogChannel(context.Background(), guildID)
+	if err != nil {
+		slog.Error("Failed to get audit log channel", "error", err, "guild_id", guildID)
+		return ""
+	}
+	return channelID
+}
+
+func (b *Bot) guildRoleCreateHandler(s *discordgo.Session, r *discordgo.GuildRoleCreate) {
+	channelID := b.getAuditLogChannel(r.GuildID)
+	if channelID == "" {
+		return
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "🛡️ Role Created",
+		Description: fmt.Sprintf("**Role:** <@&%s> (%s)\n**ID:** %s", r.Role.ID, r.Role.Name, r.Role.ID),
+		Color:       0x00FF00, // Green
+		Timestamp:   time.Now().Format(time.RFC3339),
+	}
+	_, _ = s.ChannelMessageSendEmbed(channelID, embed)
+}
+
+func (b *Bot) guildRoleUpdateHandler(s *discordgo.Session, r *discordgo.GuildRoleUpdate) {
+	channelID := b.getAuditLogChannel(r.GuildID)
+	if channelID == "" {
+		return
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "🛡️ Role Updated",
+		Description: fmt.Sprintf("**Role:** <@&%s> (%s)\n**ID:** %s", r.Role.ID, r.Role.Name, r.Role.ID),
+		Color:       0xFFA500, // Orange
+		Timestamp:   time.Now().Format(time.RFC3339),
+	}
+	_, _ = s.ChannelMessageSendEmbed(channelID, embed)
+}
+
+func (b *Bot) guildRoleDeleteHandler(s *discordgo.Session, r *discordgo.GuildRoleDelete) {
+	channelID := b.getAuditLogChannel(r.GuildID)
+	if channelID == "" {
+		return
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "🛡️ Role Deleted",
+		Description: fmt.Sprintf("**Role ID:** %s", r.RoleID),
+		Color:       0xFF0000, // Red
+		Timestamp:   time.Now().Format(time.RFC3339),
+	}
+	_, _ = s.ChannelMessageSendEmbed(channelID, embed)
+}
+
+func (b *Bot) channelCreateHandler(s *discordgo.Session, c *discordgo.ChannelCreate) {
+	channelID := b.getAuditLogChannel(c.GuildID)
+	if channelID == "" || c.GuildID == "" {
+		return
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "📁 Channel Created",
+		Description: fmt.Sprintf("**Channel:** <#%s> (%s)\n**ID:** %s", c.Channel.ID, c.Channel.Name, c.Channel.ID),
+		Color:       0x00FF00, // Green
+		Timestamp:   time.Now().Format(time.RFC3339),
+	}
+	_, _ = s.ChannelMessageSendEmbed(channelID, embed)
+}
+
+func (b *Bot) channelUpdateHandler(s *discordgo.Session, c *discordgo.ChannelUpdate) {
+	channelID := b.getAuditLogChannel(c.GuildID)
+	if channelID == "" || c.GuildID == "" {
+		return
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "📁 Channel Updated",
+		Description: fmt.Sprintf("**Channel:** <#%s> (%s)\n**ID:** %s", c.Channel.ID, c.Channel.Name, c.Channel.ID),
+		Color:       0xFFA500, // Orange
+		Timestamp:   time.Now().Format(time.RFC3339),
+	}
+	_, _ = s.ChannelMessageSendEmbed(channelID, embed)
+}
+
+func (b *Bot) channelDeleteHandler(s *discordgo.Session, c *discordgo.ChannelDelete) {
+	channelID := b.getAuditLogChannel(c.GuildID)
+	if channelID == "" || c.GuildID == "" {
+		return
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "📁 Channel Deleted",
+		Description: fmt.Sprintf("**Channel:** %s\n**ID:** %s", c.Channel.Name, c.Channel.ID),
+		Color:       0xFF0000, // Red
+		Timestamp:   time.Now().Format(time.RFC3339),
+	}
+	_, _ = s.ChannelMessageSendEmbed(channelID, embed)
 }
 
 // messageReactionAddHandler is called when a user adds a reaction to a message

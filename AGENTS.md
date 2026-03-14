@@ -487,12 +487,23 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `/inventory` command to view purchased items
 
 ### Phase 28 — Birthday System
-- [ ] `migrations/025_birthdays.sql` — `birthday_config` and `birthdays` tables
- - [x] DB operations — `SetBirthdayChannel`, `GetBirthdayChannel`, `SetBirthday`, `RemoveBirthday`, `GetBirthdays`, `GetDueBirthdays`, `MarkBirthdayAnnounced`
-- [ ] `/birthday` command with `setup`, `set`, `remove`, and `list` subcommands
+- [x] `migrations/025_birthdays.sql` — `birthday_config` and `birthdays` tables
+- [x] DB operations — `SetBirthdayChannel`, `GetBirthdayChannel`, `SetBirthday`, `RemoveBirthday`, `GetBirthdays`, `GetDueBirthdays`, `MarkBirthdayAnnounced`
+- [x] `/birthday` command with `setup`, `set`, `remove`, and `list` subcommands
 - [x] Background goroutine for daily birthday announcements
+
+### Phase 29 — Audit Log System
+- [x] `migrations/026_audit_logs.sql` — `audit_log_config` table
+- [x] DB operations — `SetAuditLogChannel`, `GetAuditLogChannel`
+- [x] `/auditlog` command with `setup` subcommand
+- [x] Event handlers (`guildRoleCreate`, `guildRoleUpdate`, `guildRoleDelete`, `channelCreate`, `channelUpdate`, `channelDelete`) to send detailed embeds to the audit log channel
 
 - Implemented Phase 28 Birthday System features: added migrations `025_birthdays.sql` with tables `birthday_config` and `birthdays`.
 - Added DB operations `SetBirthdayChannel`, `GetBirthdayChannel`, `SetBirthday`, `RemoveBirthday`, `GetBirthdays`, `GetDueBirthdays`, and `MarkBirthdayAnnounced` in `internal/db/db.go`.
 - Added `/birthday` command with `setup`, `set`, `remove`, and `list` subcommands in `internal/bot/commands/birthday.go`.
 - Added background goroutine `checkBirthdays` in `internal/bot/bot.go` to announce birthdays daily.
+
+- Implemented Phase 29 Audit Log System features: added migrations `026_audit_logs.sql` with table `audit_log_config`.
+- Added DB operations `SetAuditLogChannel` and `GetAuditLogChannel` in `internal/db/db.go`.
+- Added `/auditlog` command with `setup` subcommand in `internal/bot/commands/auditlog.go`.
+- Registered `AuditLog` command and event handlers (`guildRoleCreate`, `guildRoleUpdate`, `guildRoleDelete`, `channelCreate`, `channelUpdate`, `channelDelete`) in `internal/bot/bot.go` to send embedded audit logs to configured channel.
