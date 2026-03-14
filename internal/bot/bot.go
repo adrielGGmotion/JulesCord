@@ -76,6 +76,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.NewSuggestCommand(bot))
 	registry.Add(commands.ServerLog(database))
 	registry.Add(commands.Automod(database))
+	registry.Add(commands.Verification(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -264,6 +265,45 @@ func (b *Bot) guildCreateHandler(s *discordgo.Session, event *discordgo.GuildCre
 
 // interactionCreateHandler handles all slash commands
 func (b *Bot) interactionCreateHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if b.DB != nil && i.Type == discordgo.InteractionMessageComponent {
+		if i.MessageComponentData().CustomID == "verify_button" {
+			config, err := b.DB.GetVerificationConfig(context.Background(), i.GuildID)
+			if err != nil || config == nil {
+				slog.Error("Failed to get verification config", "error", err, "guild_id", i.GuildID)
+				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "Verification system is not configured correctly. Please contact an administrator.",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				return
+			}
+
+			err = s.GuildMemberRoleAdd(i.GuildID, i.Member.User.ID, config.RoleID)
+			if err != nil {
+				slog.Error("Failed to assign verified role", "error", err, "user_id", i.Member.User.ID)
+				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "Failed to assign the verified role. Please contact an administrator.",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				return
+			}
+
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "You have been successfully verified! Enjoy the server.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			return
+		}
+	}
+
 	if b.DB != nil && i.Type == discordgo.InteractionApplicationCommand {
 		var user *discordgo.User
 		if i.Member != nil {
