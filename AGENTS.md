@@ -517,3 +517,14 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added DB operations `SetTicketPanel` and `GetTicketPanel` in `internal/db/db.go`.
 - Added `/ticket panel` command in `internal/bot/commands/ticket.go` to create interactive ticket creation buttons.
 - Updated `interactionCreateHandler` in `internal/bot/bot.go` to handle button interactions and automatically create tickets.
+
+- Implemented Phase 31 Marriage System features: added migrations `028_marriages.sql` with table `marriages`.
+- Added DB operations `ProposeMarriage`, `AcceptMarriage`, `Divorce`, and `GetMarriage` in `internal/db/db.go`.
+- Added `/marry` command with `propose`, `accept`, and `divorce` subcommands in `internal/bot/commands/marry.go`.
+- Updated `/profile` command in `internal/bot/commands/profile.go` to display a user's marriage status in their profile embed.
+
+### Phase 31 — Marriage System
+- [x] `migrations/028_marriages.sql` — `marriages` table
+- [x] DB operations — `ProposeMarriage`, `AcceptMarriage`, `Divorce`, `GetMarriage`
+- [x] `/marry` command with `propose`, `accept`, `divorce` subcommands
+- [x] Display marriage status in `/profile` embed
