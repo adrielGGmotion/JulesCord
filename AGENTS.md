@@ -405,6 +405,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added DB operations `SetLevelRole`, `RemoveLevelRole`, `GetLevelRoles`, and `GetLevelRole` in `internal/db/db.go`.
 - Added `/levelrole` command with `add`, `list`, and `remove` subcommands in `internal/bot/commands/levelrole.go`.
 - Updated message handler in `internal/bot/bot.go` to assign level roles when users reach specific levels via the XP system.
+- Implemented Phase 27 Economy Shop System features: added migrations `024_shop.sql` with tables `shop_items` and `user_inventory`.
+- Added DB operations `AddShopItem`, `RemoveShopItem`, `GetShopItems`, `GetShopItem`, `BuyItem`, and `GetUserInventory` in `internal/db/db.go`.
+- Added `/shop` command with `add`, `remove`, `list`, and `buy` subcommands in `internal/bot/commands/shop.go`.
+- Added `/inventory` command in `internal/bot/commands/inventory.go` to view purchased items.
+- Updated `internal/bot/bot.go` to register the `shop` and `inventory` commands.
 
 ### Phase 15 — AFK System
 - [x] `migrations/012_afk.sql` — `afk_users` table
@@ -474,3 +479,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetProfileBio`, `SetProfileColor`, `GetProfile`
 - [x] `/profile` command with `view`, `set-bio`, and `set-color` subcommands
 - [x] Profile embed displays bio, color, and integrates economy (XP, coins) and reputation stats
+
+### Phase 27 — Economy Shop System
+- [x] `migrations/024_shop.sql` — `shop_items` and `user_inventory` tables
+- [x] DB operations — `AddShopItem`, `RemoveShopItem`, `GetShopItems`, `GetShopItem`, `BuyItem`, `GetUserInventory`
+- [x] `/shop` command with `add`, `remove`, `list`, and `buy` subcommands
+- [x] `/inventory` command to view purchased items

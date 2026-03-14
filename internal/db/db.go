@@ -2109,3 +2109,153 @@ func (db *DB) GetProfile(ctx context.Context, guildID, userID string) (*UserProf
 	}
 	return &p, nil
 }
+
+// ShopItem represents an item available for purchase in a guild's shop.
+type ShopItem struct {
+	ID          int       `json:"id"`
+	GuildID     string    `json:"guild_id"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description"`
+	Price       int64     `json:"price"`
+	RoleID      *string   `json:"role_id"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// AddShopItem adds a new item to the guild's shop.
+func (db *DB) AddShopItem(ctx context.Context, guildID, name string, description *string, price int64, roleID *string) error {
+	query := `
+		INSERT INTO shop_items (guild_id, name, description, price, role_id)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, name, description, price, roleID)
+	return err
+}
+
+// RemoveShopItem removes an item from the guild's shop by name.
+func (db *DB) RemoveShopItem(ctx context.Context, guildID, name string) error {
+	query := `DELETE FROM shop_items WHERE guild_id = $1 AND name = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, name)
+	return err
+}
+
+// GetShopItems retrieves all items available in a guild's shop.
+func (db *DB) GetShopItems(ctx context.Context, guildID string) ([]ShopItem, error) {
+	query := `
+		SELECT id, guild_id, name, description, price, role_id, created_at
+		FROM shop_items
+		WHERE guild_id = $1
+		ORDER BY id ASC
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []ShopItem
+	for rows.Next() {
+		var item ShopItem
+		if err := rows.Scan(&item.ID, &item.GuildID, &item.Name, &item.Description, &item.Price, &item.RoleID, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+// GetShopItem retrieves a specific shop item by name in a guild.
+func (db *DB) GetShopItem(ctx context.Context, guildID, name string) (*ShopItem, error) {
+	query := `
+		SELECT id, guild_id, name, description, price, role_id, created_at
+		FROM shop_items
+		WHERE guild_id = $1 AND name = $2
+	`
+	var item ShopItem
+	err := db.Pool.QueryRow(ctx, query, guildID, name).Scan(
+		&item.ID, &item.GuildID, &item.Name, &item.Description, &item.Price, &item.RoleID, &item.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &item, nil
+}
+
+// BuyItem processes the purchase of a shop item by a user.
+func (db *DB) BuyItem(ctx context.Context, guildID, userID string, itemID int, price int64) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Deduct coins
+	updateCoinsQuery := `
+		UPDATE user_economy
+		SET coins = coins - $1
+		WHERE guild_id = $2 AND user_id = $3 AND coins >= $1
+	`
+	cmdTag, err := tx.Exec(ctx, updateCoinsQuery, price, guildID, userID)
+	if err != nil {
+		return err
+	}
+
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("insufficient funds or user economy record not found")
+	}
+
+	// Add item to inventory
+	insertInventoryQuery := `
+		INSERT INTO user_inventory (guild_id, user_id, item_id)
+		VALUES ($1, $2, $3)
+	`
+	_, err = tx.Exec(ctx, insertInventoryQuery, guildID, userID, itemID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// InventoryItem represents an item purchased by a user.
+type InventoryItem struct {
+	ID          int       `json:"id"`
+	GuildID     string    `json:"guild_id"`
+	UserID      string    `json:"user_id"`
+	ItemID      int       `json:"item_id"`
+	ItemName    string    `json:"item_name"`
+	Description *string   `json:"description"`
+	RoleID      *string   `json:"role_id"`
+	AcquiredAt  time.Time `json:"acquired_at"`
+}
+
+// GetUserInventory retrieves all items in a user's inventory for a specific guild.
+func (db *DB) GetUserInventory(ctx context.Context, guildID, userID string) ([]InventoryItem, error) {
+	query := `
+		SELECT ui.id, ui.guild_id, ui.user_id, ui.item_id, si.name, si.description, si.role_id, ui.acquired_at
+		FROM user_inventory ui
+		JOIN shop_items si ON ui.item_id = si.id
+		WHERE ui.guild_id = $1 AND ui.user_id = $2
+		ORDER BY ui.acquired_at DESC
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []InventoryItem
+	for rows.Next() {
+		var item InventoryItem
+		if err := rows.Scan(
+			&item.ID, &item.GuildID, &item.UserID, &item.ItemID,
+			&item.ItemName, &item.Description, &item.RoleID, &item.AcquiredAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
