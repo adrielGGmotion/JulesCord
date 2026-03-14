@@ -60,6 +60,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Ticket(database))
 	registry.Add(commands.Tag(database))
 	registry.Add(commands.Giveaway(database))
+	registry.Add(commands.AFKCommand(database))
 
 	bot := &Bot{
 		Session:  session,
@@ -284,6 +285,34 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	// Ignore all messages created by the bot itself or other bots
 	if m.Author.ID == s.State.User.ID || m.Author.Bot {
 		return
+	}
+
+	// AFK System
+	if b.DB != nil && m.GuildID != "" {
+		// Check if author was AFK
+		reason, _, err := b.DB.GetAFK(context.Background(), m.Author.ID, m.GuildID)
+		if err == nil && reason != "" {
+			err = b.DB.RemoveAFK(context.Background(), m.Author.ID, m.GuildID)
+			if err == nil {
+				_, _ = s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Welcome back %s! I've removed your AFK status.", m.Author.Mention()))
+			}
+		}
+
+		// Check if mentioned users are AFK
+		for _, mention := range m.Mentions {
+			if mention.Bot || mention.ID == m.Author.ID {
+				continue
+			}
+			mentionReason, createdAt, err := b.DB.GetAFK(context.Background(), mention.ID, m.GuildID)
+			if err == nil && mentionReason != "" {
+				duration := time.Since(createdAt).Round(time.Minute)
+				msg := fmt.Sprintf("%s is currently AFK: %s", mention.Username, mentionReason)
+				if duration > 0 {
+					msg += fmt.Sprintf(" - %s ago", duration.String())
+				}
+				_, _ = s.ChannelMessageSend(m.ChannelID, msg)
+			}
+		}
 	}
 
 	// XP System

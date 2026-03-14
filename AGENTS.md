@@ -175,6 +175,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Added message reaction handler in `internal/bot/bot.go` for the `🎉` emoji to allow users to enter giveaways.
 - Added a background goroutine `checkGiveaways` in `internal/bot/bot.go` that picks winners for ended giveaways every minute and announces them.
 
+- Implemented Phase 15 AFK System features: added migrations `012_afk.sql` with table `afk_users`.
+- Added DB operations `SetAFK`, `RemoveAFK`, and `GetAFK` in `internal/db/db.go`.
+- Added `/afk` command in `internal/bot/commands/afk.go` allowing users to set an AFK reason.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to remove AFK status when a user types and notify the channel when an AFK user is mentioned.
+
 ---
 
 ## Task Checklist
@@ -349,3 +354,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `CreateGiveaway`, `GetActiveGiveaways`, `EndGiveaway`, `AddGiveawayEntrant`, `GetGiveawayEntrants`
 - [x] `/giveaway create` and `/giveaway end` commands
 - [x] Message reaction handler for 🎉 to enter giveaways, and background goroutine to pick winners
+
+### Phase 15 — AFK System
+- [x] `migrations/012_afk.sql` — `afk_users` table
+- [x] DB operations — `SetAFK`, `RemoveAFK`, `GetAFK`
+- [x] `/afk` command
+- [x] Message handler checks for mentions to notify channel and removes AFK status when an AFK user types

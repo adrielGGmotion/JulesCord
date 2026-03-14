@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS afk_users;
