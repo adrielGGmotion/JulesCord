@@ -517,3 +517,13 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added DB operations `SetTicketPanel` and `GetTicketPanel` in `internal/db/db.go`.
 - Added `/ticket panel` command in `internal/bot/commands/ticket.go` to create interactive ticket creation buttons.
 - Updated `interactionCreateHandler` in `internal/bot/bot.go` to handle button interactions and automatically create tickets.
+- Implemented Phase 31 Thread Management features: added migrations `028_threads.sql` with table `thread_config`.
+- Added DB operations `SetThreadConfig` and `GetThreadConfig` in `internal/db/db.go`.
+- Added `/thread` command with `setup`, `lock`, `unlock`, and `archive` subcommands in `internal/bot/commands/thread.go`.
+- Added `messageCreateHandler` logic to automatically create threads for messages in configured channels.
+
+### Phase 31 — Thread Management
+- [x] `migrations/028_threads.sql` — `thread_config` table
+- [x] DB operations — `SetThreadConfig`, `GetThreadConfig`
+- [x] `/thread` command with `setup`, `lock`, `unlock`, `archive` subcommands
+- [x] Message handler to automatically create threads for messages in configured channels

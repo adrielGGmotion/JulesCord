@@ -86,6 +86,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Inventory(database))
 	registry.Add(commands.Birthday(database))
 	registry.Add(commands.TempVoice(database))
+	registry.Add(commands.Thread(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -364,6 +365,26 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	// Auto-Moderation System
 	if b.checkAutomod(s, m.GuildID, m.ChannelID, m.ID, m.Content, m.Author.ID, m.Author.String(), m.Author.AvatarURL("")) {
 		return
+	}
+
+	// Thread Management System
+	if b.DB != nil && m.GuildID != "" {
+		config, err := b.DB.GetThreadConfig(context.Background(), m.GuildID)
+		if err == nil && config != nil && config.ChannelID == m.ChannelID {
+			// Create a thread for the message
+			runes := []rune(m.Content)
+			threadName := m.Content
+			if len(runes) > 50 {
+				threadName = string(runes[:47]) + "..."
+			} else if len(runes) == 0 {
+				threadName = "Thread"
+			}
+
+			_, err := s.MessageThreadStart(m.ChannelID, m.ID, threadName, 1440)
+			if err != nil {
+				slog.Error("Failed to start thread for message", "error", err, "message_id", m.ID)
+			}
+		}
 	}
 
 	// Sticky Messages System

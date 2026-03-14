@@ -2489,3 +2489,35 @@ func (db *DB) DeleteTempVoiceChannel(ctx context.Context, channelID string) erro
 	_, err := db.Pool.Exec(ctx, query, channelID)
 	return err
 }
+
+// ThreadConfig represents the thread configuration for a guild.
+type ThreadConfig struct {
+	GuildID   string
+	ChannelID string
+}
+
+// SetThreadConfig sets the thread configuration for a guild.
+func (db *DB) SetThreadConfig(ctx context.Context, guildID, channelID string) error {
+	query := `
+		INSERT INTO thread_config (guild_id, channel_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE
+		SET channel_id = EXCLUDED.channel_id, updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+// GetThreadConfig gets the thread configuration for a guild.
+func (db *DB) GetThreadConfig(ctx context.Context, guildID string) (*ThreadConfig, error) {
+	query := `SELECT channel_id FROM thread_config WHERE guild_id = $1`
+	var channelID string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&channelID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No config set
+		}
+		return nil, err
+	}
+	return &ThreadConfig{GuildID: guildID, ChannelID: channelID}, nil
+}
