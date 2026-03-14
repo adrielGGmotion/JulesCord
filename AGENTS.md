@@ -359,6 +359,10 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added DB operations SetSticky, RemoveSticky, GetSticky, and UpdateStickyMessageID in internal/db/db.go.
 - Added /sticky command with set and remove subcommands in internal/bot/commands/sticky.go.
 - Updated message handler in internal/bot/bot.go to maintain sticky messages at the bottom of channels.
+- Implemented Phase 17 Polls System features: added migrations 014_polls.sql with tables polls and poll_votes.
+- Added DB operations CreatePoll, GetPoll, AddVote, and GetVotes in internal/db/db.go.
+- Added /poll command in internal/bot/commands/poll.go to create an interactive embed with voting buttons.
+- Updated interaction handler in internal/bot/bot.go to process poll votes, dynamically render vote progress via an inline bar chart in the embed, and register votes in the DB using UPSERT semantics.
 
 ### Phase 15 — AFK System
 - [x] `migrations/012_afk.sql` — `afk_users` table
@@ -371,3 +375,10 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetSticky`, `RemoveSticky`, `GetSticky`, `UpdateStickyMessageID`
 - [x] `/sticky` command with `set` and `remove` subcommands
 - [x] Message handler to maintain the sticky message at the bottom of the channel
+
+
+### Phase 17 — Polls System
+- [x] `migrations/014_polls.sql` — `polls` and `poll_votes` tables
+- [x] DB operations — `CreatePoll`, `GetPoll`, `AddVote`, `GetVotes`
+- [x] `/poll` command — creates an interactive embed with buttons for options
+- [x] Interaction handler for poll option buttons to track votes

@@ -1496,3 +1496,86 @@ func (db *DB) UpdateStickyMessageID(ctx context.Context, channelID, messageID st
 	}
 	return err
 }
+
+// Poll represents a poll in the database.
+type Poll struct {
+	ID          string
+	GuildID     string
+	ChannelID   string
+	MessageID   string
+	Question    string
+	OptionsJSON []byte
+	CreatedAt   time.Time
+}
+
+// CreatePoll records a new poll.
+func (db *DB) CreatePoll(ctx context.Context, id, guildID, channelID, messageID, question string, optionsJSON []byte) error {
+	query := `
+		INSERT INTO polls (id, guild_id, channel_id, message_id, question, options_json)
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`
+	_, err := db.Pool.Exec(ctx, query, id, guildID, channelID, messageID, question, optionsJSON)
+	return err
+}
+
+// GetPoll fetches a poll by its message ID.
+func (db *DB) GetPoll(ctx context.Context, messageID string) (*Poll, error) {
+	query := `
+		SELECT id, guild_id, channel_id, message_id, question, options_json, created_at
+		FROM polls
+		WHERE message_id = $1
+	`
+	row := db.Pool.QueryRow(ctx, query, messageID)
+
+	p := &Poll{}
+	err := row.Scan(&p.ID, &p.GuildID, &p.ChannelID, &p.MessageID, &p.Question, &p.OptionsJSON, &p.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No poll found
+		}
+		return nil, err
+	}
+	return p, nil
+}
+
+// AddVote adds or updates a user's vote on a poll.
+func (db *DB) AddVote(ctx context.Context, pollID, userID string, optionIndex int) error {
+	query := `
+		INSERT INTO poll_votes (poll_id, user_id, option_index)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (poll_id, user_id)
+		DO UPDATE SET option_index = EXCLUDED.option_index, created_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, pollID, userID, optionIndex)
+	return err
+}
+
+// GetVotes retrieves the vote counts for a poll.
+func (db *DB) GetVotes(ctx context.Context, pollID string) (map[int]int, error) {
+	query := `
+		SELECT option_index, COUNT(*) as count
+		FROM poll_votes
+		WHERE poll_id = $1
+		GROUP BY option_index
+	`
+	rows, err := db.Pool.Query(ctx, query, pollID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	votes := make(map[int]int)
+	for rows.Next() {
+		var optionIndex, count int
+		if err := rows.Scan(&optionIndex, &count); err != nil {
+			return nil, err
+		}
+		votes[optionIndex] = count
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return votes, nil
+}

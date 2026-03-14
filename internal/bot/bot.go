@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math"
@@ -61,6 +62,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Tag(database))
 	registry.Add(commands.Giveaway(database))
 	registry.Add(commands.AFKCommand(database))
+	registry.Add(commands.PollCommand(database))
 
 	bot := &Bot{
 		Session:  session,
@@ -278,7 +280,144 @@ func (b *Bot) interactionCreateHandler(s *discordgo.Session, i *discordgo.Intera
 		}
 	}
 
+	if i.Type == discordgo.InteractionMessageComponent {
+		if strings.HasPrefix(i.MessageComponentData().CustomID, "poll_vote_") {
+			b.handlePollVote(s, i)
+			return
+		}
+	}
+
 	b.Registry.Dispatch(s, i)
+}
+
+// handlePollVote handles poll button interactions
+func (b *Bot) handlePollVote(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if b.DB == nil {
+		return
+	}
+
+	// Format: poll_vote_pollID_optionIndex
+	customID := i.MessageComponentData().CustomID
+	parts := strings.Split(customID, "_")
+	if len(parts) < 4 {
+		slog.Error("Invalid poll vote custom ID", "id", customID)
+		return
+	}
+
+	// poll_vote_poll_12345_0
+	pollIDParts := parts[2 : len(parts)-1]
+	pollID := strings.Join(pollIDParts, "_")
+	optionIndexStr := parts[len(parts)-1]
+
+	var optionIndex int
+	_, err := fmt.Sscanf(optionIndexStr, "%d", &optionIndex)
+	if err != nil {
+		slog.Error("Failed to parse poll option index", "error", err)
+		return
+	}
+
+	userID := i.Member.User.ID
+
+	// 1. Record the vote
+	err = b.DB.AddVote(context.Background(), pollID, userID, optionIndex)
+	if err != nil {
+		slog.Error("Failed to record poll vote", "error", err)
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Failed to record your vote. Please try again.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+		return
+	}
+
+	// 2. Fetch the poll to reconstruct the embed
+	poll, err := b.DB.GetPoll(context.Background(), i.Message.ID)
+	if err != nil || poll == nil {
+		slog.Error("Failed to fetch poll", "error", err)
+		return
+	}
+
+	var pollOptions []string
+	if err := json.Unmarshal(poll.OptionsJSON, &pollOptions); err != nil {
+		slog.Error("Failed to unmarshal poll options", "error", err)
+		return
+	}
+
+	// 3. Get all votes
+	votes, err := b.DB.GetVotes(context.Background(), pollID)
+	if err != nil {
+		slog.Error("Failed to fetch poll votes", "error", err)
+		return
+	}
+
+	// Calculate total votes
+	totalVotes := 0
+	for _, count := range votes {
+		totalVotes += count
+	}
+
+	// 4. Update the embed
+	description := ""
+	for idx, opt := range pollOptions {
+		voteCount := votes[idx]
+		percentage := 0.0
+		if totalVotes > 0 {
+			percentage = (float64(voteCount) / float64(totalVotes)) * 100
+		}
+
+		// Create a progress bar
+		barLength := 10
+		filledBars := int((percentage / 100) * float64(barLength))
+		bar := ""
+		for j := 0; j < barLength; j++ {
+			if j < filledBars {
+				bar += "█"
+			} else {
+				bar += "░"
+			}
+		}
+
+		description += fmt.Sprintf("**%d.** %s\n", idx+1, opt)
+		description += fmt.Sprintf("%s `%.1f%%` (%d votes)\n\n", bar, percentage, voteCount)
+	}
+
+	embed := i.Message.Embeds[0]
+	embed.Description = description
+
+	// Rebuild the components because they are required
+	var components []discordgo.MessageComponent
+	var currentActionRow []discordgo.MessageComponent
+
+	for idx := range pollOptions {
+		btn := discordgo.Button{
+			Label:    fmt.Sprintf("%d", idx+1),
+			Style:    discordgo.PrimaryButton,
+			CustomID: fmt.Sprintf("poll_vote_%s_%d", pollID, idx),
+		}
+
+		currentActionRow = append(currentActionRow, btn)
+
+		if len(currentActionRow) == 5 || idx == len(pollOptions)-1 {
+			components = append(components, discordgo.ActionsRow{
+				Components: currentActionRow,
+			})
+			currentActionRow = nil
+		}
+	}
+
+	// 5. Respond and update message
+	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseUpdateMessage,
+		Data: &discordgo.InteractionResponseData{
+			Embeds:     []*discordgo.MessageEmbed{embed},
+			Components: components,
+		},
+	})
+	if err != nil {
+		slog.Error("Failed to update poll message", "error", err)
+	}
 }
 
 // messageCreateHandler is called every time a new message is created
