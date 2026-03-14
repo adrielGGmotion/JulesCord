@@ -59,6 +59,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Remind(database))
 	registry.Add(commands.Ticket(database))
 	registry.Add(commands.Tag(database))
+	registry.Add(commands.Giveaway(database))
 
 	bot := &Bot{
 		Session:  session,
@@ -171,6 +172,9 @@ func (b *Bot) readyHandler(s *discordgo.Session, event *discordgo.Ready) {
 
 	// Start reminder delivery checker
 	go b.checkReminders()
+
+	// Start giveaway checker
+	go b.checkGiveaways()
 }
 
 // checkScheduledAnnouncements checks for pending announcements and sends them.
@@ -372,6 +376,17 @@ func (b *Bot) messageReactionAddHandler(s *discordgo.Session, r *discordgo.Messa
 	emojiName := r.Emoji.Name
 	if r.Emoji.ID != "" {
 		emojiName = fmt.Sprintf("%s:%s", r.Emoji.Name, r.Emoji.ID)
+	}
+
+	// Check for giveaway entry
+	if emojiName == "🎉" {
+		g, err := b.DB.GetGiveawayByMessage(context.Background(), r.MessageID)
+		if err == nil && g != nil && !g.Ended {
+			err = b.DB.AddGiveawayEntrant(context.Background(), g.ID, r.UserID)
+			if err != nil {
+				slog.Error("Failed to add giveaway entrant", "error", err)
+			}
+		}
 	}
 
 	rr, err := b.DB.GetReactionRole(context.Background(), r.MessageID, emojiName)
@@ -597,5 +612,35 @@ func (b *Bot) handleStarboardReaction(s *discordgo.Session, guildID, channelID, 
 		if err != nil {
 			slog.Error("Failed to remove starboard message mapping from database", "error", err, "message_id", messageID)
 		}
+	}
+}
+
+// checkGiveaways checks for ended giveaways and picks winners.
+func (b *Bot) checkGiveaways() {
+	if b.DB == nil {
+		return
+	}
+
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		giveaways, err := b.DB.GetActiveGiveaways(context.Background())
+		if err != nil {
+			slog.Error("Failed to get active giveaways", "error", err)
+		} else {
+			for _, g := range giveaways {
+				// Pick winners and announce
+				commands.PickGiveawayWinners(b.Session, b.DB, g)
+
+				// Mark as ended
+				err = b.DB.EndGiveaway(context.Background(), g.MessageID)
+				if err != nil {
+					slog.Error("Failed to mark giveaway as ended", "error", err, "message_id", g.MessageID)
+				}
+			}
+		}
+
+		<-ticker.C
 	}
 }
