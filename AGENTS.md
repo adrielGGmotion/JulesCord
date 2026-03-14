@@ -359,6 +359,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added DB operations SetSticky, RemoveSticky, GetSticky, and UpdateStickyMessageID in internal/db/db.go.
 - Added /sticky command with set and remove subcommands in internal/bot/commands/sticky.go.
 - Updated message handler in internal/bot/bot.go to maintain sticky messages at the bottom of channels.
+- Implemented Phase 18 Suggestions System features: added migrations `015_suggestions.sql` with tables `suggestion_config` and `suggestions`.
+- Added DB operations `SetSuggestionChannel`, `GetSuggestionChannel`, `CreateSuggestion`, `GetSuggestionByID`, and `UpdateSuggestionStatus` in `internal/db/db.go`.
+- Added `/suggest` command with `setup`, `submit`, `accept`, and `reject` subcommands in `internal/bot/commands/suggest.go`.
+- Updated `internal/bot/bot.go` to register the `suggest` command.
+
 - Implemented Phase 17 Polls System features: added migrations `014_polls.sql` with table `polls`.
 - Added DB operations `CreatePoll`, `GetPoll`, and `ClosePoll` in `internal/db/db.go`.
 - Added `/poll create` and `/poll close` commands in `internal/bot/commands/poll.go`.
@@ -381,3 +386,8 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `CreatePoll`, `GetPoll`, `ClosePoll`
 - [x] `/poll create` command — creates a poll with up to 10 options, posts embed, adds number reactions
 - [x] `/poll close` command — closes a poll, tallies reactions, and displays the final results
+
+### Phase 18 — Suggestions System
+- [x] `migrations/015_suggestions.sql` — `suggestion_config` and `suggestions` tables
+- [x] DB operations — `SetSuggestionChannel`, `GetSuggestionChannel`, `CreateSuggestion`, `GetSuggestionByID`, `UpdateSuggestionStatus`
+- [x] `/suggest` command with `setup`, `submit`, `accept`, and `reject` subcommands
