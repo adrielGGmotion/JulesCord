@@ -1379,3 +1379,46 @@ func (db *DB) GetGiveawayEntrants(ctx context.Context, giveawayID int) ([]string
 	}
 	return entrants, nil
 }
+
+// SetAFK sets a user as AFK in a guild.
+func (db *DB) SetAFK(ctx context.Context, userID, guildID, reason string) error {
+	query := `
+		INSERT INTO afk_users (user_id, guild_id, reason, created_at)
+		VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+		ON CONFLICT (user_id, guild_id) DO UPDATE
+		SET reason = EXCLUDED.reason, created_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, userID, guildID, reason)
+	if err != nil {
+		slog.Error("Failed to set AFK status", "error", err, "user_id", userID, "guild_id", guildID)
+		return fmt.Errorf("failed to set AFK status: %w", err)
+	}
+	return nil
+}
+
+// RemoveAFK removes a user's AFK status in a guild.
+func (db *DB) RemoveAFK(ctx context.Context, userID, guildID string) error {
+	query := `DELETE FROM afk_users WHERE user_id = $1 AND guild_id = $2`
+	_, err := db.Pool.Exec(ctx, query, userID, guildID)
+	if err != nil {
+		slog.Error("Failed to remove AFK status", "error", err, "user_id", userID, "guild_id", guildID)
+		return fmt.Errorf("failed to remove AFK status: %w", err)
+	}
+	return nil
+}
+
+// GetAFK gets a user's AFK status in a guild.
+func (db *DB) GetAFK(ctx context.Context, userID, guildID string) (string, time.Time, error) {
+	var reason string
+	var createdAt time.Time
+	query := `SELECT reason, created_at FROM afk_users WHERE user_id = $1 AND guild_id = $2`
+	err := db.Pool.QueryRow(ctx, query, userID, guildID).Scan(&reason, &createdAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", time.Time{}, nil
+		}
+		slog.Error("Failed to get AFK status", "error", err, "user_id", userID, "guild_id", guildID)
+		return "", time.Time{}, fmt.Errorf("failed to get AFK status: %w", err)
+	}
+	return reason, createdAt, nil
+}
