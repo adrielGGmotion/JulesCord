@@ -388,6 +388,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added DB operations `AddNote`, `GetNotes`, and `RemoveNote` in `internal/db/db.go`.
 - Added `/note` command with `add`, `list`, and `remove` subcommands in `internal/bot/commands/note.go`.
 
+- Implemented Phase 23 Level Roles System features: added migrations `020_level_roles.sql` with table `level_roles`.
+- Added DB operations `SetLevelRole`, `RemoveLevelRole`, `GetLevelRoles`, and `GetLevelRole` in `internal/db/db.go`.
+- Added `/levelrole` command with `add`, `list`, and `remove` subcommands in `internal/bot/commands/levelrole.go`.
+- Updated message handler in `internal/bot/bot.go` to assign level roles when users reach specific levels via the XP system.
+
 ### Phase 15 — AFK System
 - [x] `migrations/012_afk.sql` — `afk_users` table
 - [x] DB operations — `SetAFK`, `RemoveAFK`, `GetAFK`
@@ -433,3 +438,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `migrations/019_notes.sql` — `user_notes` table
 - [x] DB operations — `AddNote`, `GetNotes`, `RemoveNote`
 - [x] `/note` command with `add`, `list`, and `remove` subcommands
+
+### Phase 23 — Level Roles System
+- [x] `migrations/020_level_roles.sql` — `level_roles` table
+- [x] DB operations — `SetLevelRole`, `RemoveLevelRole`, `GetLevelRoles`, `GetLevelRole`
+- [x] `/levelrole` command with `add`, `remove`, `list` subcommands
+- [x] Assign role on level up in XP system

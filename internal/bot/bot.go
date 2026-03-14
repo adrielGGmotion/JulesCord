@@ -78,6 +78,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Automod(database))
 	registry.Add(commands.Verification(database))
 	registry.Add(commands.NoteCommand(database))
+	registry.Add(commands.LevelRole(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -451,8 +452,24 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 						if err != nil {
 							slog.Error("Failed to update level for user %s", "arg1", m.Author.ID, "error", err)
 						} else {
+							// Check for level role reward
+							roleID, roleErr := b.DB.GetLevelRole(context.Background(), m.GuildID, newLevel)
+							if roleErr != nil {
+								slog.Error("Failed to check for level role", "error", roleErr, "guild_id", m.GuildID, "level", newLevel)
+							} else if roleID != nil && *roleID != "" {
+								grantErr := s.GuildMemberRoleAdd(m.GuildID, m.Author.ID, *roleID)
+								if grantErr != nil {
+									slog.Error("Failed to grant level role", "error", grantErr, "guild_id", m.GuildID, "user_id", m.Author.ID, "role_id", *roleID)
+								} else {
+									slog.Info("Granted level role", "guild_id", m.GuildID, "user_id", m.Author.ID, "role_id", *roleID, "level", newLevel)
+								}
+							}
+
 							// Announce level up
 							msg := fmt.Sprintf("🎉 Congratulations <@%s>, you just advanced to **Level %d**!", m.Author.ID, newLevel)
+							if roleID != nil && *roleID != "" {
+								msg += fmt.Sprintf(" You've been awarded the <@&%s> role!", *roleID)
+							}
 							_, err = s.ChannelMessageSend(m.ChannelID, msg)
 							if err != nil {
 								slog.Error("Failed to send level up message", "error", err)

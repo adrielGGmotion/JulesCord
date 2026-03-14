@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS level_roles (
+    guild_id VARCHAR(255) NOT NULL,
+    level INTEGER NOT NULL,
+    role_id VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (guild_id, level)
+);
