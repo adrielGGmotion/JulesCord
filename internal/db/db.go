@@ -3073,3 +3073,77 @@ func (db *DB) GetRoleMenu(ctx context.Context, messageID string) ([]RoleMenuOpti
 	}
 	return options, rows.Err()
 }
+
+// Quote represents a saved quote.
+type Quote struct {
+	ID        int       `json:"id"`
+	GuildID   string    `json:"guild_id"`
+	UserID    string    `json:"user_id"`
+	AuthorID  string    `json:"author_id"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// AddQuote adds a new quote to the database.
+func (db *DB) AddQuote(ctx context.Context, guildID, userID, authorID, content string) (int, error) {
+	query := `
+		INSERT INTO quotes (guild_id, user_id, author_id, content)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id
+	`
+	var id int
+	err := db.Pool.QueryRow(ctx, query, guildID, userID, authorID, content).Scan(&id)
+	return id, err
+}
+
+// GetQuote retrieves a specific quote by ID and Guild ID.
+func (db *DB) GetQuote(ctx context.Context, id int, guildID string) (*Quote, error) {
+	query := `
+		SELECT id, guild_id, user_id, author_id, content, created_at
+		FROM quotes
+		WHERE id = $1 AND guild_id = $2
+	`
+	q := &Quote{}
+	err := db.Pool.QueryRow(ctx, query, id, guildID).Scan(
+		&q.ID, &q.GuildID, &q.UserID, &q.AuthorID, &q.Content, &q.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Not found
+		}
+		return nil, err
+	}
+	return q, nil
+}
+
+// GetRandomQuote retrieves a random quote for a guild.
+func (db *DB) GetRandomQuote(ctx context.Context, guildID string) (*Quote, error) {
+	query := `
+		SELECT id, guild_id, user_id, author_id, content, created_at
+		FROM quotes
+		WHERE guild_id = $1
+		ORDER BY RANDOM()
+		LIMIT 1
+	`
+	q := &Quote{}
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(
+		&q.ID, &q.GuildID, &q.UserID, &q.AuthorID, &q.Content, &q.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No quotes found
+		}
+		return nil, err
+	}
+	return q, nil
+}
+
+// DeleteQuote deletes a quote by ID and Guild ID.
+func (db *DB) DeleteQuote(ctx context.Context, id int, guildID string) error {
+	query := `
+		DELETE FROM quotes
+		WHERE id = $1 AND guild_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, id, guildID)
+	return err
+}

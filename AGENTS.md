@@ -615,3 +615,13 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `CreateRoleMenu`, `AddRoleMenuOption`, `GetRoleMenu`
 - [x] `/rolemenu` command with `setup` and `add_role` subcommands
 - [x] Interaction handler for `role_menu_select` drop-down to assign/remove roles
+
+- Implemented Phase 40 Quotes System features: added migrations `037_quotes.sql` with table `quotes`.
+- Added DB operations `AddQuote`, `GetQuote`, `GetRandomQuote`, and `DeleteQuote` in `internal/db/db.go`.
+- Added `/quote` command with `add`, `get`, `random`, and `delete` subcommands in `internal/bot/commands/quote.go`.
+- Updated `internal/bot/bot.go` to register the `quote` command.
+
+### Phase 40 — Quotes System
+- [x] `migrations/037_quotes.sql` — `quotes` table
+- [x] DB operations — `AddQuote`, `GetQuote`, `GetRandomQuote`, `DeleteQuote`
+- [x] `/quote` command with `add`, `get`, `random`, and `delete` subcommands
