@@ -89,6 +89,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Birthday(database))
 	registry.Add(commands.TempVoice(database))
 	registry.Add(commands.NewCountingCommand(database))
+	registry.Add(commands.NewTriviaCommand(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -288,6 +289,67 @@ func (b *Bot) interactionCreateHandler(s *discordgo.Session, i *discordgo.Intera
 					Value: "Panel Support Ticket",
 				},
 			})
+			return
+		}
+
+		if strings.HasPrefix(i.MessageComponentData().CustomID, "trivia_answer_") {
+			customID := i.MessageComponentData().CustomID
+			parts := strings.Split(customID, "_")
+			if len(parts) >= 5 {
+				isCorrectStr := parts[2]
+				isCorrect := isCorrectStr == "1"
+
+				var components []discordgo.MessageComponent
+				// Reconstruct components to disable them
+				if len(i.Message.Components) > 0 {
+					if actionRow, ok := i.Message.Components[0].(*discordgo.ActionsRow); ok {
+						var newActionRowComponents []discordgo.MessageComponent
+						for _, comp := range actionRow.Components {
+							if button, ok := comp.(*discordgo.Button); ok {
+								button.Disabled = true
+
+								// Highlight correct answer
+								btnParts := strings.Split(button.CustomID, "_")
+								if len(btnParts) >= 5 && btnParts[2] == "1" {
+									button.Style = discordgo.SuccessButton
+								} else if button.CustomID == customID && !isCorrect {
+									// Highlight chosen wrong answer
+									button.Style = discordgo.DangerButton
+								} else {
+									button.Style = discordgo.SecondaryButton
+								}
+								newActionRowComponents = append(newActionRowComponents, button)
+							}
+						}
+						components = append(components, &discordgo.ActionsRow{
+							Components: newActionRowComponents,
+						})
+					}
+				}
+
+				embed := i.Message.Embeds[0]
+				var content string
+				if isCorrect {
+					content = fmt.Sprintf("🎉 <@%s> got it right and won **10 coins** and **1 trivia point**!", i.Member.User.ID)
+					embed.Color = 0x2ecc71 // Green
+					if b.DB != nil {
+						_ = b.DB.AddTriviaScore(context.Background(), i.GuildID, i.Member.User.ID)
+						_ = b.DB.AddCoins(context.Background(), i.GuildID, i.Member.User.ID, 10)
+					}
+				} else {
+					content = fmt.Sprintf("❌ <@%s> got it wrong!", i.Member.User.ID)
+					embed.Color = 0xe74c3c // Red
+				}
+
+				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseUpdateMessage,
+					Data: &discordgo.InteractionResponseData{
+						Content:    content,
+						Embeds:     []*discordgo.MessageEmbed{embed},
+						Components: components,
+					},
+				})
+			}
 			return
 		}
 

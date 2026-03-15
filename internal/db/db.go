@@ -2657,3 +2657,61 @@ func (db *DB) ResetCountingNumber(ctx context.Context, guildID string) error {
 	_, err := db.Pool.Exec(ctx, query, guildID)
 	return err
 }
+
+// TriviaScore represents a user's trivia score in a guild.
+type TriviaScore struct {
+	GuildID string
+	UserID  string
+	Score   int
+}
+
+// AddTriviaScore increments a user's trivia score by 1.
+func (db *DB) AddTriviaScore(ctx context.Context, guildID, userID string) error {
+	query := `
+		INSERT INTO trivia_scores (guild_id, user_id, score)
+		VALUES ($1, $2, 1)
+		ON CONFLICT (guild_id, user_id) DO UPDATE SET
+			score = trivia_scores.score + 1,
+			updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID)
+	return err
+}
+
+// GetTriviaLeaderboard returns the top 10 trivia players in a guild.
+func (db *DB) GetTriviaLeaderboard(ctx context.Context, guildID string) ([]TriviaScore, error) {
+	query := `
+		SELECT guild_id, user_id, score
+		FROM trivia_scores
+		WHERE guild_id = $1
+		ORDER BY score DESC
+		LIMIT 10
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var scores []TriviaScore
+	for rows.Next() {
+		var s TriviaScore
+		if err := rows.Scan(&s.GuildID, &s.UserID, &s.Score); err != nil {
+			return nil, err
+		}
+		scores = append(scores, s)
+	}
+	return scores, rows.Err()
+}
+
+// AddCoins awards a specific amount of coins to a user.
+func (db *DB) AddCoins(ctx context.Context, guildID, userID string, amount int) error {
+	query := `
+		INSERT INTO user_economy (guild_id, user_id, coins, last_daily_at)
+		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (guild_id, user_id) DO UPDATE SET
+			coins = user_economy.coins + EXCLUDED.coins
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, amount)
+	return err
+}
