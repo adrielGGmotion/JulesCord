@@ -638,6 +638,12 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Updated `guildMemberAddHandler` in `internal/bot/bot.go` to support image embedding.
 - Updated `internal/bot/bot.go` to register the `welcome` command.
 
+- Implemented Phase 44 Reminder System Extension features:
+- Added DB operations `GetPendingRemindersForGuild`, `DeleteAllRemindersForUser`, and `SnoozeReminder` in `internal/db/db.go`.
+- Added `/remind list-all` and `/remind delete-all` subcommands to `internal/bot/commands/remind.go`.
+- Updated `checkReminders` in `internal/bot/bot.go` to send a "Snooze 10m" button with reminders.
+- Added interaction handler for the `snooze_` custom ID to parse and execute reminder snoozing.
+
 ### Phase 40 — Quotes System
 - [x] `migrations/037_quotes.sql` — `quotes` table
 - [x] DB operations — `AddQuote`, `GetQuote`, `GetRandomQuote`, `DeleteQuote`
@@ -659,3 +665,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetWelcomeImage`, `GetWelcomeImage`
 - [x] `/welcome` command with `setup-image` and `test` subcommands
 - [x] Update `GuildMemberAdd` handler to support image embedding
+
+### Phase 44 — Reminder System Extension
+- [x] Add `/remind list-all` subcommand to view all reminders for a server (Admin only)
+- [x] Add `/remind delete-all` subcommand to clear all reminders for a user
+- [x] Add `/remind snooze` interaction for reminder messages
+- [x] Update reminder delivery logic to include a snooze button component

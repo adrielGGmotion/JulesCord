@@ -13,6 +13,8 @@ import (
 
 // Remind creates the remind command to add, list, and delete reminders.
 func Remind(database *db.DB) *Command {
+	adminPerms := int64(discordgo.PermissionAdministrator)
+
 	return &Command{
 		Definition: &discordgo.ApplicationCommand{
 			Name:        "remind",
@@ -55,6 +57,16 @@ func Remind(database *db.DB) *Command {
 						},
 					},
 				},
+				{
+					Name:        "list-all",
+					Description: "List all pending reminders for this server (Admin only)",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
+				{
+					Name:        "delete-all",
+					Description: "Delete all your pending reminders",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
 			},
 		},
 		Handler: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -71,6 +83,14 @@ func Remind(database *db.DB) *Command {
 				handleListReminders(s, i, database)
 			case "delete":
 				handleDeleteReminder(s, i, database, subcommand.Options)
+			case "list-all":
+				if i.Member == nil || i.Member.Permissions&adminPerms == 0 {
+					SendError(s, i, "You must be an administrator to use this command.")
+					return
+				}
+				handleListAllReminders(s, i, database)
+			case "delete-all":
+				handleDeleteAllReminders(s, i, database)
 			}
 		},
 	}
@@ -110,6 +130,74 @@ func handleAddReminder(s *discordgo.Session, i *discordgo.InteractionCreate, dat
 	embed := &discordgo.MessageEmbed{
 		Title:       "⏰ Reminder Set",
 		Description: fmt.Sprintf("I will remind you about **%s** %s.", message, timeFormat),
+		Color:       0x10B981, // Green
+	}
+	SendEmbed(s, i, embed)
+}
+
+func handleListAllReminders(s *discordgo.Session, i *discordgo.InteractionCreate, database *db.DB) {
+	if i.GuildID == "" {
+		SendError(s, i, "This command can only be used in a server.")
+		return
+	}
+
+	reminders, err := database.GetPendingRemindersForGuild(context.Background(), i.GuildID)
+	if err != nil {
+		slog.Error("Failed to list all reminders for guild", "guild_id", i.GuildID, "error", err)
+		SendError(s, i, "Failed to fetch reminders for this server.")
+		return
+	}
+
+	if len(reminders) == 0 {
+		embed := &discordgo.MessageEmbed{
+			Title:       "⏰ Server Reminders",
+			Description: "There are no pending reminders in this server.",
+			Color:       0x3B82F6, // Blue
+		}
+		SendEmbed(s, i, embed)
+		return
+	}
+
+	description := ""
+	for idx, r := range reminders {
+		if idx >= 20 {
+			description += "\n*...and more*"
+			break
+		}
+		description += fmt.Sprintf("**ID: %d** — <@%s> — %s (<t:%d:R>)\n", r.ID, r.UserID, r.Message, r.DueAt.Unix())
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       fmt.Sprintf("⏰ Server Reminders (%d)", len(reminders)),
+		Description: description,
+		Color:       0x3B82F6, // Blue
+	}
+	SendEmbed(s, i, embed)
+}
+
+func handleDeleteAllReminders(s *discordgo.Session, i *discordgo.InteractionCreate, database *db.DB) {
+	var userID string
+	if i.Member != nil {
+		userID = i.Member.User.ID
+	} else {
+		userID = i.User.ID
+	}
+
+	count, err := database.DeleteAllRemindersForUser(context.Background(), userID)
+	if err != nil {
+		slog.Error("Failed to delete all reminders", "user_id", userID, "error", err)
+		SendError(s, i, "Failed to delete your reminders.")
+		return
+	}
+
+	if count == 0 {
+		SendError(s, i, "You have no pending reminders to delete.")
+		return
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "🗑️ Reminders Cleared",
+		Description: fmt.Sprintf("Successfully deleted all **%d** of your pending reminders.", count),
 		Color:       0x10B981, // Green
 	}
 	SendEmbed(s, i, embed)
