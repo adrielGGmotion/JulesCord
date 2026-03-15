@@ -704,3 +704,14 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added DB operations `SetAutoRole` and `GetAutoRole` in `internal/db/db.go`.
 - Added `/autorole setup` command in `internal/bot/commands/autorole.go`.
 - Updated `guildMemberAddHandler` in `internal/bot/bot.go` to assign the configured auto-role and registered the `autorole` command.
+
+### Phase 48 — Media Only Channels
+- [x] `migrations/043_media_channels.sql` — `media_channels` table
+- [x] DB operations — `AddMediaChannel`, `RemoveMediaChannel`, `ListMediaChannels`, `IsMediaChannel`
+- [x] `/mediachannel` command with `add`, `remove`, and `list` subcommands
+- [x] Update `messageCreateHandler` to delete messages without attachments or URLs in media channels
+
+- Implemented Phase 48 Media Only Channels features: added migrations `043_media_channels.up.sql` and `043_media_channels.down.sql` with table `media_channels`.
+- Added DB operations `AddMediaChannel`, `RemoveMediaChannel`, `ListMediaChannels`, and `IsMediaChannel` in `internal/db/db.go`.
+- Added `/mediachannel` command in `internal/bot/commands/mediachannel.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to delete messages without attachments or URLs in configured media channels.
