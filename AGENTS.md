@@ -553,6 +553,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/confess` command in `internal/bot/commands/confess.go` to anonymously post to the configured channel.
 - Updated `internal/bot/bot.go` to register the `confession` and `confess` commands.
 
+- Implemented Phase 38 To-Do List System features: added migrations `035_todos.sql` with table `todos`.
+- Added DB operations `AddTodo`, `GetTodos`, `CompleteTodo`, and `RemoveTodo` in `internal/db/db.go`.
+- Added `/todo` command with `add`, `list`, `complete`, and `remove` subcommands in `internal/bot/commands/todo.go`.
+- Updated `internal/bot/bot.go` to register the `todo` command.
+
 ### Phase 31 — Marriage System
 - [x] `migrations/028_marriages.sql` — `marriages` table
 - [x] DB operations — `ProposeMarriage`, `AcceptMarriage`, `Divorce`, `GetMarriage`
@@ -594,3 +599,8 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetConfessionChannel`, `GetConfessionChannel`
 - [x] `/confession setup` command to configure the channel
 - [x] `/confess` command to anonymously post confessions
+
+### Phase 38 — To-Do List System
+- [x] `migrations/035_todos.sql` — `todos` table
+- [x] DB operations — `AddTodo`, `GetTodos`, `CompleteTodo`, `RemoveTodo`
+- [x] `/todo` command with `add`, `list`, `complete`, and `remove` subcommands
