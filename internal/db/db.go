@@ -3006,3 +3006,70 @@ func (db *DB) GetConfessionChannel(ctx context.Context, guildID string) (string,
 	}
 	return channelID, nil
 }
+
+// RoleMenu represents a role menu message.
+type RoleMenu struct {
+	MessageID string
+	GuildID   string
+	ChannelID string
+}
+
+// RoleMenuOption represents a single option in a role menu.
+type RoleMenuOption struct {
+	MessageID   string
+	RoleID      string
+	Emoji       string
+	Label       string
+	Description string
+}
+
+// CreateRoleMenu creates a new role menu.
+func (db *DB) CreateRoleMenu(ctx context.Context, messageID, guildID, channelID string) error {
+	query := `
+		INSERT INTO role_menus (message_id, guild_id, channel_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (message_id) DO NOTHING
+	`
+	_, err := db.Pool.Exec(ctx, query, messageID, guildID, channelID)
+	return err
+}
+
+// AddRoleMenuOption adds an option to an existing role menu.
+func (db *DB) AddRoleMenuOption(ctx context.Context, messageID, roleID, emoji, label, description string) error {
+	query := `
+		INSERT INTO role_menu_options (message_id, role_id, emoji, label, description)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (message_id, role_id) DO UPDATE
+		SET emoji = EXCLUDED.emoji, label = EXCLUDED.label, description = EXCLUDED.description
+	`
+	_, err := db.Pool.Exec(ctx, query, messageID, roleID, emoji, label, description)
+	return err
+}
+
+// GetRoleMenu gets all options for a specific role menu message.
+func (db *DB) GetRoleMenu(ctx context.Context, messageID string) ([]RoleMenuOption, error) {
+	query := `
+		SELECT message_id, role_id, emoji, label, description
+		FROM role_menu_options
+		WHERE message_id = $1
+	`
+	rows, err := db.Pool.Query(ctx, query, messageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var options []RoleMenuOption
+	for rows.Next() {
+		var o RoleMenuOption
+		var desc *string
+		if err := rows.Scan(&o.MessageID, &o.RoleID, &o.Emoji, &o.Label, &desc); err != nil {
+			return nil, err
+		}
+		if desc != nil {
+			o.Description = *desc
+		}
+		options = append(options, o)
+	}
+	return options, rows.Err()
+}

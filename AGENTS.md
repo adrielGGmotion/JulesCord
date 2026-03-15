@@ -558,6 +558,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/todo` command with `add`, `list`, `complete`, and `remove` subcommands in `internal/bot/commands/todo.go`.
 - Updated `internal/bot/bot.go` to register the `todo` command.
 
+- Implemented Phase 39 Role Menu System features: added migrations `036_role_menus.sql` with tables `role_menus` and `role_menu_options`.
+- Added DB operations `CreateRoleMenu`, `AddRoleMenuOption`, and `GetRoleMenu` in `internal/db/db.go`.
+- Added `/rolemenu` command with `setup` and `add_role` subcommands in `internal/bot/commands/rolemenu.go`.
+- Updated `internal/bot/bot.go` to register the `rolemenu` command and handle the `role_menu_select` dropdown interaction to assign/remove roles dynamically.
+
 ### Phase 31 — Marriage System
 - [x] `migrations/028_marriages.sql` — `marriages` table
 - [x] DB operations — `ProposeMarriage`, `AcceptMarriage`, `Divorce`, `GetMarriage`
@@ -604,3 +609,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `migrations/035_todos.sql` — `todos` table
 - [x] DB operations — `AddTodo`, `GetTodos`, `CompleteTodo`, `RemoveTodo`
 - [x] `/todo` command with `add`, `list`, `complete`, and `remove` subcommands
+
+### Phase 39 — Role Menu System
+- [x] `migrations/036_role_menus.sql` — `role_menus` and `role_menu_options` tables
+- [x] DB operations — `CreateRoleMenu`, `AddRoleMenuOption`, `GetRoleMenu`
+- [x] `/rolemenu` command with `setup` and `add_role` subcommands
+- [x] Interaction handler for `role_menu_select` drop-down to assign/remove roles
