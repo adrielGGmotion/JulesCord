@@ -3319,3 +3319,30 @@ func (db *DB) SetBackgroundURL(ctx context.Context, guildID, userID, backgroundU
 	_, err := db.Pool.Exec(ctx, query, guildID, userID, backgroundURL)
 	return err
 }
+
+// SetAutoRole sets the auto role ID for a guild in the autorole_config table.
+func (db *DB) SetAutoRole(ctx context.Context, guildID, roleID string) error {
+	query := `
+		INSERT INTO autorole_config (guild_id, role_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE SET
+			role_id = EXCLUDED.role_id,
+			updated_at = NOW()
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, roleID)
+	return err
+}
+
+// GetAutoRole gets the auto role ID for a guild from the autorole_config table.
+func (db *DB) GetAutoRole(ctx context.Context, guildID string) (string, error) {
+	query := `SELECT role_id FROM autorole_config WHERE guild_id = $1`
+	var roleID string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&roleID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil // No auto-role configured
+		}
+		return "", err
+	}
+	return roleID, nil
+}
