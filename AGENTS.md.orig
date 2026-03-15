@@ -522,10 +522,6 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added DB operations `ProposeMarriage`, `AcceptMarriage`, `Divorce`, and `GetMarriage` in `internal/db/db.go`.
 - Added `/marry` command with `propose`, `accept`, and `divorce` subcommands in `internal/bot/commands/marry.go`.
 - Updated `/profile` command in `internal/bot/commands/profile.go` to display a user's marriage status in their profile embed.
-- Implemented Phase 32 Counting Channel System features: added migrations `029_counting.sql` with table `counting_config`.
-- Added DB operations `SetCountingChannel`, `GetCountingChannel`, `UpdateCountingNumber`, and `ResetCountingNumber` in `internal/db/db.go`.
-- Added `/counting setup` command in `internal/bot/commands/counting.go` to configure the channel.
-- Updated `messageCreateHandler` in `internal/bot/bot.go` to validate and increment numbers in the configured counting channel.
 
 ### Phase 31 — Marriage System
 - [x] `migrations/028_marriages.sql` — `marriages` table
