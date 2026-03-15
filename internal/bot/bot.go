@@ -65,6 +65,9 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Giveaway(database))
 	registry.Add(commands.AFKCommand(database))
 	registry.Add(commands.Quote(database))
+	registry.Add(commands.Userinfo(database))
+	registry.Add(commands.Serverinfo(database))
+	registry.Add(commands.Avatar(database))
 
 	bot := &Bot{
 		Session:  session,

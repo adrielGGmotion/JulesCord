@@ -682,3 +682,14 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added DB operation `SetBackgroundURL` in `internal/db/db.go`.
 - Added `/rank view`, `/rank set-background`, and `/rank role-rewards` subcommands to `internal/bot/commands/rank.go`.
 - Updated `/rank view` embed to use the custom background image if set.
+
+### Phase 46 — Utility Commands
+- [x] Add `/userinfo` command to display detailed information about a user (joined date, created date, roles, etc.)
+- [x] Add `/serverinfo` command to display detailed information about the server (member count, creation date, boost level, etc.)
+- [x] Add `/avatar` command to view a user's avatar in high resolution
+
+- Implemented Phase 46 Utility Commands features:
+- Added `/userinfo` command in `internal/bot/commands/userinfo.go` to display detailed user information.
+- Added `/serverinfo` command in `internal/bot/commands/serverinfo.go` to display detailed server information.
+- Added `/avatar` command in `internal/bot/commands/avatar.go` to display a user's avatar in high resolution.
+- Updated `internal/bot/bot.go` to register the `userinfo`, `serverinfo`, and `avatar` commands.
