@@ -106,6 +106,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Play())
 	registry.Add(commands.Report(database))
 	registry.Add(commands.Welcome(database))
+	registry.Add(commands.Autorole(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -835,10 +836,13 @@ func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemb
 		}
 	}
 
-	if config.AutoRoleID != nil && *config.AutoRoleID != "" {
-		err := s.GuildMemberRoleAdd(m.GuildID, m.User.ID, *config.AutoRoleID)
+	roleID, err := b.DB.GetAutoRole(context.Background(), m.GuildID)
+	if err != nil {
+		slog.Error("Failed to fetch auto-role for guild", "guild_id", m.GuildID, "error", err)
+	} else if roleID != "" {
+		err := s.GuildMemberRoleAdd(m.GuildID, m.User.ID, roleID)
 		if err != nil {
-			slog.Error("Failed to assign auto-role to user %s in guild %s", "arg1", m.User.ID, "arg2", m.GuildID, "error", err)
+			slog.Error("Failed to assign auto-role to user", "user_id", m.User.ID, "guild_id", m.GuildID, "error", err)
 		}
 	}
 }

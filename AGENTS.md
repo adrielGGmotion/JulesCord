@@ -693,3 +693,14 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/serverinfo` command in `internal/bot/commands/serverinfo.go` to display detailed server information.
 - Added `/avatar` command in `internal/bot/commands/avatar.go` to display a user's avatar in high resolution.
 - Updated `internal/bot/bot.go` to register the `userinfo`, `serverinfo`, and `avatar` commands.
+
+### Phase 47 — Auto-Roles System
+- [x] `migrations/042_autoroles.sql` — `autorole_config` table
+- [x] DB operations — `SetAutoRole`, `GetAutoRole`
+- [x] `/autorole setup` command to configure a role to be assigned automatically
+- [x] Update `GuildMemberAdd` handler to assign the configured auto-role
+
+- Implemented Phase 47 Auto-Roles System features: added migrations `042_autoroles.up.sql` and `042_autoroles.down.sql` with table `autorole_config`.
+- Added DB operations `SetAutoRole` and `GetAutoRole` in `internal/db/db.go`.
+- Added `/autorole setup` command in `internal/bot/commands/autorole.go`.
+- Updated `guildMemberAddHandler` in `internal/bot/bot.go` to assign the configured auto-role and registered the `autorole` command.
