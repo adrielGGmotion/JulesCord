@@ -2716,6 +2716,71 @@ func (db *DB) AddCoins(ctx context.Context, guildID, userID string, amount int) 
 	return err
 }
 
+// RemoveCoins subtracts a specific amount of coins from a user.
+func (db *DB) RemoveCoins(ctx context.Context, guildID, userID string, amount int) error {
+	query := `
+		UPDATE user_economy
+		SET coins = GREATEST(0, coins - $3)
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, amount)
+	return err
+}
+
+// GamblingStats represents a user's gambling statistics.
+type GamblingStats struct {
+	GuildID    string
+	UserID     string
+	CoinsWon   int64
+	CoinsLost  int64
+	GamesPlayed int
+	GamesWon   int
+	GamesLost  int
+}
+
+// UpdateGamblingStats updates a user's gambling stats.
+func (db *DB) UpdateGamblingStats(ctx context.Context, guildID, userID string, amountWon, amountLost int) error {
+	wonInt := 0
+	lostInt := 0
+	if amountWon > 0 {
+		wonInt = 1
+	} else if amountLost > 0 {
+		lostInt = 1
+	}
+
+	query := `
+		INSERT INTO gambling_stats (guild_id, user_id, coins_won, coins_lost, games_played, games_won, games_lost)
+		VALUES ($1, $2, $3, $4, 1, $5, $6)
+		ON CONFLICT (guild_id, user_id) DO UPDATE SET
+			coins_won = gambling_stats.coins_won + EXCLUDED.coins_won,
+			coins_lost = gambling_stats.coins_lost + EXCLUDED.coins_lost,
+			games_played = gambling_stats.games_played + 1,
+			games_won = gambling_stats.games_won + EXCLUDED.games_won,
+			games_lost = gambling_stats.games_lost + EXCLUDED.games_lost
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, amountWon, amountLost, wonInt, lostInt)
+	return err
+}
+
+// GetGamblingStats retrieves a user's gambling stats.
+func (db *DB) GetGamblingStats(ctx context.Context, guildID, userID string) (*GamblingStats, error) {
+	query := `
+		SELECT guild_id, user_id, coins_won, coins_lost, games_played, games_won, games_lost
+		FROM gambling_stats
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	row := db.Pool.QueryRow(ctx, query, guildID, userID)
+	var stats GamblingStats
+	err := row.Scan(&stats.GuildID, &stats.UserID, &stats.CoinsWon, &stats.CoinsLost, &stats.GamesPlayed, &stats.GamesWon, &stats.GamesLost)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &stats, nil
+}
+
 // CustomCommand represents a custom command for a guild.
 type CustomCommand struct {
 	ID        int       `json:"id"`

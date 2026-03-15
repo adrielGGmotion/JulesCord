@@ -93,6 +93,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.CustomCommand(database))
 	registry.Add(commands.Snipe(database))
 	registry.Add(commands.EditSnipe(database))
+	registry.Add(commands.Gamble(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
