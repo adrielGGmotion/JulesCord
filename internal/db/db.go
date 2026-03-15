@@ -3217,3 +3217,32 @@ func (db *DB) CreateReport(ctx context.Context, guildID, authorID, targetID, rea
 	err := db.Pool.QueryRow(ctx, query, guildID, authorID, targetID, reason).Scan(&id)
 	return id, err
 }
+
+// SetWelcomeImage configures the welcome image URL for a guild.
+func (db *DB) SetWelcomeImage(ctx context.Context, guildID, imageURL string) error {
+	query := `
+		INSERT INTO welcome_images (guild_id, image_url)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE
+		SET image_url = $2, updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, imageURL)
+	return err
+}
+
+// GetWelcomeImage retrieves the welcome image URL for a guild.
+func (db *DB) GetWelcomeImage(ctx context.Context, guildID string) (string, error) {
+	query := `
+		SELECT image_url FROM welcome_images
+		WHERE guild_id = $1
+	`
+	var imageURL string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&imageURL)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil // No image configured
+		}
+		return "", err
+	}
+	return imageURL, nil
+}

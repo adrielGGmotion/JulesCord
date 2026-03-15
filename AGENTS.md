@@ -632,6 +632,12 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/report` command with `setup` and `user` subcommands in `internal/bot/commands/report.go`.
 - Updated `internal/bot/bot.go` to register the `report` command.
 
+- Implemented Phase 43 Welcome System Extension features: added migrations `040_welcome_images.sql` with table `welcome_images`.
+- Added DB operations `SetWelcomeImage` and `GetWelcomeImage` in `internal/db/db.go`.
+- Added `/welcome` command with `setup-image` and `test` subcommands in `internal/bot/commands/welcome.go`.
+- Updated `guildMemberAddHandler` in `internal/bot/bot.go` to support image embedding.
+- Updated `internal/bot/bot.go` to register the `welcome` command.
+
 ### Phase 40 — Quotes System
 - [x] `migrations/037_quotes.sql` — `quotes` table
 - [x] DB operations — `AddQuote`, `GetQuote`, `GetRandomQuote`, `DeleteQuote`
@@ -647,3 +653,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `migrations/039_reports.sql` — `report_config` and `reports` tables
 - [x] DB operations — `SetReportChannel`, `GetReportChannel`, `CreateReport`
 - [x] `/report` command with `setup` and `user` subcommands
+
+### Phase 43 — Welcome System Extension
+- [x] `migrations/040_welcome_images.sql` — `welcome_images` table
+- [x] DB operations — `SetWelcomeImage`, `GetWelcomeImage`
+- [x] `/welcome` command with `setup-image` and `test` subcommands
+- [x] Update `GuildMemberAdd` handler to support image embedding
