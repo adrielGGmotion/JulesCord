@@ -558,6 +558,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/todo` command with `add`, `list`, `complete`, and `remove` subcommands in `internal/bot/commands/todo.go`.
 - Updated `internal/bot/bot.go` to register the `todo` command.
 
+- Implemented Phase 39 Modmail System features: added migrations `036_modmail.sql` with tables `modmail_config` and `modmail_threads`.
+- Added DB operations `SetModmailConfig`, `GetModmailConfig`, `CreateModmailThread`, `CloseModmailThread`, `GetModmailThread`, and `GetModmailThreadByChannel` in `internal/db/db.go`.
+- Added `/modmail` command with `setup`, `reply`, and `close` subcommands in `internal/bot/commands/modmail.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to intercept Direct Messages, route them to a dedicated modmail category channel, and handle attachments.
+
 ### Phase 31 — Marriage System
 - [x] `migrations/028_marriages.sql` — `marriages` table
 - [x] DB operations — `ProposeMarriage`, `AcceptMarriage`, `Divorce`, `GetMarriage`
@@ -604,3 +609,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `migrations/035_todos.sql` — `todos` table
 - [x] DB operations — `AddTodo`, `GetTodos`, `CompleteTodo`, `RemoveTodo`
 - [x] `/todo` command with `add`, `list`, `complete`, and `remove` subcommands
+
+### Phase 39 — Modmail System
+- [x] `migrations/036_modmail.sql` — `modmail_threads` table
+- [x] DB operations — `CreateModmailThread`, `CloseModmailThread`, `GetModmailThread`, `GetModmailThreadByChannel`
+- [x] Direct Message handler to route user DMs to dedicated channels in the support server
+- [x] `/modmail` commands in support server (`reply`, `close`) to communicate back to the user

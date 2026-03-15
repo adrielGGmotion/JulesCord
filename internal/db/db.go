@@ -1642,6 +1642,105 @@ func (db *DB) GetSuggestionChannel(ctx context.Context, guildID string) (string,
 	return channelID, nil
 }
 
+// ModmailConfig represents a modmail configuration for a guild.
+type ModmailConfig struct {
+	GuildID    string
+	CategoryID string
+}
+
+// ModmailThread represents an active modmail thread.
+type ModmailThread struct {
+	ID        int
+	UserID    string
+	GuildID   string
+	ChannelID string
+	Status    string
+}
+
+// SetModmailConfig sets the modmail category for a guild.
+func (db *DB) SetModmailConfig(ctx context.Context, guildID string, categoryID string) error {
+	query := `
+		INSERT INTO modmail_config (guild_id, category_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE SET category_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, categoryID)
+	return err
+}
+
+// GetModmailConfig gets the modmail config for a specific guild.
+func (db *DB) GetModmailConfig(ctx context.Context, guildID string) (*ModmailConfig, error) {
+	query := `SELECT guild_id, category_id FROM modmail_config WHERE guild_id = $1`
+	var config ModmailConfig
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&config.GuildID, &config.CategoryID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &config, nil
+}
+
+// GetAnyModmailConfig gets the first available modmail config.
+func (db *DB) GetAnyModmailConfig(ctx context.Context) (*ModmailConfig, error) {
+	query := `SELECT guild_id, category_id FROM modmail_config LIMIT 1`
+	var config ModmailConfig
+	err := db.Pool.QueryRow(ctx, query).Scan(&config.GuildID, &config.CategoryID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &config, nil
+}
+
+// CreateModmailThread creates a new modmail thread.
+func (db *DB) CreateModmailThread(ctx context.Context, userID, guildID, channelID string) error {
+	query := `
+		INSERT INTO modmail_threads (user_id, guild_id, channel_id, status)
+		VALUES ($1, $2, $3, 'open')
+	`
+	_, err := db.Pool.Exec(ctx, query, userID, guildID, channelID)
+	return err
+}
+
+// CloseModmailThread marks a modmail thread as closed.
+func (db *DB) CloseModmailThread(ctx context.Context, channelID string) error {
+	query := `UPDATE modmail_threads SET status = 'closed', updated_at = CURRENT_TIMESTAMP WHERE channel_id = $1 AND status = 'open'`
+	_, err := db.Pool.Exec(ctx, query, channelID)
+	return err
+}
+
+// GetModmailThread gets an active modmail thread for a user.
+func (db *DB) GetModmailThread(ctx context.Context, userID string) (*ModmailThread, error) {
+	query := `SELECT id, user_id, guild_id, channel_id, status FROM modmail_threads WHERE user_id = $1 AND status = 'open' LIMIT 1`
+	var thread ModmailThread
+	err := db.Pool.QueryRow(ctx, query, userID).Scan(&thread.ID, &thread.UserID, &thread.GuildID, &thread.ChannelID, &thread.Status)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &thread, nil
+}
+
+// GetModmailThreadByChannel gets an active modmail thread by its channel ID.
+func (db *DB) GetModmailThreadByChannel(ctx context.Context, channelID string) (*ModmailThread, error) {
+	query := `SELECT id, user_id, guild_id, channel_id, status FROM modmail_threads WHERE channel_id = $1 AND status = 'open' LIMIT 1`
+	var thread ModmailThread
+	err := db.Pool.QueryRow(ctx, query, channelID).Scan(&thread.ID, &thread.UserID, &thread.GuildID, &thread.ChannelID, &thread.Status)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &thread, nil
+}
+
 // Todo represents a user's task.
 type Todo struct {
 	ID        int

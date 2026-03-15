@@ -97,6 +97,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Confession(database))
 	registry.Add(commands.Confess(database))
 	registry.Add(commands.Todo(database))
+	registry.Add(commands.Modmail(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -431,6 +432,69 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	// Ignore all messages created by the bot itself or other bots
 	if m.Author.ID == s.State.User.ID || m.Author.Bot {
 		return
+	}
+
+	// Modmail System - Intercept Direct Messages
+	if m.GuildID == "" && b.DB != nil {
+		config, err := b.DB.GetAnyModmailConfig(context.Background())
+		if err == nil && config != nil {
+			thread, err := b.DB.GetModmailThread(context.Background(), m.Author.ID)
+			var threadChannelID string
+
+			if err == nil && thread != nil {
+				threadChannelID = thread.ChannelID
+			} else {
+				// Create new thread channel
+				channel, err := s.GuildChannelCreateComplex(config.GuildID, discordgo.GuildChannelCreateData{
+					Name:     fmt.Sprintf("ticket-%s", m.Author.Username),
+					Type:     discordgo.ChannelTypeGuildText,
+					ParentID: config.CategoryID,
+				})
+				if err == nil {
+					threadChannelID = channel.ID
+					_ = b.DB.CreateModmailThread(context.Background(), m.Author.ID, config.GuildID, channel.ID)
+
+					// Send welcome message in DM
+					dmChannel, _ := s.UserChannelCreate(m.Author.ID)
+					if dmChannel != nil {
+						_, _ = s.ChannelMessageSendEmbed(dmChannel.ID, &discordgo.MessageEmbed{
+							Title:       "Support Thread Created",
+							Description: "A new support thread has been created. The moderation team will get back to you shortly.",
+							Color:       0x00FF00, // Green
+						})
+					}
+
+					// Mention here/mods in the new channel
+					_, _ = s.ChannelMessageSend(channel.ID, fmt.Sprintf("@here A new modmail thread has been opened by <@%s>.", m.Author.ID))
+				}
+			}
+
+			if threadChannelID != "" {
+				// Forward message to the thread channel
+				embed := &discordgo.MessageEmbed{
+					Author: &discordgo.MessageEmbedAuthor{
+						Name:    fmt.Sprintf("%s (%s)", m.Author.String(), m.Author.ID),
+						IconURL: m.Author.AvatarURL(""),
+					},
+					Description: m.Content,
+					Color:       0x0099FF,
+					Timestamp:   time.Now().Format(time.RFC3339),
+				}
+
+				// Handle attachments
+				if len(m.Attachments) > 0 {
+					embed.Image = &discordgo.MessageEmbedImage{
+						URL: m.Attachments[0].URL,
+					}
+				}
+
+				_, _ = s.ChannelMessageSendEmbed(threadChannelID, embed)
+
+				// Add check mark to user's DM to confirm receipt
+				_ = s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
+				return // Don't process DMs further
+			}
+		}
 	}
 
 	// Auto-Moderation System
