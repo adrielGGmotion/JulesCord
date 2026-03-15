@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math"
 	"math/rand"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -87,6 +88,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Inventory(database))
 	registry.Add(commands.Birthday(database))
 	registry.Add(commands.TempVoice(database))
+	registry.Add(commands.NewCountingCommand(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -365,6 +367,36 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	// Auto-Moderation System
 	if b.checkAutomod(s, m.GuildID, m.ChannelID, m.ID, m.Content, m.Author.ID, m.Author.String(), m.Author.AvatarURL("")) {
 		return
+	}
+
+	// Counting System
+	if b.DB != nil && m.GuildID != "" {
+		config, err := b.DB.GetCountingChannel(context.Background(), m.GuildID)
+		if err == nil && config != nil && config.ChannelID == m.ChannelID {
+			number, err := strconv.Atoi(strings.TrimSpace(m.Content))
+			if err == nil {
+				expectedNumber := config.CurrentNumber + 1
+				if number == expectedNumber {
+					if config.LastUserID == nil || *config.LastUserID != m.Author.ID {
+						// Correct number and not the same user
+						b.DB.UpdateCountingNumber(context.Background(), m.GuildID, number, m.Author.ID)
+						s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
+					} else {
+						// Same user counted twice
+						b.DB.ResetCountingNumber(context.Background(), m.GuildID)
+						s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("❌ <@%s> RUINED IT at %d! You can't count twice in a row. Start over at 1.", m.Author.ID, config.CurrentNumber))
+						s.MessageReactionAdd(m.ChannelID, m.ID, "❌")
+					}
+				} else {
+					// Wrong number
+					b.DB.ResetCountingNumber(context.Background(), m.GuildID)
+					s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("❌ <@%s> RUINED IT at %d! The next number was %d. Start over at 1.", m.Author.ID, config.CurrentNumber, expectedNumber))
+					s.MessageReactionAdd(m.ChannelID, m.ID, "❌")
+				}
+			} else {
+				// Not a number; optionally delete message (ignoring for now)
+			}
+		}
 	}
 
 	// Sticky Messages System

@@ -2591,3 +2591,69 @@ func (db *DB) GetMarriage(ctx context.Context, guildID, userID string) (*Marriag
 	}
 	return &m, nil
 }
+
+// CountingConfig represents the configuration and state of a counting channel for a guild.
+type CountingConfig struct {
+	GuildID       string
+	ChannelID     string
+	CurrentNumber int
+	LastUserID    *string
+	UpdatedAt     time.Time
+}
+
+// SetCountingChannel sets the designated counting channel for a guild.
+func (db *DB) SetCountingChannel(ctx context.Context, guildID, channelID string) error {
+	query := `
+		INSERT INTO counting_config (guild_id, channel_id, current_number, updated_at)
+		VALUES ($1, $2, 0, CURRENT_TIMESTAMP)
+		ON CONFLICT (guild_id) DO UPDATE SET
+			channel_id = EXCLUDED.channel_id,
+			current_number = 0,
+			last_user_id = NULL,
+			updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+// GetCountingChannel retrieves the counting channel configuration for a guild.
+func (db *DB) GetCountingChannel(ctx context.Context, guildID string) (*CountingConfig, error) {
+	query := `
+		SELECT guild_id, channel_id, current_number, last_user_id, updated_at
+		FROM counting_config
+		WHERE guild_id = $1
+	`
+	var config CountingConfig
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(
+		&config.GuildID, &config.ChannelID, &config.CurrentNumber, &config.LastUserID, &config.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Return nil, nil if config is not found
+		}
+		return nil, err
+	}
+	return &config, nil
+}
+
+// UpdateCountingNumber updates the current number and the last user who counted.
+func (db *DB) UpdateCountingNumber(ctx context.Context, guildID string, number int, userID string) error {
+	query := `
+		UPDATE counting_config
+		SET current_number = $1, last_user_id = $2, updated_at = CURRENT_TIMESTAMP
+		WHERE guild_id = $3
+	`
+	_, err := db.Pool.Exec(ctx, query, number, userID, guildID)
+	return err
+}
+
+// ResetCountingNumber resets the counting number back to 0.
+func (db *DB) ResetCountingNumber(ctx context.Context, guildID string) error {
+	query := `
+		UPDATE counting_config
+		SET current_number = 0, last_user_id = NULL, updated_at = CURRENT_TIMESTAMP
+		WHERE guild_id = $1
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID)
+	return err
+}
