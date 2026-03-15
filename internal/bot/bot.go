@@ -100,6 +100,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Todo(database))
 	registry.Add(commands.RoleMenu(database))
 	registry.Add(commands.Music(database))
+	registry.Add(commands.Modmail(database))
 	registry.Add(commands.Play())
 	registry.Add(commands.Report(database))
 	registry.Add(commands.Welcome(database))
@@ -537,6 +538,157 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	// Auto-Moderation System
 	if b.checkAutomod(s, m.GuildID, m.ChannelID, m.ID, m.Content, m.Author.ID, m.Author.String(), m.Author.AvatarURL("")) {
 		return
+	}
+
+	// Modmail System (DM to Guild or Guild to DM)
+	if b.DB != nil {
+		if m.GuildID == "" {
+			// Direct Message to Bot
+			// We need to route this to the correct guild. For simplicity, we can route it to a default guild
+			// if the bot is only in one, or let's find the first guild where the bot and user share mutual servers
+			// and where modmail is configured.
+			var targetGuildID string
+			for _, guild := range s.State.Guilds {
+				// use state cache to check member to prevent rate limiting
+				member, err := s.State.Member(guild.ID, m.Author.ID)
+				if err == nil && member != nil {
+					modmailChannel, err := b.DB.GetModmailChannel(context.Background(), guild.ID)
+					if err == nil && modmailChannel != nil {
+						targetGuildID = guild.ID
+						break
+					}
+				}
+			}
+
+			if targetGuildID != "" {
+				modmailChannel, err := b.DB.GetModmailChannel(context.Background(), targetGuildID)
+				if err != nil || modmailChannel == nil {
+					return
+				}
+
+				// Check for active thread
+				thread, err := b.DB.GetModmailThread(context.Background(), targetGuildID, m.Author.ID)
+				var threadChannelID string
+
+				if err == nil && thread != nil {
+					threadChannelID = thread.ThreadChannelID
+				} else {
+					// Verify channel is text channel and not category
+					channel, err := s.Channel(*modmailChannel)
+					if err == nil && channel.Type != discordgo.ChannelTypeGuildCategory {
+						// Create a new thread (Discord forum or text thread)
+						// We cannot use MessageThreadStartComplex with m.ID because m.ID is a DM message, not a message in the modmail channel.
+						// We must start a thread without a message.
+						ch, err := s.ThreadStartComplex(*modmailChannel, &discordgo.ThreadStart{
+							Name:                fmt.Sprintf("Modmail: %s", m.Author.Username),
+							AutoArchiveDuration: 1440,
+							Type:                discordgo.ChannelTypeGuildPublicThread,
+						})
+						if err == nil {
+							threadChannelID = ch.ID
+							_ = b.DB.CreateModmailThread(context.Background(), targetGuildID, m.Author.ID, threadChannelID)
+						} else {
+							slog.Error("Failed to create modmail thread", "error", err)
+						}
+					} else if err == nil && channel.Type == discordgo.ChannelTypeGuildCategory {
+						// Channel is a category, we must create a text channel inside the category instead of a thread
+						channelData := discordgo.GuildChannelCreateData{
+							Name:     fmt.Sprintf("modmail-%s", m.Author.Username),
+							Type:     discordgo.ChannelTypeGuildText,
+							ParentID: channel.ID,
+						}
+						ch, err := s.GuildChannelCreateComplex(targetGuildID, channelData)
+						if err == nil {
+							threadChannelID = ch.ID
+							_ = b.DB.CreateModmailThread(context.Background(), targetGuildID, m.Author.ID, threadChannelID)
+						} else {
+							slog.Error("Failed to create modmail channel inside category", "error", err)
+						}
+					}
+				}
+
+				if threadChannelID != "" {
+					embed := &discordgo.MessageEmbed{
+						Author: &discordgo.MessageEmbedAuthor{
+							Name:    m.Author.String(),
+							IconURL: m.Author.AvatarURL(""),
+						},
+						Description: m.Content,
+						Color:       0x3498db, // Blue
+						Timestamp:   time.Now().Format(time.RFC3339),
+					}
+
+					// Handle attachments
+					if len(m.Attachments) > 0 {
+						for _, att := range m.Attachments {
+							// In a real bot we should download the file and attach it
+							// For simplicity, we can append the URL to the description
+							embed.Description += fmt.Sprintf("\n\n**Attachment:** %s", att.URL)
+						}
+					}
+
+					_, _ = s.ChannelMessageSendEmbed(threadChannelID, embed)
+					s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
+				}
+			}
+			return
+		} else {
+			// Check if message is in a modmail thread
+			channel, err := s.Channel(m.ChannelID)
+			if err == nil {
+				// Verify if it's a modmail thread in DB
+				// We don't have a direct reverse lookup, but we can query by threadChannelID
+				// Since we didn't add GetModmailThreadByChannel, we can check if it's a child of the modmail channel
+				modmailChannel, err := b.DB.GetModmailChannel(context.Background(), m.GuildID)
+
+				// Ensure that the channel is either a thread under the configured text channel
+				// or a regular channel under the configured category channel
+				isModmailChannel := false
+				if err == nil && modmailChannel != nil {
+					if channel.ParentID == *modmailChannel {
+						isModmailChannel = true
+					}
+				}
+
+				if isModmailChannel {
+					// Use DB method to get thread owner
+					userIDPtr, err := b.DB.GetModmailThreadByChannel(context.Background(), m.ChannelID)
+
+					if err == nil && userIDPtr != nil {
+						userID := *userIDPtr
+						userChannel, err := s.UserChannelCreate(userID)
+						if err == nil {
+							embed := &discordgo.MessageEmbed{
+								Author: &discordgo.MessageEmbedAuthor{
+									Name:    m.Author.String(),
+									IconURL: m.Author.AvatarURL(""),
+								},
+								Description: m.Content,
+								Color:       0x2ecc71, // Green
+								Timestamp:   time.Now().Format(time.RFC3339),
+								Footer: &discordgo.MessageEmbedFooter{
+									Text: "Moderator Reply",
+								},
+							}
+
+							// Handle attachments
+							if len(m.Attachments) > 0 {
+								for _, att := range m.Attachments {
+									// In a real bot we should download the file and attach it
+									// For simplicity, we can append the URL to the description
+									embed.Description += fmt.Sprintf("\n\n**Attachment:** %s", att.URL)
+								}
+							}
+
+							_, err = s.ChannelMessageSendEmbed(userChannel.ID, embed)
+							if err == nil {
+								s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
 	// Counting System

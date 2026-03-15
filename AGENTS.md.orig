@@ -684,13 +684,7 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Updated `/rank view` embed to use the custom background image if set.
 
 ### Phase 46 — Modmail System
-- [x] `migrations/042_modmail.sql` — `modmail_config` and `modmail_threads` tables
-- [x] DB operations — `SetModmailChannel`, `GetModmailChannel`, `CreateModmailThread`, `GetModmailThread`, `CloseModmailThread`
-- [x] `/modmail setup` command to configure the target channel for incoming mail
-- [x] Message handler for DMs to forward user messages to the modmail channel and back
-
-- Implemented Phase 46 Modmail System features: added migrations `042_modmail.up.sql` and `042_modmail.down.sql` with tables `modmail_config` and `modmail_threads`.
-- Added DB operations `SetModmailChannel`, `GetModmailChannel`, `CreateModmailThread`, `GetModmailThread`, `CloseModmailThread`, and `GetModmailThreadByChannel` in `internal/db/db.go`.
-- Added `/modmail setup` command in `internal/bot/commands/modmail.go`.
-- Added message handler for DMs to route messages to the modmail channel and back in `internal/bot/bot.go`.
-- Registered `modmail` command in `internal/bot/bot.go`.
+- [ ] `migrations/042_modmail.sql` — `modmail_config` and `modmail_threads` tables
+- [ ] DB operations — `SetModmailChannel`, `GetModmailChannel`, `CreateModmailThread`, `GetModmailThread`, `CloseModmailThread`
+- [ ] `/modmail setup` command to configure the target channel for incoming mail
+- [ ] Message handler for DMs to forward user messages to the modmail channel and back

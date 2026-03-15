@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS modmail_threads CASCADE;
+DROP TABLE IF EXISTS modmail_config CASCADE;

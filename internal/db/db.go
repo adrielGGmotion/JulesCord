@@ -3319,3 +3319,88 @@ func (db *DB) SetBackgroundURL(ctx context.Context, guildID, userID, backgroundU
 	_, err := db.Pool.Exec(ctx, query, guildID, userID, backgroundURL)
 	return err
 }
+
+// Phase 46: Modmail System
+
+type ModmailConfig struct {
+	GuildID   string
+	ChannelID string
+}
+
+type ModmailThread struct {
+	ID              int
+	GuildID         string
+	UserID          string
+	ThreadChannelID string
+	IsActive        bool
+}
+
+func (db *DB) SetModmailChannel(ctx context.Context, guildID, channelID string) error {
+	query := `
+		INSERT INTO modmail_config (guild_id, channel_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE SET channel_id = EXCLUDED.channel_id
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+func (db *DB) GetModmailChannel(ctx context.Context, guildID string) (*string, error) {
+	query := `SELECT channel_id FROM modmail_config WHERE guild_id = $1`
+	var channelID string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&channelID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Not configured
+		}
+		return nil, err
+	}
+	return &channelID, nil
+}
+
+func (db *DB) CreateModmailThread(ctx context.Context, guildID, userID, threadChannelID string) error {
+	query := `
+		INSERT INTO modmail_threads (guild_id, user_id, thread_channel_id)
+		VALUES ($1, $2, $3)
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, threadChannelID)
+	return err
+}
+
+func (db *DB) GetModmailThread(ctx context.Context, guildID, userID string) (*ModmailThread, error) {
+	query := `
+		SELECT id, guild_id, user_id, thread_channel_id, is_active
+		FROM modmail_threads
+		WHERE guild_id = $1 AND user_id = $2 AND is_active = TRUE
+	`
+	var thread ModmailThread
+	err := db.Pool.QueryRow(ctx, query, guildID, userID).Scan(
+		&thread.ID, &thread.GuildID, &thread.UserID, &thread.ThreadChannelID, &thread.IsActive,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No active thread
+		}
+		return nil, err
+	}
+	return &thread, nil
+}
+
+func (db *DB) CloseModmailThread(ctx context.Context, threadID int) error {
+	query := `UPDATE modmail_threads SET is_active = FALSE WHERE id = $1`
+	_, err := db.Pool.Exec(ctx, query, threadID)
+	return err
+}
+
+func (db *DB) GetModmailThreadByChannel(ctx context.Context, threadChannelID string) (*string, error) {
+	query := `SELECT user_id FROM modmail_threads WHERE thread_channel_id = $1 AND is_active = TRUE`
+	var userID string
+	err := db.Pool.QueryRow(ctx, query, threadChannelID).Scan(&userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No active thread
+		}
+		return nil, err
+	}
+	return &userID, nil
+}
