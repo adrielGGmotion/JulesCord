@@ -332,24 +332,25 @@ func (db *DB) GetGuilds(ctx context.Context) ([]Guild, error) {
 
 // UserEconomy represents a user's economy state in a guild.
 type UserEconomy struct {
-	GuildID     string
-	UserID      string
-	XP          int64
-	Level       int
-	Coins       int64
-	LastDailyAt *time.Time
+	GuildID       string
+	UserID        string
+	XP            int64
+	Level         int
+	Coins         int64
+	LastDailyAt   *time.Time
+	BackgroundURL *string
 }
 
 // GetUserEconomy retrieves the economy record for a user in a guild.
 func (db *DB) GetUserEconomy(ctx context.Context, guildID, userID string) (*UserEconomy, error) {
 	query := `
-		SELECT guild_id, user_id, xp, level, coins, last_daily_at
+		SELECT guild_id, user_id, xp, level, coins, last_daily_at, background_url
 		FROM user_economy
 		WHERE guild_id = $1 AND user_id = $2
 	`
 	row := db.Pool.QueryRow(ctx, query, guildID, userID)
 	var e UserEconomy
-	err := row.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt)
+	err := row.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt, &e.BackgroundURL)
 	if err != nil {
 		return nil, err
 	}
@@ -3305,4 +3306,16 @@ func (db *DB) GetWelcomeImage(ctx context.Context, guildID string) (string, erro
 		return "", err
 	}
 	return imageURL, nil
+}
+
+// SetBackgroundURL sets the background URL for a user's rank profile.
+func (db *DB) SetBackgroundURL(ctx context.Context, guildID, userID, backgroundURL string) error {
+	query := `
+		INSERT INTO user_economy (guild_id, user_id, background_url)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, user_id) DO UPDATE SET
+			background_url = EXCLUDED.background_url
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, backgroundURL)
+	return err
 }

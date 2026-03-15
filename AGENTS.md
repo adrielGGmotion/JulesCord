@@ -671,3 +671,14 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Add `/remind delete-all` subcommand to clear all reminders for a user
 - [x] Add `/remind snooze` interaction for reminder messages
 - [x] Update reminder delivery logic to include a snooze button component
+
+### Phase 45 — Leveling System Extension
+- [x] Add `/rank role-rewards` subcommand to view all level roles in the server
+- [x] Add `/rank set-background` subcommand to set a custom profile background image URL
+- [x] `migrations/041_level_backgrounds.sql` — add `background_url` to `user_economy` table
+- [x] Update `/rank` embed to use the custom background image if set
+
+- Implemented Phase 45 Leveling System Extension features: added migrations `041_level_backgrounds.sql` with table `user_economy` update.
+- Added DB operation `SetBackgroundURL` in `internal/db/db.go`.
+- Added `/rank view`, `/rank set-background`, and `/rank role-rewards` subcommands to `internal/bot/commands/rank.go`.
+- Updated `/rank view` embed to use the custom background image if set.
