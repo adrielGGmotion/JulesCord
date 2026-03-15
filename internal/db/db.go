@@ -1642,6 +1642,56 @@ func (db *DB) GetSuggestionChannel(ctx context.Context, guildID string) (string,
 	return channelID, nil
 }
 
+// Todo represents a user's task.
+type Todo struct {
+	ID        int
+	UserID    string
+	Content   string
+	Completed bool
+	CreatedAt time.Time
+}
+
+// AddTodo adds a new todo for a user.
+func (db *DB) AddTodo(ctx context.Context, userID, content string) error {
+	query := `INSERT INTO todos (user_id, content) VALUES ($1, $2)`
+	_, err := db.Pool.Exec(ctx, query, userID, content)
+	return err
+}
+
+// GetTodos retrieves all pending and completed todos for a user.
+func (db *DB) GetTodos(ctx context.Context, userID string) ([]Todo, error) {
+	query := `SELECT id, user_id, content, completed, created_at FROM todos WHERE user_id = $1 ORDER BY created_at ASC`
+	rows, err := db.Pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var todos []Todo
+	for rows.Next() {
+		var t Todo
+		if err := rows.Scan(&t.ID, &t.UserID, &t.Content, &t.Completed, &t.CreatedAt); err != nil {
+			return nil, err
+		}
+		todos = append(todos, t)
+	}
+	return todos, rows.Err()
+}
+
+// CompleteTodo marks a specific todo as completed.
+func (db *DB) CompleteTodo(ctx context.Context, userID string, todoID int) error {
+	query := `UPDATE todos SET completed = TRUE WHERE user_id = $1 AND id = $2`
+	_, err := db.Pool.Exec(ctx, query, userID, todoID)
+	return err
+}
+
+// RemoveTodo deletes a specific todo.
+func (db *DB) RemoveTodo(ctx context.Context, userID string, todoID int) error {
+	query := `DELETE FROM todos WHERE user_id = $1 AND id = $2`
+	_, err := db.Pool.Exec(ctx, query, userID, todoID)
+	return err
+}
+
 // VerificationConfig represents the verification configuration for a guild.
 type VerificationConfig struct {
 	GuildID string

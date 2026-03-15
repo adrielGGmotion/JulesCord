@@ -96,6 +96,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Gamble(database))
 	registry.Add(commands.Confession(database))
 	registry.Add(commands.Confess(database))
+	registry.Add(commands.Todo(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
