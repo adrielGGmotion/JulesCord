@@ -627,6 +627,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/play` command placeholder in `internal/bot/commands/play.go`.
 - Updated `internal/bot/bot.go` to register the `music` and `play` commands.
 
+- Implemented Phase 42 Report System features: added migrations `039_reports.sql` with tables `report_config` and `reports`.
+- Added DB operations `SetReportChannel`, `GetReportChannel`, and `CreateReport` in `internal/db/db.go`.
+- Added `/report` command with `setup` and `user` subcommands in `internal/bot/commands/report.go`.
+- Updated `internal/bot/bot.go` to register the `report` command.
+
 ### Phase 40 — Quotes System
 - [x] `migrations/037_quotes.sql` — `quotes` table
 - [x] DB operations — `AddQuote`, `GetQuote`, `GetRandomQuote`, `DeleteQuote`
@@ -637,3 +642,8 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetMusicChannel`, `GetMusicChannel`
 - [x] `/music setup` command to configure the music channel
 - [x] `/play` command placeholder (just replies with "Coming soon")
+
+### Phase 42 — Report System
+- [x] `migrations/039_reports.sql` — `report_config` and `reports` tables
+- [x] DB operations — `SetReportChannel`, `GetReportChannel`, `CreateReport`
+- [x] `/report` command with `setup` and `user` subcommands

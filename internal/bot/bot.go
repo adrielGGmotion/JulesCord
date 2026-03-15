@@ -101,6 +101,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.RoleMenu(database))
 	registry.Add(commands.Music(database))
 	registry.Add(commands.Play())
+	registry.Add(commands.Report(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {

@@ -3176,3 +3176,44 @@ func (db *DB) GetMusicChannel(ctx context.Context, guildID string) (string, erro
 	}
 	return channelID, nil
 }
+
+// SetReportChannel configures the channel where reports will be sent for a guild.
+func (db *DB) SetReportChannel(ctx context.Context, guildID, channelID string) error {
+	query := `
+		INSERT INTO report_config (guild_id, report_channel_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE
+		SET report_channel_id = $2, updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+// GetReportChannel retrieves the report channel ID for a guild.
+func (db *DB) GetReportChannel(ctx context.Context, guildID string) (string, error) {
+	query := `
+		SELECT report_channel_id FROM report_config
+		WHERE guild_id = $1
+	`
+	var channelID string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&channelID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil // No channel configured
+		}
+		return "", err
+	}
+	return channelID, nil
+}
+
+// CreateReport creates a new report.
+func (db *DB) CreateReport(ctx context.Context, guildID, authorID, targetID, reason string) (int, error) {
+	query := `
+		INSERT INTO reports (guild_id, author_id, target_id, reason)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id
+	`
+	var id int
+	err := db.Pool.QueryRow(ctx, query, guildID, authorID, targetID, reason).Scan(&id)
+	return id, err
+}
