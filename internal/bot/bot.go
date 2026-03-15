@@ -755,12 +755,10 @@ func (b *Bot) messageReactionAddHandler(s *discordgo.Session, r *discordgo.Messa
 	}
 
 	emojiName := r.Emoji.Name
-	if r.Emoji.ID != "" {
-		emojiName = fmt.Sprintf("%s:%s", r.Emoji.Name, r.Emoji.ID)
-	}
+	emojiID := r.Emoji.ID
 
 	// Check for giveaway entry
-	if emojiName == "🎉" {
+	if emojiName == "🎉" && emojiID == "" {
 		g, err := b.DB.GetGiveawayByMessage(context.Background(), r.MessageID)
 		if err == nil && g != nil && !g.Ended {
 			err = b.DB.AddGiveawayEntrant(context.Background(), g.ID, r.UserID)
@@ -770,7 +768,7 @@ func (b *Bot) messageReactionAddHandler(s *discordgo.Session, r *discordgo.Messa
 		}
 	}
 
-	rr, err := b.DB.GetReactionRole(context.Background(), r.MessageID, emojiName)
+	rr, err := b.DB.GetReactionRole(context.Background(), r.MessageID, emojiName, emojiID)
 	if err != nil {
 		slog.Error("Failed to get reaction role config", "error", err)
 		return
@@ -795,11 +793,9 @@ func (b *Bot) messageReactionRemoveHandler(s *discordgo.Session, r *discordgo.Me
 	}
 
 	emojiName := r.Emoji.Name
-	if r.Emoji.ID != "" {
-		emojiName = fmt.Sprintf("%s:%s", r.Emoji.Name, r.Emoji.ID)
-	}
+	emojiID := r.Emoji.ID
 
-	rr, err := b.DB.GetReactionRole(context.Background(), r.MessageID, emojiName)
+	rr, err := b.DB.GetReactionRole(context.Background(), r.MessageID, emojiName, emojiID)
 	if err != nil {
 		slog.Error("Failed to get reaction role config", "error", err)
 		return

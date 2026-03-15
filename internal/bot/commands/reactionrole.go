@@ -4,11 +4,21 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"regexp"
 
 	"julescord/internal/db"
 
 	"github.com/bwmarrin/discordgo"
 )
+
+func parseEmoji(emojiStr string) (name, id string, isCustom bool) {
+	re := regexp.MustCompile(`^<a?:([^:]+):(\d+)>$`)
+	matches := re.FindStringSubmatch(emojiStr)
+	if len(matches) == 3 {
+		return matches[1], matches[2], true
+	}
+	return emojiStr, "", false
+}
 
 // ReactionRole returns the /reactionrole command definition and handler.
 func ReactionRole(database *db.DB) *Command {
@@ -119,7 +129,9 @@ func ReactionRole(database *db.DB) *Command {
 					return
 				}
 
-				err := database.AddReactionRole(context.Background(), messageID, emoji, role.ID)
+				emojiName, emojiID, isCustom := parseEmoji(emoji)
+
+				err := database.AddReactionRole(context.Background(), messageID, emojiName, emojiID, isCustom, role.ID)
 				if err != nil {
 					slog.Error("Failed to add reaction role", "error", err)
 					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -132,9 +144,13 @@ func ReactionRole(database *db.DB) *Command {
 				}
 
 				// Add the reaction to the message so users can easily click it
-				err = s.MessageReactionAdd(i.ChannelID, messageID, emoji)
+				reactionEmoji := emojiName
+				if isCustom {
+					reactionEmoji = fmt.Sprintf("%s:%s", emojiName, emojiID)
+				}
+				err = s.MessageReactionAdd(i.ChannelID, messageID, reactionEmoji)
 				if err != nil {
-					slog.Error("Failed to add initial reaction %s to message %s", "arg1", emoji, "arg2", messageID, "error", err)
+					slog.Error("Failed to add initial reaction %s to message %s", "arg1", reactionEmoji, "arg2", messageID, "error", err)
 					// We continue even if we fail to add the reaction, as it might be an external emoji the bot can't use
 				}
 
@@ -157,7 +173,9 @@ func ReactionRole(database *db.DB) *Command {
 					}
 				}
 
-				err := database.RemoveReactionRole(context.Background(), messageID, emoji)
+				emojiName, emojiID, _ := parseEmoji(emoji)
+
+				err := database.RemoveReactionRole(context.Background(), messageID, emojiName, emojiID)
 				if err != nil {
 					slog.Error("Failed to remove reaction role", "error", err)
 					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

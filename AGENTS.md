@@ -715,3 +715,14 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added DB operations `AddMediaChannel`, `RemoveMediaChannel`, `ListMediaChannels`, and `IsMediaChannel` in `internal/db/db.go`.
 - Added `/mediachannel` command in `internal/bot/commands/mediachannel.go`.
 - Updated `messageCreateHandler` in `internal/bot/bot.go` to delete messages without attachments or URLs in configured media channels.
+
+### Phase 49 — React Roles Enhancement
+- [x] `migrations/044_reaction_roles_update.sql` — add `emoji_id` and `is_custom` columns to support custom emojis
+- [x] DB operations — update `AddReactionRole`, `RemoveReactionRole`, and `GetReactionRoles` to handle custom emojis
+- [x] `/reactionrole` command — update to parse and store custom emojis
+- [x] Update `MessageReactionAdd` / `MessageReactionRemove` handlers to check for custom emojis
+
+- Implemented Phase 49 React Roles Enhancement features: added migrations `044_reaction_roles_update.up.sql` and `044_reaction_roles_update.down.sql` with columns `emoji_id` and `is_custom`.
+- Updated DB operations `AddReactionRole`, `RemoveReactionRole`, and `GetReactionRole` in `internal/db/db.go` to support custom emojis.
+- Updated `/reactionrole` command in `internal/bot/commands/reactionrole.go` to parse custom emojis properly and store the emoji name and ID separately.
+- Updated `messageReactionAddHandler` and `messageReactionRemoveHandler` in `internal/bot/bot.go` to handle reaction interactions with custom emojis appropriately.
