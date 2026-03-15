@@ -542,6 +542,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/snipe` and `/editsnipe` commands in `internal/bot/commands/snipe.go`.
 - Updated `messageDeleteHandler` and `messageUpdateHandler` in `internal/bot/bot.go` to save deleted and edited messages to the database.
 
+- Implemented Phase 36 Gambling System features: added migrations `033_gambling.sql` with table `gambling_stats`.
+- Added DB operations `RemoveCoins`, `UpdateGamblingStats`, and `GetGamblingStats` in `internal/db/db.go`.
+- Added `/gamble` command with `coinflip`, `slots`, and `stats` subcommands in `internal/bot/commands/gamble.go`.
+- Updated `internal/bot/bot.go` to register the `gamble` command.
+
 ### Phase 31 — Marriage System
 - [x] `migrations/028_marriages.sql` — `marriages` table
 - [x] DB operations — `ProposeMarriage`, `AcceptMarriage`, `Divorce`, `GetMarriage`
@@ -571,3 +576,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `AddSnipe`, `GetSnipe`, `AddEditSnipe`, `GetEditSnipe`
 - [x] `/snipe` command — fetches the last deleted message in the channel
 - [x] `/editsnipe` command — fetches the last edited message in the channel
+
+### Phase 36 — Gambling System
+- [x] `migrations/033_gambling.sql` — `gambling_stats` table
+- [x] DB operations — `RemoveCoins`, `UpdateGamblingStats`, `GetGamblingStats`
+- [x] `/gamble coinflip` command — bet coins on a coin flip
+- [x] `/gamble slots` command — bet coins on a slot machine
