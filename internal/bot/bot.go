@@ -97,6 +97,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Confession(database))
 	registry.Add(commands.Confess(database))
 	registry.Add(commands.Todo(database))
+	registry.Add(commands.RoleMenu(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -288,6 +289,54 @@ func (b *Bot) guildCreateHandler(s *discordgo.Session, event *discordgo.GuildCre
 // interactionCreateHandler handles all slash commands
 func (b *Bot) interactionCreateHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if b.DB != nil && i.Type == discordgo.InteractionMessageComponent {
+			if i.MessageComponentData().CustomID == "role_menu_select" {
+				selectedRoles := i.MessageComponentData().Values
+				_, err := s.GuildMember(i.GuildID, i.Member.User.ID)
+				if err != nil {
+					slog.Error("Failed to fetch guild member for role menu", "error", err)
+					return
+				}
+
+				// Get the role menu options from DB to know which roles are part of this menu
+				menuOptions, err := b.DB.GetRoleMenu(context.Background(), i.Message.ID)
+				if err != nil {
+					slog.Error("Failed to fetch role menu options", "error", err)
+					return
+				}
+
+				// Create a map of available roles in this menu for O(1) lookups
+				availableRoles := make(map[string]bool)
+				for _, opt := range menuOptions {
+					availableRoles[opt.RoleID] = true
+				}
+
+				// Create a map of the roles the user selected
+				selectedMap := make(map[string]bool)
+				for _, r := range selectedRoles {
+					selectedMap[r] = true
+				}
+
+				// Apply roles
+				for roleID := range availableRoles {
+					if selectedMap[roleID] {
+						// Role was selected, ensure user has it
+						_ = s.GuildMemberRoleAdd(i.GuildID, i.Member.User.ID, roleID)
+					} else {
+						// Role was NOT selected, but it's part of the menu. Ensure user DOES NOT have it
+						_ = s.GuildMemberRoleRemove(i.GuildID, i.Member.User.ID, roleID)
+					}
+				}
+
+				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "Your roles have been updated!",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				return
+			}
+
 		if i.MessageComponentData().CustomID == "ticket_panel_button" {
 			commands.HandleCreateTicket(s, i, b.DB, []*discordgo.ApplicationCommandInteractionDataOption{
 				{
