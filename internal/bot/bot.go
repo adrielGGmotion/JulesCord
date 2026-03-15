@@ -107,6 +107,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Report(database))
 	registry.Add(commands.Welcome(database))
 	registry.Add(commands.Autorole(database))
+	registry.Add(commands.MediaChannel(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -541,6 +542,19 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	// Auto-Moderation System
 	if b.checkAutomod(s, m.GuildID, m.ChannelID, m.ID, m.Content, m.Author.ID, m.Author.String(), m.Author.AvatarURL("")) {
 		return
+	}
+
+	// Media-Only Channels System
+	if b.DB != nil && m.GuildID != "" {
+		isMedia, err := b.DB.IsMediaChannel(context.Background(), m.GuildID, m.ChannelID)
+		if err == nil && isMedia {
+			hasAttachment := len(m.Attachments) > 0
+			hasURL := strings.Contains(m.Content, "http://") || strings.Contains(m.Content, "https://")
+			if !hasAttachment && !hasURL {
+				_ = s.ChannelMessageDelete(m.ChannelID, m.ID)
+				return
+			}
+		}
 	}
 
 	// Counting System

@@ -3346,3 +3346,50 @@ func (db *DB) GetAutoRole(ctx context.Context, guildID string) (string, error) {
 	}
 	return roleID, nil
 }
+
+// AddMediaChannel adds a channel to the media_channels table.
+func (db *DB) AddMediaChannel(ctx context.Context, guildID, channelID string) error {
+	query := `
+		INSERT INTO media_channels (guild_id, channel_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id, channel_id) DO NOTHING
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+// RemoveMediaChannel removes a channel from the media_channels table.
+func (db *DB) RemoveMediaChannel(ctx context.Context, guildID, channelID string) error {
+	query := `DELETE FROM media_channels WHERE guild_id = $1 AND channel_id = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+// ListMediaChannels gets all media channels for a guild.
+func (db *DB) ListMediaChannels(ctx context.Context, guildID string) ([]string, error) {
+	query := `SELECT channel_id FROM media_channels WHERE guild_id = $1`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var channels []string
+	for rows.Next() {
+		var channelID string
+		if err := rows.Scan(&channelID); err != nil {
+			return nil, err
+		}
+		channels = append(channels, channelID)
+	}
+
+	return channels, rows.Err()
+}
+
+// IsMediaChannel checks if a channel is configured as a media channel.
+func (db *DB) IsMediaChannel(ctx context.Context, guildID, channelID string) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM media_channels WHERE guild_id = $1 AND channel_id = $2)`
+	var exists bool
+	err := db.Pool.QueryRow(ctx, query, guildID, channelID).Scan(&exists)
+	return exists, err
+}
