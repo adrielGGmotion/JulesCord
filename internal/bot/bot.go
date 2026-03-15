@@ -294,6 +294,53 @@ func (b *Bot) guildCreateHandler(s *discordgo.Session, event *discordgo.GuildCre
 // interactionCreateHandler handles all slash commands
 func (b *Bot) interactionCreateHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if b.DB != nil && i.Type == discordgo.InteractionMessageComponent {
+			if strings.HasPrefix(i.MessageComponentData().CustomID, "snooze_") {
+				parts := strings.Split(i.MessageComponentData().CustomID, "_")
+				if len(parts) == 3 {
+					userID := parts[1]
+					reminderIDStr := parts[2]
+
+					var actingUserID string
+					if i.Member != nil {
+						actingUserID = i.Member.User.ID
+					} else {
+						actingUserID = i.User.ID
+					}
+
+					if userID != actingUserID {
+						_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionResponseChannelMessageWithSource,
+							Data: &discordgo.InteractionResponseData{
+								Content: "You cannot snooze someone else's reminder.",
+								Flags:   discordgo.MessageFlagsEphemeral,
+							},
+						})
+						return
+					}
+
+					reminderID, err := strconv.Atoi(reminderIDStr)
+					if err != nil {
+						slog.Error("Failed to parse reminder ID", "error", err)
+						return
+					}
+
+					err = b.DB.SnoozeReminder(context.Background(), reminderID, 10*time.Minute)
+					if err != nil {
+						slog.Error("Failed to snooze reminder", "id", reminderID, "error", err)
+						return
+					}
+
+					_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseUpdateMessage,
+						Data: &discordgo.InteractionResponseData{
+							Content: i.Message.Content + "\n\n*Snoozed for 10 minutes.*",
+							Components: []discordgo.MessageComponent{}, // Remove the button
+						},
+					})
+				}
+				return
+			}
+
 		if i.MessageComponentData().CustomID == "role_menu_select" {
 			selectedRoles := i.MessageComponentData().Values
 			_, err := s.GuildMember(i.GuildID, i.Member.User.ID)
@@ -809,7 +856,28 @@ func (b *Bot) checkReminders() {
 		} else {
 			for _, r := range reminders {
 				msg := fmt.Sprintf("⏰ <@%s>, here is your reminder: **%s**", r.UserID, r.Message)
-				_, err := b.Session.ChannelMessageSend(r.ChannelID, msg)
+
+					// Add a Snooze button
+					components := []discordgo.MessageComponent{
+						discordgo.ActionsRow{
+							Components: []discordgo.MessageComponent{
+								discordgo.Button{
+									Label:    "Snooze 10m",
+									Style:    discordgo.SecondaryButton,
+									CustomID: fmt.Sprintf("snooze_%s_%d", r.UserID, r.ID),
+									Emoji: &discordgo.ComponentEmoji{
+										Name: "💤",
+									},
+								},
+							},
+						},
+					}
+
+					_, err := b.Session.ChannelMessageSendComplex(r.ChannelID, &discordgo.MessageSend{
+						Content:    msg,
+						Components: components,
+					})
+
 				if err != nil {
 					slog.Error("Failed to send reminder", "id", r.ID, "channel", r.ChannelID, "error", err)
 				}

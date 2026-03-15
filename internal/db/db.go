@@ -909,6 +909,66 @@ func (db *DB) MarkReminderDelivered(ctx context.Context, id int) error {
 	return err
 }
 
+// GetPendingRemindersForGuild gets all undelivered reminders for a specific guild.
+func (db *DB) GetPendingRemindersForGuild(ctx context.Context, guildID string) ([]Reminder, error) {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("GetPendingRemindersForGuild").Observe(time.Since(start).Seconds())
+
+	query := `
+		SELECT id, user_id, channel_id, guild_id, message, due_at, delivered, created_at
+		FROM reminders
+		WHERE guild_id = $1 AND delivered = FALSE
+		ORDER BY due_at ASC
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var reminders []Reminder
+	for rows.Next() {
+		var r Reminder
+		err := rows.Scan(&r.ID, &r.UserID, &r.ChannelID, &r.GuildID, &r.Message, &r.DueAt, &r.Delivered, &r.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		reminders = append(reminders, r)
+	}
+	return reminders, nil
+}
+
+// DeleteAllRemindersForUser deletes all reminders for a specific user.
+func (db *DB) DeleteAllRemindersForUser(ctx context.Context, userID string) (int64, error) {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("DeleteAllRemindersForUser").Observe(time.Since(start).Seconds())
+
+	query := `
+		DELETE FROM reminders
+		WHERE user_id = $1 AND delivered = FALSE
+	`
+	cmdTag, err := db.Pool.Exec(ctx, query, userID)
+	if err != nil {
+		return 0, err
+	}
+	return cmdTag.RowsAffected(), nil
+}
+
+// SnoozeReminder adds the given duration to the reminder's due time and marks it undelivered.
+func (db *DB) SnoozeReminder(ctx context.Context, id int, d time.Duration) error {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("SnoozeReminder").Observe(time.Since(start).Seconds())
+
+	// Set due_at to NOW() + duration to prevent immediate triggering of snoozed past-due reminders
+	query := `
+		UPDATE reminders
+		SET due_at = NOW() + $2 * interval '1 microsecond', delivered = FALSE
+		WHERE id = $1
+	`
+	_, err := db.Pool.Exec(ctx, query, id, d.Microseconds())
+	return err
+}
+
 // Tag represents a custom text response in a guild.
 type Tag struct {
 	ID        int       `json:"id"`
