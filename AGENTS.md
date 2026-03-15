@@ -638,6 +638,12 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Updated `guildMemberAddHandler` in `internal/bot/bot.go` to support image embedding.
 - Updated `internal/bot/bot.go` to register the `welcome` command.
 
+- Implemented Phase 44 Auto-Threads System features: added migrations `041_autothreads.sql` with table `autothread_config`.
+- Added DB operations `AddAutoThreadChannel`, `RemoveAutoThreadChannel`, `GetAutoThreadChannels`, and `GetAutoThreadConfig` in `internal/db/db.go`.
+- Added `/autothread` command with `add`, `remove`, and `list` subcommands in `internal/bot/commands/autothread.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to automatically create threads for new messages in configured channels.
+- Updated `internal/bot/bot.go` to register the `autothread` command.
+
 ### Phase 40 — Quotes System
 - [x] `migrations/037_quotes.sql` — `quotes` table
 - [x] DB operations — `AddQuote`, `GetQuote`, `GetRandomQuote`, `DeleteQuote`
@@ -659,3 +665,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetWelcomeImage`, `GetWelcomeImage`
 - [x] `/welcome` command with `setup-image` and `test` subcommands
 - [x] Update `GuildMemberAdd` handler to support image embedding
+
+### Phase 44 — Auto-Threads System
+- [x] `migrations/041_autothreads.sql` — `autothread_config` table
+- [x] DB operations — `AddAutoThreadChannel`, `RemoveAutoThreadChannel`, `GetAutoThreadChannels`, `GetAutoThreadConfig`
+- [x] `/autothread` command with `add`, `remove`, and `list` subcommands
+- [x] Message handler to automatically create threads for new messages in configured channels

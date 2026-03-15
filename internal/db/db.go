@@ -3246,3 +3246,75 @@ func (db *DB) GetWelcomeImage(ctx context.Context, guildID string) (string, erro
 	}
 	return imageURL, nil
 }
+
+// AutoThreadConfig represents the configuration for auto threads.
+type AutoThreadConfig struct {
+	GuildID            string
+	ChannelID          string
+	ThreadNameTemplate string
+}
+
+// AddAutoThreadChannel adds or updates an auto thread channel configuration.
+func (db *DB) AddAutoThreadChannel(ctx context.Context, guildID, channelID, template string) error {
+	query := `
+		INSERT INTO autothread_config (guild_id, channel_id, thread_name_template)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, channel_id) DO UPDATE
+		SET thread_name_template = EXCLUDED.thread_name_template
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, template)
+	return err
+}
+
+// RemoveAutoThreadChannel removes an auto thread channel configuration.
+func (db *DB) RemoveAutoThreadChannel(ctx context.Context, guildID, channelID string) error {
+	query := `
+		DELETE FROM autothread_config
+		WHERE guild_id = $1 AND channel_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+// GetAutoThreadChannels retrieves all configured auto thread channels for a guild.
+func (db *DB) GetAutoThreadChannels(ctx context.Context, guildID string) ([]*AutoThreadConfig, error) {
+	query := `
+		SELECT guild_id, channel_id, thread_name_template
+		FROM autothread_config
+		WHERE guild_id = $1
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var configs []*AutoThreadConfig
+	for rows.Next() {
+		var config AutoThreadConfig
+		if err := rows.Scan(&config.GuildID, &config.ChannelID, &config.ThreadNameTemplate); err != nil {
+			return nil, err
+		}
+		configs = append(configs, &config)
+	}
+
+	return configs, rows.Err()
+}
+
+// GetAutoThreadConfig retrieves the auto thread configuration for a specific channel.
+func (db *DB) GetAutoThreadConfig(ctx context.Context, guildID, channelID string) (*AutoThreadConfig, error) {
+	query := `
+		SELECT guild_id, channel_id, thread_name_template
+		FROM autothread_config
+		WHERE guild_id = $1 AND channel_id = $2
+	`
+	var config AutoThreadConfig
+	err := db.Pool.QueryRow(ctx, query, guildID, channelID).Scan(&config.GuildID, &config.ChannelID, &config.ThreadNameTemplate)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Not an auto thread channel
+		}
+		return nil, err
+	}
+	return &config, nil
+}

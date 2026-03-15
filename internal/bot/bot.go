@@ -103,6 +103,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Play())
 	registry.Add(commands.Report(database))
 	registry.Add(commands.Welcome(database))
+	registry.Add(commands.AutoThread(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -490,6 +491,44 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	// Auto-Moderation System
 	if b.checkAutomod(s, m.GuildID, m.ChannelID, m.ID, m.Content, m.Author.ID, m.Author.String(), m.Author.AvatarURL("")) {
 		return
+	}
+
+	// Auto-Threads System
+	if b.DB != nil && m.GuildID != "" {
+		config, err := b.DB.GetAutoThreadConfig(context.Background(), m.GuildID, m.ChannelID)
+		if err == nil && config != nil {
+			threadName := config.ThreadNameTemplate
+			if threadName == "" {
+				threadName = "Thread"
+			}
+			threadName = strings.ReplaceAll(threadName, "{user}", m.Author.Username)
+
+			// Also replace {title} with the first few words of the message if applicable
+			words := strings.Fields(m.Content)
+			title := m.Content
+			if len(words) > 5 {
+				title = strings.Join(words[:5], " ") + "..."
+			} else if title == "" {
+				title = "Thread"
+			}
+			// Cap title length to fit within discord limits (100 chars max)
+			if len([]rune(title)) > 50 {
+				title = string([]rune(title)[:47]) + "..."
+			}
+			threadName = strings.ReplaceAll(threadName, "{title}", title)
+
+			if len([]rune(threadName)) > 100 {
+				threadName = string([]rune(threadName)[:97]) + "..."
+			}
+
+			_, err = s.MessageThreadStartComplex(m.ChannelID, m.ID, &discordgo.ThreadStart{
+				Name:                threadName,
+				AutoArchiveDuration: 1440,
+			})
+			if err != nil {
+				slog.Error("Failed to start auto-thread", "error", err)
+			}
+		}
 	}
 
 	// Counting System
