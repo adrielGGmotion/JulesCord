@@ -2931,3 +2931,28 @@ func (db *DB) GetEditSnipe(ctx context.Context, channelID string) (*EditSnipe, e
 	}
 	return &es, nil
 }
+
+// SetConfessionChannel sets the confession channel for a guild.
+func (db *DB) SetConfessionChannel(ctx context.Context, guildID string, channelID string) error {
+	query := `
+		INSERT INTO confession_config (guild_id, channel_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE SET channel_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+// GetConfessionChannel gets the confession channel for a guild.
+func (db *DB) GetConfessionChannel(ctx context.Context, guildID string) (string, error) {
+	query := `SELECT channel_id FROM confession_config WHERE guild_id = $1`
+	var channelID string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&channelID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		return "", err
+	}
+	return channelID, nil
+}
