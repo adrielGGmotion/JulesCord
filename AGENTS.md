@@ -537,6 +537,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/customcommand` command with `add`, `remove`, and `list` subcommands in `internal/bot/commands/customcommand.go`.
 - Updated `messageCreateHandler` in `internal/bot/bot.go` to parse messages for custom prefixes and respond with the configured custom command response.
 
+- Implemented Phase 35 Snipe System features: added migrations `032_snipe.sql` with tables `snipes` and `edit_snipes`.
+- Added DB operations `AddSnipe`, `GetSnipe`, `AddEditSnipe`, and `GetEditSnipe` in `internal/db/db.go`.
+- Added `/snipe` and `/editsnipe` commands in `internal/bot/commands/snipe.go`.
+- Updated `messageDeleteHandler` and `messageUpdateHandler` in `internal/bot/bot.go` to save deleted and edited messages to the database.
+
 ### Phase 31 — Marriage System
 - [x] `migrations/028_marriages.sql` — `marriages` table
 - [x] DB operations — `ProposeMarriage`, `AcceptMarriage`, `Divorce`, `GetMarriage`
@@ -560,3 +565,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `AddCustomCommand`, `RemoveCustomCommand`, `ListCustomCommands`, `GetCustomCommand`
 - [x] `/customcommand` command with `add`, `remove`, and `list` subcommands
 - [x] Message handler to listen for custom commands (e.g., matching exact prefix-less trigger or slash command emulation) and respond
+
+### Phase 35 — Snipe System
+- [x] `migrations/032_snipe.sql` — `snipes` and `edit_snipes` tables
+- [x] DB operations — `AddSnipe`, `GetSnipe`, `AddEditSnipe`, `GetEditSnipe`
+- [x] `/snipe` command — fetches the last deleted message in the channel
+- [x] `/editsnipe` command — fetches the last edited message in the channel

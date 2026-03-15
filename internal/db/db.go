@@ -2725,6 +2725,21 @@ type CustomCommand struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type Snipe struct {
+	ChannelID      string
+	MessageContent string
+	AuthorID       string
+	Timestamp      time.Time
+}
+
+type EditSnipe struct {
+	ChannelID  string
+	OldContent string
+	NewContent string
+	AuthorID   string
+	Timestamp  time.Time
+}
+
 // AddCustomCommand creates or updates a custom command.
 func (db *DB) AddCustomCommand(ctx context.Context, guildID, name, response string) error {
 	query := `
@@ -2785,4 +2800,69 @@ func (db *DB) GetCustomCommand(ctx context.Context, guildID, name string) (*Cust
 		return nil, err
 	}
 	return &c, nil
+}
+
+// AddSnipe saves a deleted message to the snipes table.
+func (db *DB) AddSnipe(ctx context.Context, channelID, content, authorID string) error {
+	query := `
+		INSERT INTO snipes (channel_id, message_content, author_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (channel_id) DO UPDATE
+		SET message_content = EXCLUDED.message_content,
+		    author_id = EXCLUDED.author_id,
+		    timestamp = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, channelID, content, authorID)
+	return err
+}
+
+// GetSnipe retrieves the most recently deleted message for a channel.
+func (db *DB) GetSnipe(ctx context.Context, channelID string) (*Snipe, error) {
+	query := `
+		SELECT channel_id, message_content, author_id, timestamp
+		FROM snipes
+		WHERE channel_id = $1
+	`
+	var s Snipe
+	err := db.Pool.QueryRow(ctx, query, channelID).Scan(&s.ChannelID, &s.MessageContent, &s.AuthorID, &s.Timestamp)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &s, nil
+}
+
+// AddEditSnipe saves an edited message's old and new content.
+func (db *DB) AddEditSnipe(ctx context.Context, channelID, oldContent, newContent, authorID string) error {
+	query := `
+		INSERT INTO edit_snipes (channel_id, old_content, new_content, author_id)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (channel_id) DO UPDATE
+		SET old_content = EXCLUDED.old_content,
+		    new_content = EXCLUDED.new_content,
+		    author_id = EXCLUDED.author_id,
+		    timestamp = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, channelID, oldContent, newContent, authorID)
+	return err
+}
+
+// GetEditSnipe retrieves the most recently edited message for a channel.
+func (db *DB) GetEditSnipe(ctx context.Context, channelID string) (*EditSnipe, error) {
+	query := `
+		SELECT channel_id, old_content, new_content, author_id, timestamp
+		FROM edit_snipes
+		WHERE channel_id = $1
+	`
+	var es EditSnipe
+	err := db.Pool.QueryRow(ctx, query, channelID).Scan(&es.ChannelID, &es.OldContent, &es.NewContent, &es.AuthorID, &es.Timestamp)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &es, nil
 }
