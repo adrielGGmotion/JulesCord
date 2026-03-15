@@ -102,6 +102,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Music(database))
 	registry.Add(commands.Play())
 	registry.Add(commands.Report(database))
+	registry.Add(commands.Welcome(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -761,7 +762,24 @@ func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemb
 
 	if config.WelcomeChannelID != nil && *config.WelcomeChannelID != "" {
 		welcomeMsg := fmt.Sprintf("Welcome to the server, <@%s>! We are glad to have you here.", m.User.ID)
-		_, err := s.ChannelMessageSend(*config.WelcomeChannelID, welcomeMsg)
+
+		imageURL, imgErr := b.DB.GetWelcomeImage(context.Background(), m.GuildID)
+		if imgErr != nil {
+			slog.Error("Failed to get welcome image", "error", imgErr)
+		}
+
+		embed := &discordgo.MessageEmbed{
+			Description: welcomeMsg,
+			Color:       0x00FF00,
+		}
+
+		if imageURL != "" {
+			embed.Image = &discordgo.MessageEmbedImage{
+				URL: imageURL,
+			}
+		}
+
+		_, err := s.ChannelMessageSendEmbed(*config.WelcomeChannelID, embed)
 		if err != nil {
 			slog.Error("Failed to send welcome message", "error", err)
 		}
