@@ -563,6 +563,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/rolemenu` command with `setup` and `add_role` subcommands in `internal/bot/commands/rolemenu.go`.
 - Updated `internal/bot/bot.go` to register the `rolemenu` command and handle the `role_menu_select` dropdown interaction to assign/remove roles dynamically.
 
+- Implemented Phase 40 ModMail System features: added migrations `037_modmail.sql` with tables `modmail_config` and `modmail_threads`.
+- Added DB operations `SetModmailConfig`, `GetModmailConfig`, `CreateModmailThread`, `GetOpenModmailThreadByUser`, `GetModmailThreadByChannel`, and `CloseModmailThread` in `internal/db/db.go`.
+- Added `/modmail` command with `setup` and `close` subcommands in `internal/bot/commands/modmail.go`.
+- Updated `internal/bot/bot.go` to intercept DMs and forward them to modmail threads, and intercept mod replies in thread channels and forward them to the user.
+
 ### Phase 31 — Marriage System
 - [x] `migrations/028_marriages.sql` — `marriages` table
 - [x] DB operations — `ProposeMarriage`, `AcceptMarriage`, `Divorce`, `GetMarriage`
@@ -615,3 +620,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `CreateRoleMenu`, `AddRoleMenuOption`, `GetRoleMenu`
 - [x] `/rolemenu` command with `setup` and `add_role` subcommands
 - [x] Interaction handler for `role_menu_select` drop-down to assign/remove roles
+
+### Phase 40 — ModMail System
+- [x] `migrations/037_modmail.sql` — `modmail_config` and `modmail_threads` tables
+- [x] DB operations — `SetModmailConfig`, `GetModmailConfig`, `CreateModmailThread`, `GetModmailThread`, `CloseModmailThread`
+- [x] `/modmail setup` command to configure the modmail category and log channel
+- [x] DM message handler to forward user messages to a modmail thread channel, and channel message handler to forward mod replies back to the user

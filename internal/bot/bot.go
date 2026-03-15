@@ -98,6 +98,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Confess(database))
 	registry.Add(commands.Todo(database))
 	registry.Add(commands.RoleMenu(database))
+	registry.Add(commands.Modmail(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -480,6 +481,22 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	// Ignore all messages created by the bot itself or other bots
 	if m.Author.ID == s.State.User.ID || m.Author.Bot {
 		return
+	}
+
+	// --- ModMail System ---
+	// Check if DM
+	if m.GuildID == "" {
+		b.handleModmailDM(s, m)
+		return
+	}
+
+	// Check if it is a mod replying in a modmail thread channel
+	if b.DB != nil {
+		thread, err := b.DB.GetModmailThreadByChannel(context.Background(), m.ChannelID)
+		if err == nil && thread != nil && thread.IsOpen {
+			b.handleModmailReply(s, m, thread)
+			return
+		}
 	}
 
 	// Auto-Moderation System
@@ -1411,5 +1428,160 @@ func (b *Bot) checkBirthdays() {
 				slog.Error("Failed to mark birthday as announced", "error", err)
 			}
 		}
+	}
+}
+
+// handleModmailDM processes direct messages sent to the bot, routing them to the appropriate ModMail thread.
+func (b *Bot) handleModmailDM(s *discordgo.Session, m *discordgo.MessageCreate) {
+	if b.DB == nil {
+		return
+	}
+
+	thread, err := b.DB.GetOpenModmailThreadByUser(context.Background(), m.Author.ID)
+	if err != nil {
+		slog.Error("Failed to check for open modmail thread", "error", err)
+		return
+	}
+
+	if thread != nil {
+		// Existing thread found, forward message
+		b.forwardModmailMessageToThread(s, m, thread)
+		return
+	}
+
+	// Try to find a guild where both user and bot are present, and ModMail is configured
+	// For simplicity in this implementation, we will check all guilds the bot is in.
+	var targetGuildID string
+	var config *db.ModmailConfig
+
+	// Fetch guilds from state (might be incomplete if bot is in many guilds, but sufficient for this scale)
+	for _, g := range s.State.Guilds {
+		// Only check guilds where the user is known to be in state to avoid API spam
+		member, err := s.State.Member(g.ID, m.Author.ID)
+		if err == nil && member != nil {
+			// User is in this guild, check if modmail is configured
+			cfg, err := b.DB.GetModmailConfig(context.Background(), g.ID)
+			if err == nil && cfg != nil && cfg.CategoryID != "" {
+				targetGuildID = g.ID
+				config = cfg
+				break
+			}
+		}
+	}
+
+	if targetGuildID == "" || config == nil {
+		s.ChannelMessageSend(m.ChannelID, "I couldn't find a server where ModMail is configured that we share.")
+		return
+	}
+
+	// Sanitize username for channel name (lowercase, no spaces, no special chars)
+	sanitizedName := strings.ToLower(m.Author.Username)
+	sanitizedName = strings.ReplaceAll(sanitizedName, " ", "-")
+	sanitizedName = strings.ReplaceAll(sanitizedName, ".", "")
+	sanitizedName = strings.ReplaceAll(sanitizedName, "#", "")
+
+	// Create new thread channel
+	channelName := fmt.Sprintf("modmail-%s", sanitizedName)
+	newChannel, err := s.GuildChannelCreateComplex(targetGuildID, discordgo.GuildChannelCreateData{
+		Name:     channelName,
+		Type:     discordgo.ChannelTypeGuildText,
+		ParentID: config.CategoryID,
+	})
+
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Failed to create ModMail thread channel on the server.")
+		slog.Error("Failed to create modmail channel", "error", err)
+		return
+	}
+
+	// Save to DB
+	err = b.DB.CreateModmailThread(context.Background(), targetGuildID, m.Author.ID, newChannel.ID)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Failed to register ModMail thread.")
+		slog.Error("Failed to save modmail thread", "error", err)
+		return
+	}
+
+	// Fetch thread with ID
+	thread, _ = b.DB.GetOpenModmailThreadByUser(context.Background(), m.Author.ID)
+
+	// Send initial message to the thread
+	s.ChannelMessageSendEmbed(newChannel.ID, &discordgo.MessageEmbed{
+		Title:       "New ModMail Thread",
+		Description: fmt.Sprintf("User: <@%s> (%s)", m.Author.ID, m.Author.Username),
+		Color:       0x00FF00,
+	})
+
+	// Forward the actual message
+	if thread != nil {
+		b.forwardModmailMessageToThread(s, m, thread)
+		s.ChannelMessageSend(m.ChannelID, "Message sent to the server moderators.")
+	}
+}
+
+func (b *Bot) forwardModmailMessageToThread(s *discordgo.Session, m *discordgo.MessageCreate, thread *db.ModmailThread) {
+	content := m.Content
+	if content == "" && len(m.Attachments) == 0 {
+		return
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Author: &discordgo.MessageEmbedAuthor{
+			Name:    m.Author.String(),
+			IconURL: m.Author.AvatarURL(""),
+		},
+		Description: content,
+		Color:       0x0000FF, // Blue for user messages
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("User ID: %s", m.Author.ID),
+		},
+	}
+
+	if len(m.Attachments) > 0 {
+		embed.Image = &discordgo.MessageEmbedImage{
+			URL: m.Attachments[0].URL,
+		}
+	}
+
+	s.ChannelMessageSendEmbed(thread.ChannelID, embed)
+}
+
+func (b *Bot) handleModmailReply(s *discordgo.Session, m *discordgo.MessageCreate, thread *db.ModmailThread) {
+	// Don't forward commands
+	if strings.HasPrefix(m.Content, "/") || strings.HasPrefix(m.Content, "!") {
+		return
+	}
+
+	dmChannel, err := s.UserChannelCreate(thread.UserID)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Failed to open DM with the user. They may have DMs disabled.")
+		return
+	}
+
+	content := m.Content
+	embed := &discordgo.MessageEmbed{
+		Author: &discordgo.MessageEmbedAuthor{
+			Name:    m.Author.String(),
+			IconURL: m.Author.AvatarURL(""),
+		},
+		Description: content,
+		Color:       0xFF0000, // Red for mod replies
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: "Moderator Reply",
+		},
+	}
+
+	if len(m.Attachments) > 0 {
+		embed.Image = &discordgo.MessageEmbedImage{
+			URL: m.Attachments[0].URL,
+		}
+	}
+
+	_, err = s.ChannelMessageSendEmbed(dmChannel.ID, embed)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Failed to send message to user. They may have blocked the bot or disabled DMs.")
+	} else {
+		// Confirm sent in the thread channel
+		s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
 	}
 }
