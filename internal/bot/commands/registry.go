@@ -67,6 +67,10 @@ func (r *Registry) RegisterWithDiscord(s *discordgo.Session, appID string, guild
 		commands = append(commands, cmd.Definition)
 	}
 
+	if appID == "" {
+		appID = s.State.User.ID
+	}
+
 	_, err := s.ApplicationCommandBulkOverwrite(appID, guildID, commands)
 	if err != nil {
 		metrics.ErrorCounter.WithLabelValues("command_registration").Inc()

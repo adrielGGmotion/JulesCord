@@ -2715,3 +2715,74 @@ func (db *DB) AddCoins(ctx context.Context, guildID, userID string, amount int) 
 	_, err := db.Pool.Exec(ctx, query, guildID, userID, amount)
 	return err
 }
+
+// CustomCommand represents a custom command for a guild.
+type CustomCommand struct {
+	ID        int       `json:"id"`
+	GuildID   string    `json:"guild_id"`
+	Name      string    `json:"name"`
+	Response  string    `json:"response"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// AddCustomCommand creates or updates a custom command.
+func (db *DB) AddCustomCommand(ctx context.Context, guildID, name, response string) error {
+	query := `
+		INSERT INTO custom_commands (guild_id, name, response)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, name) DO UPDATE SET
+			response = EXCLUDED.response
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, name, response)
+	return err
+}
+
+// RemoveCustomCommand deletes a custom command.
+func (db *DB) RemoveCustomCommand(ctx context.Context, guildID, name string) error {
+	query := `DELETE FROM custom_commands WHERE guild_id = $1 AND name = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, name)
+	return err
+}
+
+// ListCustomCommands returns all custom commands for a guild.
+func (db *DB) ListCustomCommands(ctx context.Context, guildID string) ([]CustomCommand, error) {
+	query := `
+		SELECT id, guild_id, name, response, created_at
+		FROM custom_commands
+		WHERE guild_id = $1
+		ORDER BY name ASC
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var commands []CustomCommand
+	for rows.Next() {
+		var c CustomCommand
+		if err := rows.Scan(&c.ID, &c.GuildID, &c.Name, &c.Response, &c.CreatedAt); err != nil {
+			return nil, err
+		}
+		commands = append(commands, c)
+	}
+	return commands, rows.Err()
+}
+
+// GetCustomCommand gets a specific custom command by name.
+func (db *DB) GetCustomCommand(ctx context.Context, guildID, name string) (*CustomCommand, error) {
+	query := `
+		SELECT id, guild_id, name, response, created_at
+		FROM custom_commands
+		WHERE guild_id = $1 AND name = $2
+	`
+	var c CustomCommand
+	err := db.Pool.QueryRow(ctx, query, guildID, name).Scan(&c.ID, &c.GuildID, &c.Name, &c.Response, &c.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &c, nil
+}

@@ -1,20 +1,19 @@
-{"time":"2026-03-15T09:01:08.190965158Z","level":"INFO","msg":"Starting JulesCord..."}
-{"time":"2026-03-15T09:01:08.1911038Z","level":"INFO","msg":"No .env file found or error reading it, falling back to environment variables"}
-{"time":"2026-03-15T09:01:08.191111257Z","level":"WARN","msg":"DATABASE_URL not set. Running without database."}
-{"time":"2026-03-15T09:01:08.191183953Z","level":"INFO","msg":"Attempted to register nil command or nil definition"}
-{"time":"2026-03-15T09:01:08.191191023Z","level":"INFO","msg":"Attempted to register nil command or nil definition"}
-{"time":"2026-03-15T09:01:08.191219011Z","level":"INFO","msg":"Attempted to register nil command or nil definition"}
-{"time":"2026-03-15T09:01:08.191624016Z","level":"INFO","msg":"Starting Discord bot..."}
-{"time":"2026-03-15T09:01:08.191759686Z","level":"INFO","msg":"JulesCord is now running. Press Ctrl+C to exit."}
-{"time":"2026-03-15T09:01:08.191836569Z","level":"INFO","msg":"Starting API server on :8080"}
-{"time":"2026-03-15T09:01:08.676336164Z","level":"INFO","msg":"Discord bot started successfully."}
-{"time":"2026-03-15T09:01:08.676413337Z","level":"INFO","msg":"Bot is ready! Logged in as Jules#6520"}
-{"time":"2026-03-15T09:01:08.676446436Z","level":"INFO","msg":"Registering slash commands..."}
-{"time":"2026-03-15T09:01:08.804375087Z","level":"ERROR","msg":"Cannot overwrite commands","error":"HTTP 400 Bad Request, {\"message\": \"Invalid Form Body\", \"code\": 50035, \"errors\": {\"application_id\": {\"_errors\": [{\"code\": \"NUMBER_TYPE_COERCE\", \"message\": \"Value \\\"commands\\\" is not snowflake.\"}]}}}"}
-{"time":"2026-03-15T09:01:08.804444837Z","level":"ERROR","msg":"Error registering commands","error":"HTTP 400 Bad Request, {\"message\": \"Invalid Form Body\", \"code\": 50035, \"errors\": {\"application_id\": {\"_errors\": [{\"code\": \"NUMBER_TYPE_COERCE\", \"message\": \"Value \\\"commands\\\" is not snowflake.\"}]}}}"}
-{"time":"2026-03-15T09:01:16.341096557Z","level":"INFO","msg":"Received termination signal. Shutting down..."}
-{"time":"2026-03-15T09:01:16.341151563Z","level":"INFO","msg":"Stopping Discord bot..."}
-{"time":"2026-03-15T09:01:17.342032547Z","level":"INFO","msg":"Discord bot stopped gracefully."}
-{"time":"2026-03-15T09:01:17.34207951Z","level":"INFO","msg":"Stopping API server..."}
-{"time":"2026-03-15T09:01:17.342290377Z","level":"INFO","msg":"API server stopped gracefully."}
-{"time":"2026-03-15T09:01:17.342304486Z","level":"INFO","msg":"Shutdown complete. Exiting."}
+{"time":"2026-03-15T10:41:26.05294159Z","level":"INFO","msg":"Starting JulesCord..."}
+{"time":"2026-03-15T10:41:26.05310501Z","level":"INFO","msg":"No .env file found or error reading it, falling back to environment variables"}
+{"time":"2026-03-15T10:41:26.053112684Z","level":"WARN","msg":"DATABASE_URL not set. Running without database."}
+{"time":"2026-03-15T10:41:26.053175933Z","level":"INFO","msg":"Attempted to register nil command or nil definition"}
+{"time":"2026-03-15T10:41:26.053183317Z","level":"INFO","msg":"Attempted to register nil command or nil definition"}
+{"time":"2026-03-15T10:41:26.053214344Z","level":"INFO","msg":"Attempted to register nil command or nil definition"}
+{"time":"2026-03-15T10:41:26.053657897Z","level":"INFO","msg":"Starting Discord bot..."}
+{"time":"2026-03-15T10:41:26.053958339Z","level":"INFO","msg":"JulesCord is now running. Press Ctrl+C to exit."}
+{"time":"2026-03-15T10:41:26.053978103Z","level":"INFO","msg":"Starting API server on :8080"}
+{"time":"2026-03-15T10:41:26.5138614Z","level":"INFO","msg":"Discord bot started successfully."}
+{"time":"2026-03-15T10:41:26.513903348Z","level":"INFO","msg":"Bot is ready! Logged in as Jules#6520"}
+{"time":"2026-03-15T10:41:26.514360017Z","level":"INFO","msg":"Registering slash commands..."}
+{"time":"2026-03-15T10:41:27.027287427Z","level":"INFO","msg":"Slash commands registered successfully. Count: 40"}
+{"time":"2026-03-15T10:41:33.097154895Z","level":"INFO","msg":"Received termination signal. Shutting down..."}
+{"time":"2026-03-15T10:41:33.097212463Z","level":"INFO","msg":"Stopping Discord bot..."}
+{"time":"2026-03-15T10:41:34.098115522Z","level":"INFO","msg":"Discord bot stopped gracefully."}
+{"time":"2026-03-15T10:41:34.098184427Z","level":"INFO","msg":"Stopping API server..."}
+{"time":"2026-03-15T10:41:34.098359947Z","level":"INFO","msg":"API server stopped gracefully."}
+{"time":"2026-03-15T10:41:34.098374965Z","level":"INFO","msg":"Shutdown complete. Exiting."}

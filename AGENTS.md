@@ -532,6 +532,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/trivia` command with `start` and `leaderboard` subcommands in `internal/bot/commands/trivia.go` fetching questions from OpenTDB.
 - Updated `interactionCreateHandler` in `internal/bot/bot.go` to process trivia answer buttons, award coins, and update the leaderboard.
 
+- Implemented Phase 34 Custom Commands features: added migrations `031_custom_commands.sql` with table `custom_commands`.
+- Added DB operations `AddCustomCommand`, `RemoveCustomCommand`, `ListCustomCommands`, and `GetCustomCommand` in `internal/db/db.go`.
+- Added `/customcommand` command with `add`, `remove`, and `list` subcommands in `internal/bot/commands/customcommand.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to parse messages for custom prefixes and respond with the configured custom command response.
+
 ### Phase 31 — Marriage System
 - [x] `migrations/028_marriages.sql` — `marriages` table
 - [x] DB operations — `ProposeMarriage`, `AcceptMarriage`, `Divorce`, `GetMarriage`
@@ -549,3 +554,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `AddTriviaScore`, `GetTriviaLeaderboard`
 - [x] `/trivia start` command to fetch a random question from OpenTDB and display it with interactive buttons
 - [x] Message component handler to process trivia answers, award coins to winners, and update the leaderboard
+
+### Phase 34 — Custom Commands
+- [x] `migrations/031_custom_commands.sql` — `custom_commands` table
+- [x] DB operations — `AddCustomCommand`, `RemoveCustomCommand`, `ListCustomCommands`, `GetCustomCommand`
+- [x] `/customcommand` command with `add`, `remove`, and `list` subcommands
+- [x] Message handler to listen for custom commands (e.g., matching exact prefix-less trigger or slash command emulation) and respond
