@@ -547,6 +547,12 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/gamble` command with `coinflip`, `slots`, and `stats` subcommands in `internal/bot/commands/gamble.go`.
 - Updated `internal/bot/bot.go` to register the `gamble` command.
 
+- Implemented Phase 37 Confessions System features: added migrations `034_confessions.sql` with table `confession_config`.
+- Added DB operations `SetConfessionChannel` and `GetConfessionChannel` in `internal/db/db.go`.
+- Added `/confession` command with `setup` subcommand in `internal/bot/commands/confession.go` to set the channel.
+- Added `/confess` command in `internal/bot/commands/confess.go` to anonymously post to the configured channel.
+- Updated `internal/bot/bot.go` to register the `confession` and `confess` commands.
+
 ### Phase 31 — Marriage System
 - [x] `migrations/028_marriages.sql` — `marriages` table
 - [x] DB operations — `ProposeMarriage`, `AcceptMarriage`, `Divorce`, `GetMarriage`
@@ -582,3 +588,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `RemoveCoins`, `UpdateGamblingStats`, `GetGamblingStats`
 - [x] `/gamble coinflip` command — bet coins on a coin flip
 - [x] `/gamble slots` command — bet coins on a slot machine
+
+### Phase 37 — Confessions System
+- [x] `migrations/034_confessions.sql` — `confession_config` table
+- [x] DB operations — `SetConfessionChannel`, `GetConfessionChannel`
+- [x] `/confession setup` command to configure the channel
+- [x] `/confess` command to anonymously post confessions
