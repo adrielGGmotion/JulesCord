@@ -101,6 +101,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.RoleMenu(database))
 	registry.Add(commands.Music(database))
 	registry.Add(commands.Play())
+	registry.Add(commands.AutoThread(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -488,6 +489,33 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	// Auto-Moderation System
 	if b.checkAutomod(s, m.GuildID, m.ChannelID, m.ID, m.Content, m.Author.ID, m.Author.String(), m.Author.AvatarURL("")) {
 		return
+	}
+
+	// Auto-Thread System
+	if b.DB != nil && m.GuildID != "" {
+		config, err := b.DB.GetAutoThreadConfig(context.Background(), m.ChannelID)
+		if err == nil && config != nil {
+			threadName := config.ThreadNameTemplate
+			threadName = strings.ReplaceAll(threadName, "{user}", m.Author.Username)
+			threadName = strings.ReplaceAll(threadName, "{content}", m.Content)
+
+			// Discord thread names must be 1-100 characters
+			runes := []rune(threadName)
+			if len(runes) > 100 {
+				threadName = string(runes[:97]) + "..."
+			} else if len(runes) == 0 {
+				threadName = "Thread"
+			}
+
+			_, err := s.MessageThreadStartComplex(m.ChannelID, m.ID, &discordgo.ThreadStart{
+				Name: threadName,
+				AutoArchiveDuration: 1440, // 24 hours
+				Type: discordgo.ChannelTypeGuildPublicThread,
+			})
+			if err != nil {
+				slog.Error("Failed to create auto-thread", "error", err, "channel_id", m.ChannelID, "message_id", m.ID)
+			}
+		}
 	}
 
 	// Counting System

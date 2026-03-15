@@ -3176,3 +3176,49 @@ func (db *DB) GetMusicChannel(ctx context.Context, guildID string) (string, erro
 	}
 	return channelID, nil
 }
+
+// AutoThreadConfig represents the auto-thread configuration for a channel
+type AutoThreadConfig struct {
+	ChannelID          string
+	GuildID            string
+	ThreadNameTemplate string
+}
+
+// SetAutoThreadConfig sets the auto-thread config for a channel
+func (db *DB) SetAutoThreadConfig(ctx context.Context, guildID, channelID, template string) error {
+	query := `
+		INSERT INTO auto_thread_config (guild_id, channel_id, thread_name_template)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (channel_id) DO UPDATE
+		SET thread_name_template = $3, updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, template)
+	return err
+}
+
+// GetAutoThreadConfig retrieves the auto-thread config for a channel
+func (db *DB) GetAutoThreadConfig(ctx context.Context, channelID string) (*AutoThreadConfig, error) {
+	query := `
+		SELECT channel_id, guild_id, thread_name_template FROM auto_thread_config
+		WHERE channel_id = $1
+	`
+	config := &AutoThreadConfig{}
+	err := db.Pool.QueryRow(ctx, query, channelID).Scan(&config.ChannelID, &config.GuildID, &config.ThreadNameTemplate)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return config, nil
+}
+
+// RemoveAutoThreadConfig removes the auto-thread config for a channel
+func (db *DB) RemoveAutoThreadConfig(ctx context.Context, channelID string) error {
+	query := `
+		DELETE FROM auto_thread_config
+		WHERE channel_id = $1
+	`
+	_, err := db.Pool.Exec(ctx, query, channelID)
+	return err
+}

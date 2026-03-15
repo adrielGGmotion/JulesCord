@@ -627,6 +627,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/play` command placeholder in `internal/bot/commands/play.go`.
 - Updated `internal/bot/bot.go` to register the `music` and `play` commands.
 
+- Implemented Phase 42 Auto-Threads System features: added migrations `039_auto_threads.sql` with table `auto_thread_config`.
+- Added DB operations `SetAutoThreadConfig`, `GetAutoThreadConfig`, and `RemoveAutoThreadConfig` in `internal/db/db.go`.
+- Added `/autothread` command with `setup` and `disable` subcommands in `internal/bot/commands/autothread.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to automatically start threads on messages in configured channels based on the customizable template.
+
 ### Phase 40 — Quotes System
 - [x] `migrations/037_quotes.sql` — `quotes` table
 - [x] DB operations — `AddQuote`, `GetQuote`, `GetRandomQuote`, `DeleteQuote`
@@ -637,3 +642,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetMusicChannel`, `GetMusicChannel`
 - [x] `/music setup` command to configure the music channel
 - [x] `/play` command placeholder (just replies with "Coming soon")
+
+### Phase 42 — Auto-Threads System
+- [x] `migrations/039_auto_threads.sql` — `auto_thread_config` table
+- [x] DB operations — `SetAutoThreadConfig`, `GetAutoThreadConfig`, `RemoveAutoThreadConfig`
+- [x] `/autothread` command with `setup` and `disable` subcommands
+- [x] Message handler to start a thread on incoming messages based on the configured template
