@@ -699,40 +699,43 @@ func (db *DB) SetGuildAutoRole(ctx context.Context, guildID, autoRoleID string) 
 type ReactionRole struct {
 	MessageID string `json:"message_id"`
 	Emoji     string `json:"emoji"`
+	EmojiID   string `json:"emoji_id"`
+	IsCustom  bool   `json:"is_custom"`
 	RoleID    string `json:"role_id"`
 }
 
 // AddReactionRole adds a new reaction role mapping.
-func (db *DB) AddReactionRole(ctx context.Context, messageID, emoji, roleID string) error {
+func (db *DB) AddReactionRole(ctx context.Context, messageID, emoji, emojiID string, isCustom bool, roleID string) error {
 	query := `
-		INSERT INTO reaction_roles (message_id, emoji, role_id)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (message_id, emoji) DO UPDATE SET
-			role_id = EXCLUDED.role_id
+		INSERT INTO reaction_roles (message_id, emoji, emoji_id, is_custom, role_id)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (message_id, emoji, emoji_id) DO UPDATE SET
+			role_id = EXCLUDED.role_id,
+			is_custom = EXCLUDED.is_custom
 	`
-	_, err := db.Pool.Exec(ctx, query, messageID, emoji, roleID)
+	_, err := db.Pool.Exec(ctx, query, messageID, emoji, emojiID, isCustom, roleID)
 	return err
 }
 
 // RemoveReactionRole removes a reaction role mapping.
-func (db *DB) RemoveReactionRole(ctx context.Context, messageID, emoji string) error {
+func (db *DB) RemoveReactionRole(ctx context.Context, messageID, emoji, emojiID string) error {
 	query := `
 		DELETE FROM reaction_roles
-		WHERE message_id = $1 AND emoji = $2
+		WHERE message_id = $1 AND emoji = $2 AND emoji_id = $3
 	`
-	_, err := db.Pool.Exec(ctx, query, messageID, emoji)
+	_, err := db.Pool.Exec(ctx, query, messageID, emoji, emojiID)
 	return err
 }
 
 // GetReactionRole retrieves a reaction role mapping.
-func (db *DB) GetReactionRole(ctx context.Context, messageID, emoji string) (*ReactionRole, error) {
+func (db *DB) GetReactionRole(ctx context.Context, messageID, emoji, emojiID string) (*ReactionRole, error) {
 	query := `
-		SELECT message_id, emoji, role_id
+		SELECT message_id, emoji, emoji_id, is_custom, role_id
 		FROM reaction_roles
-		WHERE message_id = $1 AND emoji = $2
+		WHERE message_id = $1 AND emoji = $2 AND emoji_id = $3
 	`
 	var rr ReactionRole
-	err := db.Pool.QueryRow(ctx, query, messageID, emoji).Scan(&rr.MessageID, &rr.Emoji, &rr.RoleID)
+	err := db.Pool.QueryRow(ctx, query, messageID, emoji, emojiID).Scan(&rr.MessageID, &rr.Emoji, &rr.EmojiID, &rr.IsCustom, &rr.RoleID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil // Return nil if no mapping is found
