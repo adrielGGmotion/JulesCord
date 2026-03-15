@@ -91,6 +91,8 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.NewCountingCommand(database))
 	registry.Add(commands.NewTriviaCommand(database))
 	registry.Add(commands.CustomCommand(database))
+	registry.Add(commands.Snipe(database))
+	registry.Add(commands.EditSnipe(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -977,6 +979,10 @@ func (b *Bot) messageUpdateHandler(s *discordgo.Session, m *discordgo.MessageUpd
 		afterContent = "*(Empty message or only attachment)*"
 	}
 
+	if b.DB != nil && beforeContent != "*(Content not available in cache)*" && beforeContent != "*(Empty message or only attachment)*" && afterContent != "*(Empty message or only attachment)*" && authorID != "" {
+		b.DB.AddEditSnipe(context.Background(), m.ChannelID, beforeContent, afterContent, authorID)
+	}
+
 	embed := &discordgo.MessageEmbed{
 		Title:       "Message Edited",
 		Description: fmt.Sprintf("**Message by <@%s> edited in <#%s>**\n\n[Jump to Message](https://discord.com/channels/%s/%s/%s)", authorID, m.ChannelID, m.GuildID, m.ChannelID, m.ID),
@@ -1046,6 +1052,10 @@ func (b *Bot) messageDeleteHandler(s *discordgo.Session, m *discordgo.MessageDel
 		authorName = "Unknown User"
 		authorID = "Unknown"
 		content = "*(Message content not available in cache)*"
+	}
+
+	if b.DB != nil && content != "" && content != "*(Message content not available in cache)*" && content != "*(Empty message or only attachment)*" && authorID != "" && authorID != "Unknown" {
+		b.DB.AddSnipe(context.Background(), m.ChannelID, content, authorID)
 	}
 
 	embed := &discordgo.MessageEmbed{

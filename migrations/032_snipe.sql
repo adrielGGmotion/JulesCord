@@ -1,0 +1,14 @@
+CREATE TABLE IF NOT EXISTS snipes (
+    channel_id VARCHAR(255) PRIMARY KEY,
+    message_content TEXT NOT NULL,
+    author_id VARCHAR(255) NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS edit_snipes (
+    channel_id VARCHAR(255) PRIMARY KEY,
+    old_content TEXT NOT NULL,
+    new_content TEXT NOT NULL,
+    author_id VARCHAR(255) NOT NULL,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
