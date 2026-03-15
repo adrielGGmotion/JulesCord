@@ -621,7 +621,19 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/quote` command with `add`, `get`, `random`, and `delete` subcommands in `internal/bot/commands/quote.go`.
 - Updated `internal/bot/bot.go` to register the `quote` command.
 
+- Implemented Phase 41 Music System Foundation features: added migrations `038_music.sql` with table `music_config`.
+- Added DB operations `SetMusicChannel` and `GetMusicChannel` in `internal/db/db.go`.
+- Added `/music setup` command in `internal/bot/commands/music.go`.
+- Added `/play` command placeholder in `internal/bot/commands/play.go`.
+- Updated `internal/bot/bot.go` to register the `music` and `play` commands.
+
 ### Phase 40 — Quotes System
 - [x] `migrations/037_quotes.sql` — `quotes` table
 - [x] DB operations — `AddQuote`, `GetQuote`, `GetRandomQuote`, `DeleteQuote`
 - [x] `/quote` command with `add`, `get`, `random`, and `delete` subcommands
+
+### Phase 41 — Music System Foundation
+- [x] `migrations/038_music.sql` — `music_config` table
+- [x] DB operations — `SetMusicChannel`, `GetMusicChannel`
+- [x] `/music setup` command to configure the music channel
+- [x] `/play` command placeholder (just replies with "Coming soon")

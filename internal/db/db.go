@@ -3147,3 +3147,32 @@ func (db *DB) DeleteQuote(ctx context.Context, id int, guildID string) error {
 	_, err := db.Pool.Exec(ctx, query, id, guildID)
 	return err
 }
+
+// SetMusicChannel sets the music channel for a guild.
+func (db *DB) SetMusicChannel(ctx context.Context, guildID, channelID string) error {
+	query := `
+		INSERT INTO music_config (guild_id, music_channel_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE
+		SET music_channel_id = $2, updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+// GetMusicChannel retrieves the music channel ID for a guild.
+func (db *DB) GetMusicChannel(ctx context.Context, guildID string) (string, error) {
+	query := `
+		SELECT music_channel_id FROM music_config
+		WHERE guild_id = $1
+	`
+	var channelID string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&channelID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil // No channel configured
+		}
+		return "", err
+	}
+	return channelID, nil
+}
