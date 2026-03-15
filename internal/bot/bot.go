@@ -90,6 +90,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.TempVoice(database))
 	registry.Add(commands.NewCountingCommand(database))
 	registry.Add(commands.NewTriviaCommand(database))
+	registry.Add(commands.CustomCommand(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -514,6 +515,27 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 			lastXpTime := lastXpTimeAny.(time.Time)
 			if now.Sub(lastXpTime) < time.Minute {
 				onCooldown = true
+			}
+		}
+
+		// Custom Commands System
+		// Check if message starts with "!"
+		contentLowerStr := strings.ToLower(strings.TrimSpace(m.Content))
+		if b.DB != nil && strings.HasPrefix(contentLowerStr, "!") {
+			parts := strings.Fields(contentLowerStr)
+			if len(parts) > 0 {
+				cmdName := strings.TrimPrefix(parts[0], "!")
+				if cmdName != "" {
+					cmd, err := b.DB.GetCustomCommand(context.Background(), m.GuildID, cmdName)
+					if err == nil && cmd != nil {
+						_, err := s.ChannelMessageSend(m.ChannelID, cmd.Response)
+						if err != nil {
+							slog.Error("Failed to send custom command response", "error", err)
+						}
+						// If a custom command matched, we probably don't want to process auto-responders or XP
+						return
+					}
+				}
 			}
 		}
 
