@@ -527,6 +527,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/counting setup` command in `internal/bot/commands/counting.go` to configure the channel.
 - Updated `messageCreateHandler` in `internal/bot/bot.go` to validate and increment numbers in the configured counting channel.
 
+- Implemented Phase 33 Trivia System features: added migrations `030_trivia.sql` with table `trivia_scores`.
+- Added DB operations `AddTriviaScore`, `GetTriviaLeaderboard`, and `AddCoins` in `internal/db/db.go`.
+- Added `/trivia` command with `start` and `leaderboard` subcommands in `internal/bot/commands/trivia.go` fetching questions from OpenTDB.
+- Updated `interactionCreateHandler` in `internal/bot/bot.go` to process trivia answer buttons, award coins, and update the leaderboard.
+
 ### Phase 31 — Marriage System
 - [x] `migrations/028_marriages.sql` — `marriages` table
 - [x] DB operations — `ProposeMarriage`, `AcceptMarriage`, `Divorce`, `GetMarriage`
@@ -538,3 +543,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetCountingChannel`, `GetCountingChannel`, `UpdateCountingNumber`, `ResetCountingNumber`
 - [x] `/counting setup` command to configure the channel
 - [x] Message handler to validate and increment numbers
+
+### Phase 33 — Trivia System
+- [x] `migrations/030_trivia.sql` — `trivia_scores` table
+- [x] DB operations — `AddTriviaScore`, `GetTriviaLeaderboard`
+- [x] `/trivia start` command to fetch a random question from OpenTDB and display it with interactive buttons
+- [x] Message component handler to process trivia answers, award coins to winners, and update the leaderboard
