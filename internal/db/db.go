@@ -2841,6 +2841,89 @@ func (db *DB) RemoveCoins(ctx context.Context, guildID, userID string, amount in
 	return err
 }
 
+// Transfer represents a coin transfer between two users.
+type Transfer struct {
+	ID         int
+	GuildID    string
+	SenderID   string
+	ReceiverID string
+	Amount     int64
+	CreatedAt  time.Time
+}
+
+// TransferCoins safely transfers coins between two users in a transaction.
+func (db *DB) TransferCoins(ctx context.Context, guildID, senderID, receiverID string, amount int64) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) // Safe to call even if committed
+
+	// Deduct from sender
+	deductQuery := `
+		UPDATE user_economy
+		SET coins = coins - $3
+		WHERE guild_id = $1 AND user_id = $2 AND coins >= $3
+	`
+	tag, err := tx.Exec(ctx, deductQuery, guildID, senderID, amount)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("insufficient funds or user not found")
+	}
+
+	// Add to receiver
+	addQuery := `
+		INSERT INTO user_economy (guild_id, user_id, coins, last_daily_at)
+		VALUES ($1, $2, $3, '1970-01-01 00:00:00')
+		ON CONFLICT (guild_id, user_id) DO UPDATE SET
+			coins = user_economy.coins + EXCLUDED.coins
+	`
+	_, err = tx.Exec(ctx, addQuery, guildID, receiverID, amount)
+	if err != nil {
+		return err
+	}
+
+	// Log transfer
+	logQuery := `
+		INSERT INTO transfers (guild_id, sender_id, receiver_id, amount)
+		VALUES ($1, $2, $3, $4)
+	`
+	_, err = tx.Exec(ctx, logQuery, guildID, senderID, receiverID, amount)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// GetTransfers returns the recent coin transfers for a user.
+func (db *DB) GetTransfers(ctx context.Context, guildID, userID string, limit int) ([]*Transfer, error) {
+	query := `
+		SELECT id, guild_id, sender_id, receiver_id, amount, created_at
+		FROM transfers
+		WHERE guild_id = $1 AND (sender_id = $2 OR receiver_id = $2)
+		ORDER BY created_at DESC
+		LIMIT $3
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var transfers []*Transfer
+	for rows.Next() {
+		t := &Transfer{}
+		if err := rows.Scan(&t.ID, &t.GuildID, &t.SenderID, &t.ReceiverID, &t.Amount, &t.CreatedAt); err != nil {
+			return nil, err
+		}
+		transfers = append(transfers, t)
+	}
+	return transfers, rows.Err()
+}
+
 // GamblingStats represents a user's gambling statistics.
 type GamblingStats struct {
 	GuildID    string

@@ -732,3 +732,15 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `CreateBadge`, `AwardBadge`, `RemoveBadge`, `GetUserBadges`, `GetAllBadges`
 - [x] `/badge` command with `create`, `award`, `remove`, and `list` subcommands
 - [x] Update `/profile` command embed to display a user's earned badges
+
+### Phase 51 — Economy Transfer System
+- [x] `migrations/046_economy_transfers.sql` — `transfers` table to track coin transfers
+- [x] DB operation — `TransferCoins` inside a transaction
+- [x] `/transfer` command to send coins to another user
+- [x] `/transfers` command to view a user's transfer history
+
+- Implemented Phase 51 Economy Transfer System features: added migrations `046_economy_transfers.up.sql` and `046_economy_transfers.down.sql` with table `transfers`.
+- Added DB operations `TransferCoins` and `GetTransfers` in `internal/db/db.go`.
+- Added `/transfer` command with user and amount options in `internal/bot/commands/transfer.go`.
+- Added `/transfers` command to view recent transfer history in `internal/bot/commands/transfers.go`.
+- Updated `internal/bot/bot.go` to register the `transfer` and `transfers` commands.
