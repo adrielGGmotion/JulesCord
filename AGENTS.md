@@ -194,6 +194,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Added `/levellb` command in `internal/bot/commands/levellb.go`.
 - Updated `internal/bot/bot.go` to register the `levellb` command.
 
+- Implemented Phase 67 User Roles Sync features: added migrations `059_user_roles.up.sql` and `059_user_roles.down.sql` with table `user_roles`.
+- Added DB operations `SaveUserRoles` and `GetUserRoles` in `internal/db/db.go`.
+- Added `guildMemberRemoveHandler` in `internal/bot/bot.go` to save user roles when a user leaves a server.
+- Updated `guildMemberAddHandler` in `internal/bot/bot.go` to restore previously saved roles when a user rejoins a server.
+
 ### Phase 1 — Foundation
 - [x] Remove all old Node.js files (`index.js`, `deploy-commands.js`, `commands/`, `package.json`, `package-lock.json`)
 - [x] `go.mod` and `go.sum` with all required dependencies
@@ -911,3 +916,16 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 ### Phase 66 — Level Leaderboard
 - [x] DB operation — `GetTopLevelUsers`
 - [x] `/levellb` command — displays the top 10 users with the highest level
+
+
+### Phase 67 — User Roles Sync
+- [x] `migrations/059_user_roles.sql` — `user_roles` table (`user_id`, `guild_id`, `role_ids`)
+- [x] DB operations — `SaveUserRoles`, `GetUserRoles`
+- [x] Add `guildMemberRemoveHandler` to save user roles to the DB when a user leaves
+- [x] Add logic to `guildMemberAddHandler` to restore previously saved roles when a user rejoins a server
+
+### Phase 68 — Mod Logs Extension
+- [ ] `migrations/060_mod_log_updates.sql` — update `mod_actions` to include `duration` and `resolved` boolean for temp mutes/bans
+- [ ] DB operations — `GetActiveBans`, `GetActiveMutes`, `MarkModActionResolved`
+- [ ] Enhance `/warn`, `/kick`, `/ban`, and `/mute` to accept evidence attachments (images/logs)
+- [ ] Display attached evidence in the Mod Action Log embed
