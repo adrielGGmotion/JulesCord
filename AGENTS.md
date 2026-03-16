@@ -762,7 +762,19 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `/unmute` command to remove a timeout
 - [x] Background goroutine to periodically check and remove expired mutes
 
+### Phase 54 — Economy Activities
+- [x] `migrations/048_economy_activities.sql` — add `last_work_at` and `last_crime_at` to `user_economy` table
+- [x] DB operations — `UpdateWorkActivity`, `UpdateCrimeActivity`
+- [x] `/work` command to earn 50-200 coins with a 1-hour cooldown
+- [x] `/crime` command to attempt earning 200-500 coins with a 50% success rate (or lose 50-200) with a 2-hour cooldown
+
 - Implemented Phase 53 Advanced Moderation features: added migrations `047_advanced_moderation.up.sql` and `047_advanced_moderation.down.sql` with table `mutes`.
 - Added DB operations `AddMute`, `GetMute`, `RemoveMute`, and `GetExpiredMutes` in `internal/db/db.go`.
 - Added `/mute` and `/unmute` commands in `internal/bot/commands/mute.go` and `internal/bot/commands/unmute.go`.
 - Added background goroutine `checkExpiredMutes` in `internal/bot/bot.go` to remove expired mutes.
+
+- Implemented Phase 54 Economy Activities features: added migrations `048_economy_activities.up.sql` and `048_economy_activities.down.sql` to add `last_work_at` and `last_crime_at` to `user_economy` table.
+- Added DB operations `UpdateWorkActivity` and `UpdateCrimeActivity` in `internal/db/db.go`.
+- Added `/work` command to earn 50-200 coins with a 1-hour cooldown in `internal/bot/commands/work.go`.
+- Added `/crime` command to attempt earning 200-500 coins with a 50% success rate (or lose 50-200) with a 2-hour cooldown in `internal/bot/commands/crime.go`.
+- Updated `internal/bot/bot.go` to register the `work` and `crime` commands.

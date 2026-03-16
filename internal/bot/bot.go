@@ -114,6 +114,8 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Baltop(database))
 	registry.Add(commands.Mute(database))
 	registry.Add(commands.Unmute(database))
+	registry.Add(commands.Work(database))
+	registry.Add(commands.Crime(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
