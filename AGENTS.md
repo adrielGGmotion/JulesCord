@@ -861,3 +861,13 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/autothread` command with `setup` and `remove` subcommands in `internal/bot/commands/autothread.go`.
 - Updated `messageCreateHandler` in `internal/bot/bot.go` to automatically start threads on messages in configured channels based on a customizable template.
 - Updated `internal/bot/bot.go` to register the `autothread` command.
+
+### Phase 62 — Voice XP System
+- [x] `migrations/056_voice_xp.sql` — `voice_xp` table (user_id, guild_id, join_time)
+- [x] DB operations — `SetVoiceJoinTime`, `GetVoiceJoinTime`, `RemoveVoiceJoinTime`
+- [x] Update `voiceStateUpdateHandler` to track join time and calculate XP based on duration spent in VC when leaving
+- [x] Award standard economy XP and coins based on VC duration
+
+- Implemented Phase 62 Voice XP System features: added migrations `056_voice_xp.up.sql` and `056_voice_xp.down.sql` with table `voice_xp`.
+- Added DB operations `SetVoiceJoinTime`, `GetVoiceJoinTime`, and `RemoveVoiceJoinTime` in `internal/db/db.go`.
+- Updated `voiceStateUpdateHandler` in `internal/bot/bot.go` to track join time and dynamically award economy XP and coins based on VC duration upon leaving.
