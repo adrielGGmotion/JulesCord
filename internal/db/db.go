@@ -4040,3 +4040,43 @@ func (db *DB) RemoveUserJob(ctx context.Context, guildID, userID string) error {
 	_, err := db.Pool.Exec(ctx, query, guildID, userID)
 	return err
 }
+
+// AutoThreadConfig represents an auto-thread configuration
+type AutoThreadConfig struct {
+	GuildID            string `json:"guild_id"`
+	ChannelID          string `json:"channel_id"`
+	ThreadNameTemplate string `json:"thread_name_template"`
+}
+
+// SetAutoThread sets the auto-thread configuration for a channel
+func (db *DB) SetAutoThread(ctx context.Context, guildID, channelID, template string) error {
+	query := `
+		INSERT INTO auto_threads_config (guild_id, channel_id, thread_name_template)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, channel_id) DO UPDATE
+		SET thread_name_template = $3
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, template)
+	return err
+}
+
+// GetAutoThread gets the auto-thread configuration for a channel
+func (db *DB) GetAutoThread(ctx context.Context, guildID, channelID string) (*AutoThreadConfig, error) {
+	query := `SELECT guild_id, channel_id, thread_name_template FROM auto_threads_config WHERE guild_id = $1 AND channel_id = $2`
+	var config AutoThreadConfig
+	err := db.Pool.QueryRow(ctx, query, guildID, channelID).Scan(&config.GuildID, &config.ChannelID, &config.ThreadNameTemplate)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &config, nil
+}
+
+// RemoveAutoThread removes the auto-thread configuration for a channel
+func (db *DB) RemoveAutoThread(ctx context.Context, guildID, channelID string) error {
+	query := `DELETE FROM auto_threads_config WHERE guild_id = $1 AND channel_id = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
