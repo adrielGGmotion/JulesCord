@@ -174,6 +174,9 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	bot.Session.AddHandler(bot.messageDeleteHandler)
 	bot.Session.AddHandler(bot.voiceStateUpdateHandler)
 
+	// Register member remove handler
+	bot.Session.AddHandler(bot.guildMemberRemoveHandler)
+
 	// Set intentions
 	bot.Session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMembers | discordgo.IntentsGuildMessageReactions | discordgo.IntentsMessageContent | discordgo.IntentsGuildVoiceStates
 
@@ -894,6 +897,30 @@ func (b *Bot) messageReactionRemoveHandler(s *discordgo.Session, r *discordgo.Me
 	}
 }
 
+// guildMemberRemoveHandler is called every time a member leaves a guild
+func (b *Bot) guildMemberRemoveHandler(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
+	if b.DB == nil || m.User == nil {
+		return
+	}
+
+	// Attempt to get the member from the state cache before they are completely removed
+	member, err := s.State.Member(m.GuildID, m.User.ID)
+	if err != nil || member == nil {
+		slog.Debug("Could not find member in state cache to save roles", "user_id", m.User.ID, "guild_id", m.GuildID)
+		return
+	}
+
+	// Persist the user's roles when they leave so they can be restored if they rejoin
+	if len(member.Roles) > 0 {
+		err := b.DB.SaveUserRoles(context.Background(), m.User.ID, m.GuildID, member.Roles)
+		if err != nil {
+			slog.Error("Failed to save user roles on leave", "user_id", m.User.ID, "guild_id", m.GuildID, "error", err)
+		} else {
+			slog.Info("Saved user roles", "user_id", m.User.ID, "guild_id", m.GuildID, "role_count", len(member.Roles))
+		}
+	}
+}
+
 // guildMemberAddHandler is called every time a new member joins a guild
 func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	if b.DB == nil {
@@ -939,6 +966,24 @@ func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemb
 		if err != nil {
 			slog.Error("Failed to assign auto-role to user", "user_id", m.User.ID, "guild_id", m.GuildID, "error", err)
 		}
+	}
+
+	// Restore previously saved user roles (if any)
+	savedRoles, err := b.DB.GetUserRoles(context.Background(), m.User.ID, m.GuildID)
+	if err != nil {
+		slog.Error("Failed to fetch user roles", "user_id", m.User.ID, "guild_id", m.GuildID, "error", err)
+	} else if len(savedRoles) > 0 {
+		for _, savedRoleID := range savedRoles {
+			// Skip adding if it's already the auto-role since it was just added
+			if savedRoleID == roleID {
+				continue
+			}
+			err := s.GuildMemberRoleAdd(m.GuildID, m.User.ID, savedRoleID)
+			if err != nil {
+				slog.Error("Failed to restore role to user", "role_id", savedRoleID, "user_id", m.User.ID, "guild_id", m.GuildID, "error", err)
+			}
+		}
+		slog.Info("Restored user roles", "user_id", m.User.ID, "guild_id", m.GuildID, "role_count", len(savedRoles))
 	}
 }
 

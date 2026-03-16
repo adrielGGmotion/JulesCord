@@ -1,18 +1,20 @@
-1. **Create Migrations**:
-   - Create `migrations/055_auto_threads.up.sql` to create the `auto_threads_config` table (`guild_id`, `channel_id`, `thread_name_template`).
-   - Create `migrations/055_auto_threads.down.sql` to drop the table.
-2. **Add Database Methods in `internal/db/db.go`**:
-   - `SetAutoThread(ctx, guildID, channelID, template)`
-   - `GetAutoThread(ctx, guildID, channelID)`
-   - `RemoveAutoThread(ctx, guildID, channelID)`
-3. **Add `/autothread` Slash Command**:
-   - Create `internal/bot/commands/autothread.go`.
-   - Implement `/autothread setup` (admin only).
-   - Implement `/autothread remove` (admin only).
-4. **Update Message Handler in `internal/bot/bot.go`**:
-   - In `messageCreateHandler`, check if the message is in an auto-thread channel.
-   - If so, use `s.MessageThreadStartComplex` to create a thread on the message using the template string.
-5. **Register Command**:
-   - Add `commands.AutoThread(database)` to the registry in `internal/bot/bot.go`.
-6. **Pre-commit Checks**:
-   - Run the pre-commit steps to ensure testing, compilation, and linting.
+1. **Create Migrations (`migrations/059_user_roles.up.sql` and `migrations/059_user_roles.down.sql`)**
+   - Create a `user_roles` table to store an array of `role_ids` mapped to `user_id` and `guild_id`.
+   - Setup constraints and indexing (e.g. `PRIMARY KEY (user_id, guild_id)`).
+
+2. **Add Database Operations (`internal/db/db.go`)**
+   - Add `SaveUserRoles(ctx context.Context, userID, guildID string, roleIDs []string) error` to insert or update the saved roles.
+   - Add `GetUserRoles(ctx context.Context, userID, guildID string) ([]string, error)` to retrieve the stored role IDs.
+
+3. **Add `guildMemberRemoveHandler` (`internal/bot/bot.go`)**
+   - Add `bot.guildMemberRemoveHandler` that triggers when a user leaves a server.
+   - Extract the user's current roles (`m.Roles`).
+   - If the user had roles, call `b.DB.SaveUserRoles` to persist them.
+   - Register the handler in `bot.go` (`b.Session.AddHandler(b.guildMemberRemoveHandler)`).
+
+4. **Update `guildMemberAddHandler` (`internal/bot/bot.go`)**
+   - Fetch previously saved roles using `b.DB.GetUserRoles`.
+   - If roles are found, iterate through them and reassign them using `s.GuildMemberRoleAdd`.
+
+5. **Complete pre commit steps**
+   - Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done.

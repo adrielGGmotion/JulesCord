@@ -4279,3 +4279,32 @@ func (db *DB) GetUserTimezone(ctx context.Context, userID string) (string, error
 	}
 	return timezone, nil
 }
+
+// SaveUserRoles saves a user's roles for a specific guild.
+func (db *DB) SaveUserRoles(ctx context.Context, userID, guildID string, roleIDs []string) error {
+	query := `
+		INSERT INTO user_roles (user_id, guild_id, role_ids)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (user_id, guild_id) DO UPDATE
+		SET role_ids = EXCLUDED.role_ids
+	`
+	_, err := db.Pool.Exec(ctx, query, userID, guildID, roleIDs)
+	if err != nil {
+		return fmt.Errorf("error saving user roles: %w", err)
+	}
+	return nil
+}
+
+// GetUserRoles gets a user's roles for a specific guild.
+func (db *DB) GetUserRoles(ctx context.Context, userID, guildID string) ([]string, error) {
+	query := `SELECT role_ids FROM user_roles WHERE user_id = $1 AND guild_id = $2`
+	var roleIDs []string
+	err := db.Pool.QueryRow(ctx, query, userID, guildID).Scan(&roleIDs)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No roles saved
+		}
+		return nil, fmt.Errorf("error getting user roles: %w", err)
+	}
+	return roleIDs, nil
+}
