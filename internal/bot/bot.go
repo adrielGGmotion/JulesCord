@@ -118,6 +118,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Crime(database))
 	registry.Add(commands.Rob(database))
 	registry.Add(commands.Use(database))
+	registry.Add(commands.Bank(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -234,6 +235,9 @@ func (b *Bot) readyHandler(s *discordgo.Session, event *discordgo.Ready) {
 
 	// Start mute expiration checker
 	go b.checkExpiredMutes()
+
+	// Start daily interest application loop
+	go b.applyInterestLoop()
 }
 
 // checkScheduledAnnouncements checks for pending announcements and sends them.
@@ -1559,5 +1563,25 @@ func (b *Bot) checkBirthdays() {
 				slog.Error("Failed to mark birthday as announced", "error", err)
 			}
 		}
+	}
+}
+
+// applyInterestLoop runs periodically to apply daily interest to bank balances.
+func (b *Bot) applyInterestLoop() {
+	if b.DB == nil {
+		return
+	}
+	ticker := time.NewTicker(1 * time.Hour)
+	defer ticker.Stop()
+
+	for {
+		ctx := context.Background()
+		appliedCount, err := b.DB.ApplyInterest(ctx)
+		if err != nil {
+			slog.Error("Failed to apply bank interest", "error", err)
+		} else if appliedCount > 0 {
+			slog.Info("Applied bank interest", "accounts", appliedCount)
+		}
+		<-ticker.C
 	}
 }

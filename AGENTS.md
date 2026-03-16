@@ -801,3 +801,15 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Updated `/inventory` command to accurately group and display item quantities.
 - Added `/use` command in `internal/bot/commands/use.go` with successful deduction logic and user feedback.
 - Updated `internal/bot/bot.go` to register the `use` command, and retroactively registered the missed `rob` command.
+
+- Implemented Phase 57 Bank & Interest System features: added migrations `051_bank.up.sql` and `051_bank.down.sql` to add `bank` and `last_interest_at` to `user_economy` table.
+- Added DB operations `DepositCoins`, `WithdrawCoins`, and `ApplyInterest` in `internal/db/db.go`.
+- Added `/bank` command with `deposit`, `withdraw`, and `balance` subcommands in `internal/bot/commands/bank.go`.
+- Added background goroutine `applyInterestLoop` in `internal/bot/bot.go` to apply 1% interest daily to eligible bank balances.
+- Updated `internal/bot/bot.go` to register the `bank` command.
+
+### Phase 57 — Bank & Interest System
+- [x] `migrations/051_bank.sql` — add `bank` and `last_interest_at` to `user_economy` table
+- [x] DB operations — `DepositCoins`, `WithdrawCoins`, `ApplyInterest`
+- [x] `/bank` commands — `deposit`, `withdraw`, `balance`
+- [x] Background goroutine to apply 1% interest daily to bank balances
