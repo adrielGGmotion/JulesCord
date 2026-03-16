@@ -1521,11 +1521,27 @@ func (b *Bot) voiceStateUpdateHandler(s *discordgo.Session, v *discordgo.VoiceSt
 		title = "🎙️ Voice Join"
 		description = fmt.Sprintf("<@%s> joined voice channel <#%s>", v.UserID, newChannelID)
 		color = 0x00FF00 // Green
+
+		// Set voice join time for XP
+		_ = b.DB.SetVoiceJoinTime(context.Background(), v.GuildID, v.UserID)
 	} else if oldChannelID != "" && newChannelID == "" {
 		// Left
 		title = "🎙️ Voice Leave"
 		description = fmt.Sprintf("<@%s> left voice channel <#%s>", v.UserID, oldChannelID)
 		color = 0xFF0000 // Red
+
+		// Calculate and award Voice XP
+		joinTime, err := b.DB.GetVoiceJoinTime(context.Background(), v.GuildID, v.UserID)
+		if err == nil && joinTime != nil {
+			duration := time.Since(*joinTime)
+			minutes := int(duration.Minutes())
+			if minutes > 0 {
+				// Award 1 XP and 1 Coin per minute
+				_, _ = b.DB.AddXP(context.Background(), v.GuildID, v.UserID, minutes)
+				_ = b.DB.AddCoins(context.Background(), v.GuildID, v.UserID, minutes)
+			}
+			_ = b.DB.RemoveVoiceJoinTime(context.Background(), v.GuildID, v.UserID)
+		}
 	} else if oldChannelID != "" && newChannelID != "" {
 		// Moved
 		title = "🎙️ Voice Move"

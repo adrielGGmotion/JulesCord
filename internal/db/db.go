@@ -4080,3 +4080,35 @@ func (db *DB) RemoveAutoThread(ctx context.Context, guildID, channelID string) e
 	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
 	return err
 }
+
+// SetVoiceJoinTime records the time a user joined a voice channel.
+func (db *DB) SetVoiceJoinTime(ctx context.Context, guildID, userID string) error {
+	query := `
+		INSERT INTO voice_xp (guild_id, user_id, join_time)
+		VALUES ($1, $2, NOW())
+		ON CONFLICT (guild_id, user_id) DO UPDATE SET join_time = NOW()
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID)
+	return err
+}
+
+// GetVoiceJoinTime retrieves the time a user joined a voice channel.
+func (db *DB) GetVoiceJoinTime(ctx context.Context, guildID, userID string) (*time.Time, error) {
+	query := `SELECT join_time FROM voice_xp WHERE guild_id = $1 AND user_id = $2`
+	var joinTime time.Time
+	err := db.Pool.QueryRow(ctx, query, guildID, userID).Scan(&joinTime)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &joinTime, nil
+}
+
+// RemoveVoiceJoinTime deletes the join time record for a user.
+func (db *DB) RemoveVoiceJoinTime(ctx context.Context, guildID, userID string) error {
+	query := `DELETE FROM voice_xp WHERE guild_id = $1 AND user_id = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID)
+	return err
+}
