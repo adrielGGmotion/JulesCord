@@ -4112,3 +4112,72 @@ func (db *DB) RemoveVoiceJoinTime(ctx context.Context, guildID, userID string) e
 	_, err := db.Pool.Exec(ctx, query, guildID, userID)
 	return err
 }
+
+// Bookmark represents a saved message for a user.
+type Bookmark struct {
+	ID        int       `json:"id"`
+	UserID    string    `json:"user_id"`
+	MessageID string    `json:"message_id"`
+	ChannelID string    `json:"channel_id"`
+	GuildID   string    `json:"guild_id"`
+	Note      *string   `json:"note"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// AddBookmark saves a message to the user's bookmarks.
+func (db *DB) AddBookmark(ctx context.Context, userID, messageID, channelID, guildID string, note *string) error {
+	query := `
+		INSERT INTO bookmarks (user_id, message_id, channel_id, guild_id, note)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (user_id, message_id) DO NOTHING
+	`
+	tag, err := db.Pool.Exec(ctx, query, userID, messageID, channelID, guildID, note)
+	if err != nil {
+		return fmt.Errorf("failed to add bookmark: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("bookmark already exists")
+	}
+	return nil
+}
+
+// RemoveBookmark removes a saved message from the user's bookmarks.
+func (db *DB) RemoveBookmark(ctx context.Context, userID, messageID string) error {
+	query := `DELETE FROM bookmarks WHERE user_id = $1 AND message_id = $2`
+	tag, err := db.Pool.Exec(ctx, query, userID, messageID)
+	if err != nil {
+		return fmt.Errorf("failed to remove bookmark: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("bookmark not found")
+	}
+	return nil
+}
+
+// GetBookmarks retrieves a user's bookmarked messages.
+func (db *DB) GetBookmarks(ctx context.Context, userID string) ([]Bookmark, error) {
+	query := `
+		SELECT id, user_id, message_id, channel_id, guild_id, note, created_at
+		FROM bookmarks
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := db.Pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query bookmarks: %w", err)
+	}
+	defer rows.Close()
+
+	var bookmarks []Bookmark
+	for rows.Next() {
+		var b Bookmark
+		if err := rows.Scan(&b.ID, &b.UserID, &b.MessageID, &b.ChannelID, &b.GuildID, &b.Note, &b.CreatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan bookmark: %w", err)
+		}
+		bookmarks = append(bookmarks, b)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+	return bookmarks, nil
+}
