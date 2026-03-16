@@ -119,6 +119,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Rob(database))
 	registry.Add(commands.Use(database))
 	registry.Add(commands.Bank(database))
+	registry.Add(commands.Pet(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -238,6 +239,9 @@ func (b *Bot) readyHandler(s *discordgo.Session, event *discordgo.Ready) {
 
 	// Start daily interest application loop
 	go b.applyInterestLoop()
+
+	// Start pet stats loop
+	go b.petStatsLoop()
 }
 
 // checkScheduledAnnouncements checks for pending announcements and sends them.
@@ -1583,5 +1587,24 @@ func (b *Bot) applyInterestLoop() {
 			slog.Info("Applied bank interest", "accounts", appliedCount)
 		}
 		<-ticker.C
+	}
+}
+
+// petStatsLoop periodically updates pet stats across all servers.
+func (b *Bot) petStatsLoop() {
+	if b.DB == nil {
+		return
+	}
+
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		err := b.DB.UpdateAllPetStats(ctx)
+		if err != nil {
+			slog.Error("Failed to update pet stats in background loop", "error", err)
+		}
+		cancel()
 	}
 }

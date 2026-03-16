@@ -3849,3 +3849,80 @@ func (db *DB) ApplyInterest(ctx context.Context) (int64, error) {
 	cmdTag, err := db.Pool.Exec(ctx, query)
 	return cmdTag.RowsAffected(), err
 }
+
+// UserPet represents a user's pet.
+type UserPet struct {
+	ID           int
+	GuildID      string
+	UserID       string
+	Name         string
+	Type         string
+	Hunger       int
+	Happiness    int
+	LastFedAt    time.Time
+	LastPlayedAt time.Time
+	CreatedAt    time.Time
+}
+
+// AdoptPet adopts a new pet for a user.
+func (db *DB) AdoptPet(ctx context.Context, guildID, userID, name, petType string) error {
+	query := `
+		INSERT INTO user_pets (guild_id, user_id, name, type, hunger, happiness)
+		VALUES ($1, $2, $3, $4, 50, 50)
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, name, petType)
+	return err
+}
+
+// GetPet gets a user's pet.
+func (db *DB) GetPet(ctx context.Context, guildID, userID string) (*UserPet, error) {
+	query := `
+		SELECT id, guild_id, user_id, name, type, hunger, happiness, last_fed_at, last_played_at, created_at
+		FROM user_pets
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	row := db.Pool.QueryRow(ctx, query, guildID, userID)
+	var p UserPet
+	err := row.Scan(&p.ID, &p.GuildID, &p.UserID, &p.Name, &p.Type, &p.Hunger, &p.Happiness, &p.LastFedAt, &p.LastPlayedAt, &p.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// FeedPet feeds a user's pet, decreasing hunger and increasing happiness.
+func (db *DB) FeedPet(ctx context.Context, guildID, userID string) error {
+	query := `
+		UPDATE user_pets
+		SET hunger = GREATEST(0, hunger - 30),
+		    happiness = LEAST(100, happiness + 10),
+		    last_fed_at = NOW()
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID)
+	return err
+}
+
+// PlayPet plays with a user's pet, increasing happiness and hunger.
+func (db *DB) PlayPet(ctx context.Context, guildID, userID string) error {
+	query := `
+		UPDATE user_pets
+		SET happiness = LEAST(100, happiness + 30),
+		    hunger = LEAST(100, hunger + 10),
+		    last_played_at = NOW()
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID)
+	return err
+}
+
+// UpdateAllPetStats simulates time passing for all pets by increasing hunger and decreasing happiness.
+func (db *DB) UpdateAllPetStats(ctx context.Context) error {
+	query := `
+		UPDATE user_pets
+		SET hunger = LEAST(100, hunger + 5),
+		    happiness = GREATEST(0, happiness - 5)
+	`
+	_, err := db.Pool.Exec(ctx, query)
+	return err
+}
