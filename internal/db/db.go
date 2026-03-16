@@ -396,6 +396,33 @@ func (db *DB) GetRank(ctx context.Context, guildID, userID string) (int, error) 
 	return rank, err
 }
 
+// GetTopUsersByCoins retrieves the top 10 users by coins in a guild.
+func (db *DB) GetTopUsersByCoins(ctx context.Context, guildID string) ([]UserEconomy, error) {
+	query := `
+		SELECT guild_id, user_id, xp, level, coins, last_daily_at
+		FROM user_economy
+		WHERE guild_id = $1
+		ORDER BY coins DESC
+		LIMIT 10
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var topUsers []UserEconomy
+	for rows.Next() {
+		var e UserEconomy
+		if err := rows.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt); err != nil {
+			return nil, err
+		}
+		topUsers = append(topUsers, e)
+	}
+
+	return topUsers, rows.Err()
+}
+
 // GetTopUsersByXP retrieves the top 10 users by XP in a guild.
 func (db *DB) GetTopUsersByXP(ctx context.Context, guildID string) ([]UserEconomy, error) {
 	query := `

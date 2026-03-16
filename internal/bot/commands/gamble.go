@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"julescord/internal/db"
@@ -24,11 +25,10 @@ func Gamble(database *db.DB) *Command {
 					Description: "Bet on a coin flip",
 					Options: []*discordgo.ApplicationCommandOption{
 						{
-							Type:        discordgo.ApplicationCommandOptionInteger,
+							Type:        discordgo.ApplicationCommandOptionString,
 							Name:        "amount",
-							Description: "Amount of coins to bet",
+							Description: "Amount of coins to bet (or 'all')",
 							Required:    true,
-							MinValue:    &[]float64{1.0}[0],
 						},
 						{
 							Type:        discordgo.ApplicationCommandOptionString,
@@ -48,11 +48,10 @@ func Gamble(database *db.DB) *Command {
 					Description: "Play the slot machine",
 					Options: []*discordgo.ApplicationCommandOption{
 						{
-							Type:        discordgo.ApplicationCommandOptionInteger,
+							Type:        discordgo.ApplicationCommandOptionString,
 							Name:        "amount",
-							Description: "Amount of coins to bet",
+							Description: "Amount of coins to bet (or 'all')",
 							Required:    true,
-							MinValue:    &[]float64{1.0}[0],
 						},
 					},
 				},
@@ -123,11 +122,39 @@ func Gamble(database *db.DB) *Command {
 			if len(subcmd.Options) == 0 {
 				return
 			}
-			amount := int(subcmd.Options[0].IntValue())
+			amountStr := subcmd.Options[0].StringValue()
 
-			// Check user's balance
+			// Fetch user's economy
 			eco, err := database.GetUserEconomy(ctx, i.GuildID, i.Member.User.ID)
-			if err != nil || eco == nil || int(eco.Coins) < amount {
+			if err != nil || eco == nil {
+				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "Failed to fetch your economy data.",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				return
+			}
+
+			var amount int
+			if amountStr == "all" {
+				amount = int(eco.Coins)
+			} else {
+				amount, err = strconv.Atoi(amountStr)
+				if err != nil || amount <= 0 {
+					_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "Please provide a valid positive number or 'all'.",
+							Flags:   discordgo.MessageFlagsEphemeral,
+						},
+					})
+					return
+				}
+			}
+
+			if int(eco.Coins) < amount || amount == 0 {
 				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{

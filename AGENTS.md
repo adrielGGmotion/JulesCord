@@ -744,3 +744,13 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/transfer` command with user and amount options in `internal/bot/commands/transfer.go`.
 - Added `/transfers` command to view recent transfer history in `internal/bot/commands/transfers.go`.
 - Updated `internal/bot/bot.go` to register the `transfer` and `transfers` commands.
+
+### Phase 52 — Economy Coinflip Bet
+- [x] Update `/gamble coinflip` to allow betting all coins by specifying "all" as an amount string.
+- [x] Add `/baltop` command to view the top 10 users by coins.
+
+- Implemented Phase 52 Economy Coinflip Bet features:
+- Updated `/gamble coinflip` and `/gamble slots` commands in `internal/bot/commands/gamble.go` to accept an `amount` string, which can be a number or "all".
+- Added DB operation `GetTopUsersByCoins` in `internal/db/db.go`.
+- Added `/baltop` command in `internal/bot/commands/baltop.go` to display the top 10 users by coins.
+- Updated `internal/bot/bot.go` to register the `baltop` command.
