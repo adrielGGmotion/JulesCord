@@ -337,6 +337,7 @@ type UserEconomy struct {
 	XP            int64
 	Level         int
 	Coins         int64
+	Bank          int64
 	LastDailyAt   *time.Time
 	BackgroundURL *string
 	LastWorkAt    *time.Time
@@ -347,13 +348,13 @@ type UserEconomy struct {
 // GetUserEconomy retrieves the economy record for a user in a guild.
 func (db *DB) GetUserEconomy(ctx context.Context, guildID, userID string) (*UserEconomy, error) {
 	query := `
-		SELECT guild_id, user_id, xp, level, coins, last_daily_at, background_url, last_work_at, last_crime_at, last_rob_at
+		SELECT guild_id, user_id, xp, level, coins, bank, last_daily_at, background_url, last_work_at, last_crime_at, last_rob_at
 		FROM user_economy
 		WHERE guild_id = $1 AND user_id = $2
 	`
 	row := db.Pool.QueryRow(ctx, query, guildID, userID)
 	var e UserEconomy
-	err := row.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt, &e.BackgroundURL, &e.LastWorkAt, &e.LastCrimeAt, &e.LastRobAt)
+	err := row.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.Bank, &e.LastDailyAt, &e.BackgroundURL, &e.LastWorkAt, &e.LastCrimeAt, &e.LastRobAt)
 	if err != nil {
 		return nil, err
 	}
@@ -471,7 +472,7 @@ func (db *DB) GetRank(ctx context.Context, guildID, userID string) (int, error) 
 // GetTopUsersByCoins retrieves the top 10 users by coins in a guild.
 func (db *DB) GetTopUsersByCoins(ctx context.Context, guildID string) ([]UserEconomy, error) {
 	query := `
-		SELECT guild_id, user_id, xp, level, coins, last_daily_at
+		SELECT guild_id, user_id, xp, level, coins, bank, last_daily_at
 		FROM user_economy
 		WHERE guild_id = $1
 		ORDER BY coins DESC
@@ -486,7 +487,7 @@ func (db *DB) GetTopUsersByCoins(ctx context.Context, guildID string) ([]UserEco
 	var topUsers []UserEconomy
 	for rows.Next() {
 		var e UserEconomy
-		if err := rows.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt); err != nil {
+		if err := rows.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.Bank, &e.LastDailyAt); err != nil {
 			return nil, err
 		}
 		topUsers = append(topUsers, e)
@@ -498,7 +499,7 @@ func (db *DB) GetTopUsersByCoins(ctx context.Context, guildID string) ([]UserEco
 // GetTopUsersByXP retrieves the top 10 users by XP in a guild.
 func (db *DB) GetTopUsersByXP(ctx context.Context, guildID string) ([]UserEconomy, error) {
 	query := `
-		SELECT guild_id, user_id, xp, level, coins, last_daily_at
+		SELECT guild_id, user_id, xp, level, coins, bank, last_daily_at
 		FROM user_economy
 		WHERE guild_id = $1
 		ORDER BY xp DESC
@@ -513,7 +514,7 @@ func (db *DB) GetTopUsersByXP(ctx context.Context, guildID string) ([]UserEconom
 	var topUsers []UserEconomy
 	for rows.Next() {
 		var e UserEconomy
-		if err := rows.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt); err != nil {
+		if err := rows.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.Bank, &e.LastDailyAt); err != nil {
 			return nil, err
 		}
 		topUsers = append(topUsers, e)
@@ -3762,4 +3763,52 @@ func (db *DB) GetUserBadges(userID string) ([]*Badge, error) {
 		badges = append(badges, b)
 	}
 	return badges, nil
+}
+
+// DepositCoins moves coins from a user's wallet to their bank.
+func (db *DB) DepositCoins(ctx context.Context, guildID, userID string, amount int64) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	query := `
+		UPDATE user_economy
+		SET coins = GREATEST(0, coins - $3), bank = bank + $3
+		WHERE guild_id = $1 AND user_id = $2 AND coins >= $3
+	`
+	tag, err := tx.Exec(ctx, query, guildID, userID, amount)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("insufficient coins or user not found")
+	}
+
+	return tx.Commit(ctx)
+}
+
+// WithdrawCoins moves coins from a user's bank to their wallet.
+func (db *DB) WithdrawCoins(ctx context.Context, guildID, userID string, amount int64) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	query := `
+		UPDATE user_economy
+		SET bank = GREATEST(0, bank - $3), coins = coins + $3
+		WHERE guild_id = $1 AND user_id = $2 AND bank >= $3
+	`
+	tag, err := tx.Exec(ctx, query, guildID, userID, amount)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("insufficient bank balance or user not found")
+	}
+
+	return tx.Commit(ctx)
 }

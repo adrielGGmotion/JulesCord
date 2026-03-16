@@ -77,18 +77,20 @@ func Coins(database *db.DB) *Command {
 			econ, err := database.GetUserEconomy(ctx, i.GuildID, targetUser.ID)
 
 			var balance int64 = 0
+			var bank int64 = 0
 			if err == nil && econ != nil {
 				balance = econ.Coins
+				bank = econ.Bank
 			}
 
 			// Send embed
 			embed := &discordgo.MessageEmbed{
-				Title: fmt.Sprintf("%s's Wallet", targetUser.Username),
+				Title: fmt.Sprintf("%s's Economy", targetUser.Username),
 				Color: 0xf1c40f, // Yellow/Gold
 				Thumbnail: &discordgo.MessageEmbedThumbnail{
 					URL: targetUser.AvatarURL(""),
 				},
-				Description: fmt.Sprintf("💰 **%d** coins", balance),
+				Description: fmt.Sprintf("💰 **Wallet:** %d coins\n🏦 **Bank:** %d coins\n📊 **Net Worth:** %d coins", balance, bank, balance+bank),
 			}
 
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

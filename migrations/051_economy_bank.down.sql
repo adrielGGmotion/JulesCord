@@ -1,0 +1,1 @@
+ALTER TABLE user_economy DROP COLUMN IF EXISTS bank;

@@ -801,3 +801,16 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Updated `/inventory` command to accurately group and display item quantities.
 - Added `/use` command in `internal/bot/commands/use.go` with successful deduction logic and user feedback.
 - Updated `internal/bot/bot.go` to register the `use` command, and retroactively registered the missed `rob` command.
+
+- Implemented Phase 57 Economy Bank System features: added migrations `051_economy_bank.up.sql` and `051_economy_bank.down.sql` to add a `bank` column to the `user_economy` table.
+- Added DB operations `DepositCoins` and `WithdrawCoins` in `internal/db/db.go` using transactions to safely move coins.
+- Added `/deposit` and `/withdraw` commands in `internal/bot/commands/deposit.go` and `internal/bot/commands/withdraw.go`.
+- Updated `/coins` command in `internal/bot/commands/coins.go` to display wallet, bank, and net worth balances.
+- Updated `internal/bot/bot.go` to register the `deposit` and `withdraw` commands.
+
+### Phase 57 — Economy Bank System
+- [x] `migrations/051_economy_bank.sql` — add `bank` column to `user_economy` table
+- [x] DB operations — `DepositCoins`, `WithdrawCoins` using transactions
+- [x] `/deposit` command to deposit coins to bank
+- [x] `/withdraw` command to withdraw coins from bank
+- [x] Update `/coins` embed to show wallet, bank, and net worth
