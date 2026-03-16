@@ -778,3 +778,20 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/work` command to earn 50-200 coins with a 1-hour cooldown in `internal/bot/commands/work.go`.
 - Added `/crime` command to attempt earning 200-500 coins with a 50% success rate (or lose 50-200) with a 2-hour cooldown in `internal/bot/commands/crime.go`.
 - Updated `internal/bot/bot.go` to register the `work` and `crime` commands.
+
+### Phase 55 — Economy Robbing
+- [x] Add `last_rob_at` column to `user_economy` table via migration.
+- [x] Update DB operations to handle `last_rob_at` and a `RobCoins` transaction (transferring coins directly between users).
+- [x] Add `/rob` command allowing users to try stealing from others, with success rate based on target's balance vs robber's balance, and a cooldown.
+- [x] Implement a system where failed robberies fine the robber and give it to the victim.
+
+- Implemented Phase 55 Economy Robbing features: added migrations `049_economy_robbing.up.sql` and `049_economy_robbing.down.sql` to add `last_rob_at` to `user_economy` table.
+- Added DB operations `UpdateRobActivity` and `RobCoins` in `internal/db/db.go`.
+- Added `/rob` command in `internal/bot/commands/rob.go` handling success rates, fines, and transaction execution.
+- Updated `internal/bot/bot.go` to register the `rob` command.
+
+### Phase 56 — Economy Items & Use
+- [ ] `migrations/050_economy_items.sql` — `user_items` table mapping `user_id`, `item_id`, `quantity`.
+- [ ] DB operations — `AddItem`, `RemoveItem`, `GetUserItems`
+- [ ] Update `/shop` to give items to `user_items` instead of a flat log.
+- [ ] `/use` command to use items from inventory (with predefined effects).
