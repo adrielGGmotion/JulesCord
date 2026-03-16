@@ -878,8 +878,18 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/bookmarks` slash command with `list` and `remove` subcommands to view and manage saved bookmarks in `internal/bot/commands/bookmark.go`.
 - Updated `internal/bot/bot.go` to register the `BookmarkContext` and `BookmarksSlash` commands.
 
+- Implemented Phase 64 User Timezones features: added migrations `058_user_timezones.up.sql` and `058_user_timezones.down.sql` with table `user_timezones`.
+- Added DB operations `SetUserTimezone` and `GetUserTimezone` in `internal/db/db.go`.
+- Added `/timezone` command with `set` and `get` subcommands in `internal/bot/commands/timezone.go`.
+- Updated `internal/bot/bot.go` to register the `timezone` command.
+
 ### Phase 63 — Message Bookmarks
 - [x] `migrations/057_bookmarks.sql` — `bookmarks` table (user_id, message_id, channel_id, guild_id, note)
 - [x] DB operations — `AddBookmark`, `RemoveBookmark`, `GetBookmarks`
 - [x] `Bookmark` message context command — allows users to right click a message and save it to their DMs/DB
 - [x] `/bookmarks` slash command — view, list and manage saved messages
+
+### Phase 64 — User Timezones
+- [x] `migrations/058_user_timezones.sql` — `user_timezones` table (`user_id`, `timezone`)
+- [x] DB operations — `SetUserTimezone`, `GetUserTimezone`
+- [x] `/timezone` command with `set` and `get` subcommands to allow users to set and view local times
