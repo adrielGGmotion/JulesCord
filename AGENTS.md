@@ -766,3 +766,15 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added DB operations `AddMute`, `GetMute`, `RemoveMute`, and `GetExpiredMutes` in `internal/db/db.go`.
 - Added `/mute` and `/unmute` commands in `internal/bot/commands/mute.go` and `internal/bot/commands/unmute.go`.
 - Added background goroutine `checkExpiredMutes` in `internal/bot/bot.go` to remove expired mutes.
+
+### Phase 54 — Channel Management
+- [x] Add `/lock` command to lock the current channel (deny @everyone send messages permission)
+- [x] Add `/unlock` command to unlock the current channel (restore @everyone send messages permission)
+- [x] Add `/slowmode` command to set the channel slowmode duration
+- [x] Add `/nuke` command to clone the current channel and delete the old one, effectively clearing all history
+
+- Implemented Phase 54 Channel Management features:
+- Added `/lock` command to lock the current channel (deny @everyone send messages).
+- Added `/unlock` command to unlock the current channel (restore @everyone send messages).
+- Added `/slowmode` command to set the channel slowmode duration in seconds.
+- Added `/nuke` command to clone the current channel and delete the old one, effectively clearing all history.
