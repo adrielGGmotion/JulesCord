@@ -3396,3 +3396,80 @@ func (db *DB) IsMediaChannel(ctx context.Context, guildID, channelID string) (bo
 	err := db.Pool.QueryRow(ctx, query, guildID, channelID).Scan(&exists)
 	return exists, err
 }
+
+// --- Badges ---
+
+type Badge struct {
+	ID          int
+	Name        string
+	Emoji       string
+	Description string
+}
+
+type UserBadge struct {
+	UserID    string
+	BadgeID   int
+	AwardedAt time.Time
+}
+
+func (db *DB) CreateBadge(name, emoji, description string) error {
+	query := `INSERT INTO available_badges (name, emoji, description) VALUES ($1, $2, $3)`
+	_, err := db.Pool.Exec(context.Background(), query, name, emoji, description)
+	return err
+}
+
+func (db *DB) GetAllBadges() ([]*Badge, error) {
+	query := `SELECT id, name, emoji, description FROM available_badges ORDER BY id`
+	rows, err := db.Pool.Query(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var badges []*Badge
+	for rows.Next() {
+		b := &Badge{}
+		if err := rows.Scan(&b.ID, &b.Name, &b.Emoji, &b.Description); err != nil {
+			return nil, err
+		}
+		badges = append(badges, b)
+	}
+	return badges, nil
+}
+
+func (db *DB) AwardBadge(userID string, badgeID int) error {
+	query := `INSERT INTO user_badges (user_id, badge_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`
+	_, err := db.Pool.Exec(context.Background(), query, userID, badgeID)
+	return err
+}
+
+func (db *DB) RemoveBadge(userID string, badgeID int) error {
+	query := `DELETE FROM user_badges WHERE user_id = $1 AND badge_id = $2`
+	_, err := db.Pool.Exec(context.Background(), query, userID, badgeID)
+	return err
+}
+
+func (db *DB) GetUserBadges(userID string) ([]*Badge, error) {
+	query := `
+		SELECT ab.id, ab.name, ab.emoji, ab.description
+		FROM available_badges ab
+		JOIN user_badges ub ON ab.id = ub.badge_id
+		WHERE ub.user_id = $1
+		ORDER BY ub.awarded_at DESC
+	`
+	rows, err := db.Pool.Query(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var badges []*Badge
+	for rows.Next() {
+		b := &Badge{}
+		if err := rows.Scan(&b.ID, &b.Name, &b.Emoji, &b.Description); err != nil {
+			return nil, err
+		}
+		badges = append(badges, b)
+	}
+	return badges, nil
+}

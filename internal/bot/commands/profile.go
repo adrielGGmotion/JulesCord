@@ -128,6 +128,12 @@ func handleProfileView(s *discordgo.Session, i *discordgo.InteractionCreate, dat
 		slog.Error("Failed to fetch marriage status", "guild", i.GuildID, "user", targetUser.ID, "err", err)
 	}
 
+	// 5. Fetch Badges
+	badges, err := database.GetUserBadges(targetUser.ID)
+	if err != nil {
+		slog.Error("Failed to fetch badges", "user", targetUser.ID, "err", err)
+	}
+
 	// Format embed color
 	embedColor := 0x5865F2 // Default Blurple
 	if profile != nil && profile.Color != nil {
@@ -166,6 +172,16 @@ func handleProfileView(s *discordgo.Session, i *discordgo.InteractionCreate, dat
 		}
 	}
 
+	// Format Badges
+	badgeStr := "No badges yet."
+	if len(badges) > 0 {
+		var sb strings.Builder
+		for _, b := range badges {
+			sb.WriteString(fmt.Sprintf("%s ", b.Emoji))
+		}
+		badgeStr = sb.String()
+	}
+
 	// Build Embed fields
 	fields := []*discordgo.MessageEmbedField{
 		{
@@ -182,6 +198,11 @@ func handleProfileView(s *discordgo.Session, i *discordgo.InteractionCreate, dat
 			Name:   "Marriage",
 			Value:  marriageStatus,
 			Inline: true,
+		},
+		{
+			Name:   "Badges",
+			Value:  badgeStr,
+			Inline: false,
 		},
 	}
 

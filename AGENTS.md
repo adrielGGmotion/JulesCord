@@ -726,3 +726,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Updated DB operations `AddReactionRole`, `RemoveReactionRole`, and `GetReactionRole` in `internal/db/db.go` to support custom emojis.
 - Updated `/reactionrole` command in `internal/bot/commands/reactionrole.go` to parse custom emojis properly and store the emoji name and ID separately.
 - Updated `messageReactionAddHandler` and `messageReactionRemoveHandler` in `internal/bot/bot.go` to handle reaction interactions with custom emojis appropriately.
+
+### Phase 50 — User Badges System
+- [x] `migrations/045_user_badges.sql` — `user_badges` and `available_badges` tables
+- [x] DB operations — `CreateBadge`, `AwardBadge`, `RemoveBadge`, `GetUserBadges`, `GetAllBadges`
+- [x] `/badge` command with `create`, `award`, `remove`, and `list` subcommands
+- [x] Update `/profile` command embed to display a user's earned badges
