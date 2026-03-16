@@ -813,3 +813,15 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `DepositCoins`, `WithdrawCoins`, `ApplyInterest`
 - [x] `/bank` commands — `deposit`, `withdraw`, `balance`
 - [x] Background goroutine to apply 1% interest daily to bank balances
+
+- Implemented Phase 58 Pet System features: added migrations `052_pets.up.sql` and `052_pets.down.sql` with table `user_pets`.
+- Added DB operations `AdoptPet`, `FeedPet`, `PlayPet`, `GetPet`, and `UpdateAllPetStats` in `internal/db/db.go`.
+- Added `/pet` command with `adopt`, `view`, `feed`, and `play` subcommands in `internal/bot/commands/pet.go`.
+- Added background goroutine `petStatsLoop` in `internal/bot/bot.go` to slowly increase pet hunger and decrease happiness over time.
+- Updated `internal/bot/bot.go` to register the `pet` command.
+
+### Phase 58 — Pet System
+- [x] `migrations/052_pets.sql` — `user_pets` table (pet name, type, hunger, happiness)
+- [x] DB operations — `AdoptPet`, `FeedPet`, `PlayPet`, `GetPet`
+- [x] `/pet adopt` and `/pet view` commands
+- [x] Background goroutine to slowly increase pet hunger over time
