@@ -199,6 +199,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Added `guildMemberRemoveHandler` in `internal/bot/bot.go` to save user roles when a user leaves a server.
 - Updated `guildMemberAddHandler` in `internal/bot/bot.go` to restore previously saved roles when a user rejoins a server.
 
+- Implemented Phase 68 Mod Logs Extension features: added migrations `060_mod_log_updates.up.sql` and `060_mod_log_updates.down.sql` to add `duration`, `resolved`, and `evidence_url` columns to `mod_actions`.
+- Added DB operations `GetActiveBans`, `GetActiveMutes`, and `MarkModActionResolved` in `internal/db/db.go`.
+- Enhanced `/warn`, `/kick`, `/ban`, and `/mute` commands to accept evidence attachments (images/logs).
+- Updated the Mod Action Log embed to display the attached evidence.
+
 ### Phase 1 — Foundation
 - [x] Remove all old Node.js files (`index.js`, `deploy-commands.js`, `commands/`, `package.json`, `package-lock.json`)
 - [x] `go.mod` and `go.sum` with all required dependencies
@@ -925,7 +930,7 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Add logic to `guildMemberAddHandler` to restore previously saved roles when a user rejoins a server
 
 ### Phase 68 — Mod Logs Extension
-- [ ] `migrations/060_mod_log_updates.sql` — update `mod_actions` to include `duration` and `resolved` boolean for temp mutes/bans
-- [ ] DB operations — `GetActiveBans`, `GetActiveMutes`, `MarkModActionResolved`
-- [ ] Enhance `/warn`, `/kick`, `/ban`, and `/mute` to accept evidence attachments (images/logs)
-- [ ] Display attached evidence in the Mod Action Log embed
+- [x] `migrations/060_mod_log_updates.sql` — update `mod_actions` to include `duration` and `resolved` boolean for temp mutes/bans
+- [x] DB operations — `GetActiveBans`, `GetActiveMutes`, `MarkModActionResolved`
+- [x] Enhance `/warn`, `/kick`, `/ban`, and `/mute` to accept evidence attachments (images/logs)
+- [x] Display attached evidence in the Mod Action Log embed

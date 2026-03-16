@@ -263,12 +263,104 @@ func (db *DB) GetWarnings(ctx context.Context, guildID, userID string) ([]Warnin
 
 // LogModAction records a moderation action.
 func (db *DB) LogModAction(ctx context.Context, guildID, userID, moderatorID, action, reason string) error {
+	return db.LogModActionComplex(ctx, guildID, userID, moderatorID, action, reason, nil, nil)
+}
+
+// LogModActionComplex records a moderation action with duration and evidence.
+func (db *DB) LogModActionComplex(ctx context.Context, guildID, userID, moderatorID, action, reason string, duration *string, evidenceURL *string) error {
 	query := `
-		INSERT INTO mod_actions (guild_id, user_id, moderator_id, action, reason)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO mod_actions (guild_id, user_id, moderator_id, action, reason, duration, evidence_url)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
-	_, err := db.Pool.Exec(ctx, query, guildID, userID, moderatorID, action, reason)
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, moderatorID, action, reason, duration, evidenceURL)
 	return err
+}
+
+// MarkModActionResolved sets resolved = true on a specific moderation action ID.
+func (db *DB) MarkModActionResolved(ctx context.Context, actionID int) error {
+	query := `
+		UPDATE mod_actions
+		SET resolved = true
+		WHERE id = $1
+	`
+	_, err := db.Pool.Exec(ctx, query, actionID)
+	return err
+}
+
+// GetActiveBans returns active ban actions.
+func (db *DB) GetActiveBans(ctx context.Context, guildID string) ([]ModActionJoined, error) {
+	// Bans don't automatically expire in discord via the bot (unless a duration feature is added to ban later),
+	// but we'll fetch unresolved bans.
+	query := `
+		SELECT
+			m.id, m.guild_id, m.action, m.reason, m.created_at, m.duration, m.resolved, m.evidence_url,
+			tu.id as target_id, tu.username as target_username, tu.global_name as target_global_name, tu.avatar_url as target_avatar_url,
+			mu.id as mod_id, mu.username as mod_username, mu.global_name as mod_global_name, mu.avatar_url as mod_avatar_url
+		FROM mod_actions m
+		JOIN users tu ON m.user_id = tu.id
+		JOIN users mu ON m.moderator_id = mu.id
+		WHERE m.guild_id = $1 AND m.action = 'ban' AND m.resolved = false
+		ORDER BY m.created_at DESC
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var actions []ModActionJoined
+	for rows.Next() {
+		var a ModActionJoined
+		var t time.Time
+		if err := rows.Scan(
+			&a.ID, &a.GuildID, &a.Action, &a.Reason, &t, &a.Duration, &a.Resolved, &a.EvidenceURL,
+			&a.TargetID, &a.TargetUsername, &a.TargetGlobalName, &a.TargetAvatarURL,
+			&a.ModID, &a.ModUsername, &a.ModGlobalName, &a.ModAvatarURL,
+		); err != nil {
+			return nil, err
+		}
+		a.CreatedAt = t.Format(time.RFC3339)
+		actions = append(actions, a)
+	}
+
+	return actions, rows.Err()
+}
+
+// GetActiveMutes returns active mute actions.
+func (db *DB) GetActiveMutes(ctx context.Context, guildID string) ([]ModActionJoined, error) {
+	query := `
+		SELECT
+			m.id, m.guild_id, m.action, m.reason, m.created_at, m.duration, m.resolved, m.evidence_url,
+			tu.id as target_id, tu.username as target_username, tu.global_name as target_global_name, tu.avatar_url as target_avatar_url,
+			mu.id as mod_id, mu.username as mod_username, mu.global_name as mod_global_name, mu.avatar_url as mod_avatar_url
+		FROM mod_actions m
+		JOIN users tu ON m.user_id = tu.id
+		JOIN users mu ON m.moderator_id = mu.id
+		WHERE m.guild_id = $1 AND m.action = 'Mute' AND m.resolved = false
+		ORDER BY m.created_at DESC
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var actions []ModActionJoined
+	for rows.Next() {
+		var a ModActionJoined
+		var t time.Time
+		if err := rows.Scan(
+			&a.ID, &a.GuildID, &a.Action, &a.Reason, &t, &a.Duration, &a.Resolved, &a.EvidenceURL,
+			&a.TargetID, &a.TargetUsername, &a.TargetGlobalName, &a.TargetAvatarURL,
+			&a.ModID, &a.ModUsername, &a.ModGlobalName, &a.ModAvatarURL,
+		); err != nil {
+			return nil, err
+		}
+		a.CreatedAt = t.Format(time.RFC3339)
+		actions = append(actions, a)
+	}
+
+	return actions, rows.Err()
 }
 
 // GetStats returns the total number of guilds, users, and commands executed.
@@ -658,6 +750,9 @@ type ModActionJoined struct {
 	Action           string  `json:"action"`
 	Reason           string  `json:"reason"`
 	CreatedAt        string  `json:"created_at"`
+	Duration         *string `json:"duration"`
+	Resolved         bool    `json:"resolved"`
+	EvidenceURL      *string `json:"evidence_url"`
 	TargetID         string  `json:"target_id"`
 	TargetUsername   string  `json:"target_username"`
 	TargetGlobalName *string `json:"target_global_name"`
@@ -742,7 +837,7 @@ func (db *DB) GetModActions(ctx context.Context) ([]ModActionJoined, error) {
 
 	query := `
 		SELECT
-			m.id, m.guild_id, m.action, m.reason, m.created_at,
+			m.id, m.guild_id, m.action, m.reason, m.created_at, m.duration, m.resolved, m.evidence_url,
 			tu.id as target_id, tu.username as target_username, tu.global_name as target_global_name, tu.avatar_url as target_avatar_url,
 			mu.id as mod_id, mu.username as mod_username, mu.global_name as mod_global_name, mu.avatar_url as mod_avatar_url
 		FROM mod_actions m
@@ -761,7 +856,7 @@ func (db *DB) GetModActions(ctx context.Context) ([]ModActionJoined, error) {
 		var a ModActionJoined
 		var t time.Time
 		if err := rows.Scan(
-			&a.ID, &a.GuildID, &a.Action, &a.Reason, &t,
+			&a.ID, &a.GuildID, &a.Action, &a.Reason, &t, &a.Duration, &a.Resolved, &a.EvidenceURL,
 			&a.TargetID, &a.TargetUsername, &a.TargetGlobalName, &a.TargetAvatarURL,
 			&a.ModID, &a.ModUsername, &a.ModGlobalName, &a.ModAvatarURL,
 		); err != nil {

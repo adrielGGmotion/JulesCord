@@ -37,6 +37,12 @@ func Mute(database *db.DB) *Command {
 					Description: "Reason for the mute",
 					Required:    false,
 				},
+				{
+					Type:        discordgo.ApplicationCommandOptionAttachment,
+					Name:        "evidence",
+					Description: "Evidence attachment (image/log)",
+					Required:    false,
+				},
 			},
 			DefaultMemberPermissions: func() *int64 { p := int64(discordgo.PermissionModerateMembers); return &p }(),
 		},
@@ -55,12 +61,31 @@ func Mute(database *db.DB) *Command {
 			}
 
 			options := i.ApplicationCommandData().Options
-			targetUser := options[0].UserValue(s)
-			durationStr := options[1].StringValue()
-
+			var targetUser *discordgo.User
+			var durationStr string
 			reason := "No reason provided."
-			if len(options) > 2 {
-				reason = options[2].StringValue()
+			var evidenceURL *string
+
+			for _, option := range options {
+				switch option.Name {
+				case "user":
+					targetUser = option.UserValue(s)
+				case "duration":
+					durationStr = option.StringValue()
+				case "reason":
+					reason = option.StringValue()
+				case "evidence":
+					attID, ok := option.Value.(string)
+					if ok {
+						if i.ApplicationCommandData().Resolved != nil && i.ApplicationCommandData().Resolved.Attachments != nil {
+							att := i.ApplicationCommandData().Resolved.Attachments[attID]
+							if att != nil {
+								url := att.URL
+								evidenceURL = &url
+							}
+						}
+					}
+				}
 			}
 
 			// Parse duration
@@ -100,7 +125,7 @@ func Mute(database *db.DB) *Command {
 				}
 
 				// Log to mod channel
-				_ = database.LogModAction(context.Background(), i.GuildID, i.Member.User.ID, targetUser.ID, "Mute", reason)
+				_ = database.LogModActionComplex(context.Background(), i.GuildID, i.Member.User.ID, targetUser.ID, "Mute", reason, &durationStr, evidenceURL)
 
 				// Send to mod log channel if configured
 				logChannelID, err := database.GetGuildLogChannel(context.Background(), i.GuildID)
@@ -116,6 +141,11 @@ func Mute(database *db.DB) *Command {
 							{Name: "Reason", Value: reason, Inline: false},
 						},
 						Timestamp: time.Now().Format(time.RFC3339),
+					}
+					if evidenceURL != nil {
+						embed.Image = &discordgo.MessageEmbedImage{
+							URL: *evidenceURL,
+						}
 					}
 					_, _ = s.ChannelMessageSendEmbed(logChannelID, embed)
 				}
