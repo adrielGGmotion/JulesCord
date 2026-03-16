@@ -1,0 +1,1 @@
+ALTER TABLE guilds DROP COLUMN IF NOT EXISTS prefix;

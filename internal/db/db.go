@@ -298,6 +298,35 @@ type Guild struct {
 	JoinedAt string `json:"joined_at"`
 }
 
+// GetGuildPrefix returns the custom prefix for a guild, falling back to '!' if not set or found.
+func (db *DB) GetGuildPrefix(ctx context.Context, guildID string) (string, error) {
+	query := `SELECT prefix FROM guilds WHERE id = $1`
+	var prefix string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&prefix)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "!", nil
+		}
+		return "!", err
+	}
+	if prefix == "" {
+		return "!", nil
+	}
+	return prefix, nil
+}
+
+// SetGuildPrefix sets the custom prefix for a guild.
+func (db *DB) SetGuildPrefix(ctx context.Context, guildID, prefix string) error {
+	query := `
+		INSERT INTO guilds (id, prefix)
+		VALUES ($1, $2)
+		ON CONFLICT (id)
+		DO UPDATE SET prefix = EXCLUDED.prefix
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, prefix)
+	return err
+}
+
 // GetGuilds returns a list of all guilds the bot is in.
 func (db *DB) GetGuilds(ctx context.Context) ([]Guild, error) {
 	start := time.Now()
