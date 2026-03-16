@@ -825,3 +825,15 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `AdoptPet`, `FeedPet`, `PlayPet`, `GetPet`
 - [x] `/pet adopt` and `/pet view` commands
 - [x] Background goroutine to slowly increase pet hunger over time
+
+- Implemented Phase 59 Jobs System features: added migrations `053_jobs.up.sql` and `053_jobs.down.sql` with table `available_jobs` and `job_id` to `user_economy`.
+- Added DB operations `CreateJob`, `GetJobs`, `GetJob`, `SetUserJob`, and `RemoveUserJob` in `internal/db/db.go`.
+- Added `/job` command with `create`, `list`, `apply`, `quit`, and `info` subcommands in `internal/bot/commands/job.go`.
+- Updated `/work` command in `internal/bot/commands/work.go` to grant coins based on user's job salary instead of a random amount if they have a job.
+- Updated `internal/bot/bot.go` to register the `job` command.
+
+### Phase 59 — Jobs System
+- [x] `migrations/053_jobs.sql` — add `job_id` to `user_economy` table and create `available_jobs` table (name, description, salary, required_level)
+- [x] DB operations — `CreateJob`, `GetJobs`, `GetJob`, `SetUserJob`, `RemoveUserJob`
+- [x] `/job` commands — `list`, `apply`, `quit`, `info`
+- [x] Update `/work` to grant coins based on user's job salary instead of a random amount if they have a job
