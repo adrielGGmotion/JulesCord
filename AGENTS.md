@@ -754,3 +754,15 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added DB operation `GetTopUsersByCoins` in `internal/db/db.go`.
 - Added `/baltop` command in `internal/bot/commands/baltop.go` to display the top 10 users by coins.
 - Updated `internal/bot/bot.go` to register the `baltop` command.
+
+### Phase 53 — Advanced Moderation
+- [x] `migrations/047_advanced_moderation.sql` — `mutes` table to track temporary timeouts
+- [x] DB operations — `AddMute`, `GetMute`, `RemoveMute`, `GetActiveMutes`
+- [x] `/mute` command to time out a user for a specific duration (e.g., 1h, 1d)
+- [x] `/unmute` command to remove a timeout
+- [x] Background goroutine to periodically check and remove expired mutes
+
+- Implemented Phase 53 Advanced Moderation features: added migrations `047_advanced_moderation.up.sql` and `047_advanced_moderation.down.sql` with table `mutes`.
+- Added DB operations `AddMute`, `GetMute`, `RemoveMute`, and `GetExpiredMutes` in `internal/db/db.go`.
+- Added `/mute` and `/unmute` commands in `internal/bot/commands/mute.go` and `internal/bot/commands/unmute.go`.
+- Added background goroutine `checkExpiredMutes` in `internal/bot/bot.go` to remove expired mutes.

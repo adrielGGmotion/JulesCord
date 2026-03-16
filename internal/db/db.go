@@ -3547,6 +3547,80 @@ func (db *DB) GetAllBadges() ([]*Badge, error) {
 	return badges, nil
 }
 
+// Mute represents a temporary user timeout.
+type Mute struct {
+	ID          int       `json:"id"`
+	GuildID     string    `json:"guild_id"`
+	UserID      string    `json:"user_id"`
+	ModeratorID string    `json:"moderator_id"`
+	Reason      string    `json:"reason"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// AddMute adds a new mute record to the database.
+func (db *DB) AddMute(ctx context.Context, guildID, userID, moderatorID, reason string, expiresAt time.Time) error {
+	query := `
+		INSERT INTO mutes (guild_id, user_id, moderator_id, reason, expires_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, moderatorID, reason, expiresAt)
+	return err
+}
+
+// GetMute fetches the active mute for a user in a guild.
+func (db *DB) GetMute(ctx context.Context, guildID, userID string) (*Mute, error) {
+	query := `
+		SELECT id, guild_id, user_id, moderator_id, reason, expires_at, created_at
+		FROM mutes
+		WHERE guild_id = $1 AND user_id = $2 AND expires_at > NOW()
+		ORDER BY expires_at DESC
+		LIMIT 1
+	`
+	m := &Mute{}
+	err := db.Pool.QueryRow(ctx, query, guildID, userID).Scan(
+		&m.ID, &m.GuildID, &m.UserID, &m.ModeratorID, &m.Reason, &m.ExpiresAt, &m.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// RemoveMute removes an active mute record.
+func (db *DB) RemoveMute(ctx context.Context, guildID, userID string) error {
+	query := `
+		DELETE FROM mutes
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID)
+	return err
+}
+
+// GetExpiredMutes returns all mutes that have expired.
+func (db *DB) GetExpiredMutes(ctx context.Context) ([]*Mute, error) {
+	query := `
+		SELECT id, guild_id, user_id, moderator_id, reason, expires_at, created_at
+		FROM mutes
+		WHERE expires_at <= NOW()
+	`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var mutes []*Mute
+	for rows.Next() {
+		m := &Mute{}
+		if err := rows.Scan(&m.ID, &m.GuildID, &m.UserID, &m.ModeratorID, &m.Reason, &m.ExpiresAt, &m.CreatedAt); err != nil {
+			return nil, err
+		}
+		mutes = append(mutes, m)
+	}
+	return mutes, nil
+}
+
 func (db *DB) AwardBadge(userID string, badgeID int) error {
 	query := `INSERT INTO user_badges (user_id, badge_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`
 	_, err := db.Pool.Exec(context.Background(), query, userID, badgeID)

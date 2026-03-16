@@ -112,6 +112,8 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Transfer(database))
 	registry.Add(commands.Transfers(database))
 	registry.Add(commands.Baltop(database))
+	registry.Add(commands.Mute(database))
+	registry.Add(commands.Unmute(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -225,6 +227,9 @@ func (b *Bot) readyHandler(s *discordgo.Session, event *discordgo.Ready) {
 	// Start giveaway checker
 	go b.checkGiveaways()
 	go b.checkBirthdays()
+
+	// Start mute expiration checker
+	go b.checkExpiredMutes()
 }
 
 // checkScheduledAnnouncements checks for pending announcements and sends them.
@@ -745,6 +750,34 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 				}
 			}
 		}
+	}
+}
+
+// checkExpiredMutes checks for expired mutes and removes them from the database.
+func (b *Bot) checkExpiredMutes() {
+	if b.DB == nil {
+		return
+	}
+
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		mutes, err := b.DB.GetExpiredMutes(context.Background())
+		if err != nil {
+			slog.Error("Failed to fetch expired mutes", "error", err)
+			time.Sleep(1 * time.Minute)
+			continue
+		}
+
+		for _, m := range mutes {
+			err = b.DB.RemoveMute(context.Background(), m.GuildID, m.UserID)
+			if err != nil {
+				slog.Error("Failed to remove expired mute from database", "error", err, "guild_id", m.GuildID, "user_id", m.UserID)
+			}
+		}
+
+		<-ticker.C
 	}
 }
 
