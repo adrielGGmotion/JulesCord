@@ -122,6 +122,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Pet(database))
 	registry.Add(commands.Job(database))
 	registry.Add(commands.Prefix(database))
+	registry.Add(commands.AutoThread(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -565,6 +566,24 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	// Auto-Moderation System
 	if b.checkAutomod(s, m.GuildID, m.ChannelID, m.ID, m.Content, m.Author.ID, m.Author.String(), m.Author.AvatarURL("")) {
 		return
+	}
+
+	// Auto-Threads System
+	if b.DB != nil && m.GuildID != "" {
+		config, err := b.DB.GetAutoThread(context.Background(), m.GuildID, m.ChannelID)
+		if err == nil && config != nil {
+			threadName := strings.ReplaceAll(config.ThreadNameTemplate, "{user}", m.Author.Username)
+			if len(threadName) > 100 {
+				threadName = threadName[:97] + "..."
+			}
+			_, err = s.MessageThreadStartComplex(m.ChannelID, m.ID, &discordgo.ThreadStart{
+				Name:                threadName,
+				AutoArchiveDuration: 60,
+			})
+			if err != nil {
+				slog.Error("Failed to create auto-thread", "error", err, "guild_id", m.GuildID, "channel_id", m.ChannelID)
+			}
+		}
 	}
 
 	// Media-Only Channels System

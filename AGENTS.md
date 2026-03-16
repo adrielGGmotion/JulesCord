@@ -849,3 +849,15 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/prefix` command allowing admins to view and update the server's custom prefix in `internal/bot/commands/prefix.go`.
 - Updated `messageCreateHandler` in `internal/bot/bot.go` to evaluate and honor the custom prefix instead of hardcoding `!`.
 - Updated `internal/bot/bot.go` to register the `prefix` command.
+
+### Phase 61 — Auto-Threads
+- [x] `migrations/055_auto_threads.sql` — add `auto_threads_config` table (channel_id, thread_name_template)
+- [x] DB operations — `SetAutoThread`, `GetAutoThread`, `RemoveAutoThread`
+- [x] `/autothread` command with `setup` and `remove` subcommands
+- [x] Update `messageCreateHandler` to automatically create a thread for new messages in configured channels
+
+- Implemented Phase 61 Auto-Threads System features: added migrations `055_auto_threads.up.sql` and `055_auto_threads.down.sql` with table `auto_threads_config`.
+- Added DB operations `SetAutoThread`, `GetAutoThread`, and `RemoveAutoThread` in `internal/db/db.go`.
+- Added `/autothread` command with `setup` and `remove` subcommands in `internal/bot/commands/autothread.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to automatically start threads on messages in configured channels based on a customizable template.
+- Updated `internal/bot/bot.go` to register the `autothread` command.
