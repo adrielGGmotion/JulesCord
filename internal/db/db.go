@@ -341,22 +341,70 @@ type UserEconomy struct {
 	BackgroundURL *string
 	LastWorkAt    *time.Time
 	LastCrimeAt   *time.Time
+	LastRobAt     *time.Time
 }
 
 // GetUserEconomy retrieves the economy record for a user in a guild.
 func (db *DB) GetUserEconomy(ctx context.Context, guildID, userID string) (*UserEconomy, error) {
 	query := `
-		SELECT guild_id, user_id, xp, level, coins, last_daily_at, background_url, last_work_at, last_crime_at
+		SELECT guild_id, user_id, xp, level, coins, last_daily_at, background_url, last_work_at, last_crime_at, last_rob_at
 		FROM user_economy
 		WHERE guild_id = $1 AND user_id = $2
 	`
 	row := db.Pool.QueryRow(ctx, query, guildID, userID)
 	var e UserEconomy
-	err := row.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt, &e.BackgroundURL, &e.LastWorkAt, &e.LastCrimeAt)
+	err := row.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt, &e.BackgroundURL, &e.LastWorkAt, &e.LastCrimeAt, &e.LastRobAt)
 	if err != nil {
 		return nil, err
 	}
 	return &e, nil
+}
+
+// UpdateRobActivity updates a user's last rob time.
+func (db *DB) UpdateRobActivity(ctx context.Context, guildID, userID string) error {
+	query := `
+		UPDATE user_economy
+		SET last_rob_at = NOW()
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID)
+	return err
+}
+
+// RobCoins transfers coins between two users as a transaction.
+func (db *DB) RobCoins(ctx context.Context, guildID, fromUserID, toUserID string, amount int64) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Deduct from victim
+	deductQuery := `
+		UPDATE user_economy
+		SET coins = GREATEST(0, coins - $1)
+		WHERE guild_id = $2 AND user_id = $3 AND coins >= $1
+	`
+	cmdTag, err := tx.Exec(ctx, deductQuery, amount, guildID, fromUserID)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("insufficient funds for target user")
+	}
+
+	// Add to robber
+	addQuery := `
+		UPDATE user_economy
+		SET coins = coins + $1
+		WHERE guild_id = $2 AND user_id = $3
+	`
+	_, err = tx.Exec(ctx, addQuery, amount, guildID, toUserID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 // UpdateWorkActivity updates a user's last work time.
@@ -2404,8 +2452,10 @@ func (db *DB) BuyItem(ctx context.Context, guildID, userID string, itemID int, p
 
 	// Add item to inventory
 	insertInventoryQuery := `
-		INSERT INTO user_inventory (guild_id, user_id, item_id)
-		VALUES ($1, $2, $3)
+		INSERT INTO user_items (guild_id, user_id, item_id, quantity)
+		VALUES ($1, $2, $3, 1)
+		ON CONFLICT (guild_id, user_id, item_id)
+		DO UPDATE SET quantity = user_items.quantity + 1, updated_at = CURRENT_TIMESTAMP
 	`
 	_, err = tx.Exec(ctx, insertInventoryQuery, guildID, userID, itemID)
 	if err != nil {
@@ -2415,26 +2465,58 @@ func (db *DB) BuyItem(ctx context.Context, guildID, userID string, itemID int, p
 	return tx.Commit(ctx)
 }
 
-// InventoryItem represents an item purchased by a user.
-type InventoryItem struct {
+// UserItem represents an item owned by a user in the shop, with quantity.
+type UserItem struct {
 	ID          int       `json:"id"`
 	GuildID     string    `json:"guild_id"`
 	UserID      string    `json:"user_id"`
 	ItemID      int       `json:"item_id"`
+	Quantity    int       `json:"quantity"`
 	ItemName    string    `json:"item_name"`
 	Description *string   `json:"description"`
 	RoleID      *string   `json:"role_id"`
-	AcquiredAt  time.Time `json:"acquired_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// GetUserInventory retrieves all items in a user's inventory for a specific guild.
-func (db *DB) GetUserInventory(ctx context.Context, guildID, userID string) ([]InventoryItem, error) {
+// AddUserItem adds a specific quantity of an item to a user's inventory.
+func (db *DB) AddUserItem(ctx context.Context, guildID, userID string, itemID int, quantity int) error {
 	query := `
-		SELECT ui.id, ui.guild_id, ui.user_id, ui.item_id, si.name, si.description, si.role_id, ui.acquired_at
-		FROM user_inventory ui
+		INSERT INTO user_items (guild_id, user_id, item_id, quantity)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (guild_id, user_id, item_id)
+		DO UPDATE SET quantity = user_items.quantity + EXCLUDED.quantity, updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, itemID, quantity)
+	return err
+}
+
+// RemoveUserItem removes a specific quantity of an item from a user's inventory.
+func (db *DB) RemoveUserItem(ctx context.Context, guildID, userID string, itemID int, quantity int) error {
+	query := `
+		UPDATE user_items
+		SET quantity = quantity - $1, updated_at = CURRENT_TIMESTAMP
+		WHERE guild_id = $2 AND user_id = $3 AND item_id = $4 AND quantity >= $1
+	`
+	cmdTag, err := db.Pool.Exec(ctx, query, quantity, guildID, userID, itemID)
+	if err != nil {
+		return err
+	}
+
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("insufficient item quantity or item not found")
+	}
+
+	return nil
+}
+
+// GetUserItems retrieves all items in a user's inventory for a specific guild, grouped by quantity.
+func (db *DB) GetUserItems(ctx context.Context, guildID, userID string) ([]UserItem, error) {
+	query := `
+		SELECT ui.id, ui.guild_id, ui.user_id, ui.item_id, ui.quantity, si.name, si.description, si.role_id, ui.updated_at
+		FROM user_items ui
 		JOIN shop_items si ON ui.item_id = si.id
-		WHERE ui.guild_id = $1 AND ui.user_id = $2
-		ORDER BY ui.acquired_at DESC
+		WHERE ui.guild_id = $1 AND ui.user_id = $2 AND ui.quantity > 0
+		ORDER BY ui.updated_at DESC
 	`
 	rows, err := db.Pool.Query(ctx, query, guildID, userID)
 	if err != nil {
@@ -2442,12 +2524,12 @@ func (db *DB) GetUserInventory(ctx context.Context, guildID, userID string) ([]I
 	}
 	defer rows.Close()
 
-	var items []InventoryItem
+	var items []UserItem
 	for rows.Next() {
-		var item InventoryItem
+		var item UserItem
 		if err := rows.Scan(
-			&item.ID, &item.GuildID, &item.UserID, &item.ItemID,
-			&item.ItemName, &item.Description, &item.RoleID, &item.AcquiredAt,
+			&item.ID, &item.GuildID, &item.UserID, &item.ItemID, &item.Quantity,
+			&item.ItemName, &item.Description, &item.RoleID, &item.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

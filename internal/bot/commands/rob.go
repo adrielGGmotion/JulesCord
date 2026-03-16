@@ -129,7 +129,7 @@ func Rob(database *db.DB) *Command {
 					amountToSteal = int(victimEco.Coins)
 				}
 
-				err = database.RobCoins(ctx, guildID, userID, targetUser.ID, amountToSteal, false)
+				err = database.RobCoins(ctx, guildID, targetUser.ID, userID, int64(amountToSteal))
 				if err != nil {
 					_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 						Content: stringPtr("❌ An error occurred during the robbery."),
@@ -161,7 +161,7 @@ func Rob(database *db.DB) *Command {
 					fine = int(robberEco.Coins)
 				}
 
-				err = database.RobCoins(ctx, guildID, userID, targetUser.ID, fine, true)
+				err = database.RobCoins(ctx, guildID, userID, targetUser.ID, int64(fine))
 				if err != nil {
 					_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 						Content: stringPtr("❌ An error occurred while processing your fine."),

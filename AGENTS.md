@@ -791,7 +791,13 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Updated `internal/bot/bot.go` to register the `rob` command.
 
 ### Phase 56 — Economy Items & Use
-- [ ] `migrations/050_economy_items.sql` — `user_items` table mapping `user_id`, `item_id`, `quantity`.
-- [ ] DB operations — `AddItem`, `RemoveItem`, `GetUserItems`
-- [ ] Update `/shop` to give items to `user_items` instead of a flat log.
-- [ ] `/use` command to use items from inventory (with predefined effects).
+- [x] `migrations/050_economy_items.sql` — `user_items` table mapping `user_id`, `item_id`, `quantity`.
+- [x] DB operations — `AddItem`, `RemoveItem`, `GetUserItems`
+- [x] Update `/shop` to give items to `user_items` instead of a flat log.
+- [x] `/use` command to use items from inventory (with predefined effects).
+
+- Implemented Phase 56 Economy Items & Use features: added migrations `050_economy_items.up.sql` and `050_economy_items.down.sql` with table `user_items`.
+- Added DB operations `AddUserItem`, `RemoveUserItem`, and `GetUserItems` in `internal/db/db.go`, and updated `BuyItem` to correctly track quantity.
+- Updated `/inventory` command to accurately group and display item quantities.
+- Added `/use` command in `internal/bot/commands/use.go` with successful deduction logic and user feedback.
+- Updated `internal/bot/bot.go` to register the `use` command, and retroactively registered the missed `rob` command.
