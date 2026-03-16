@@ -4181,3 +4181,36 @@ func (db *DB) GetBookmarks(ctx context.Context, userID string) ([]Bookmark, erro
 	}
 	return bookmarks, nil
 }
+
+// SetUserTimezone updates or inserts a user's timezone
+func (db *DB) SetUserTimezone(ctx context.Context, userID, timezone string) error {
+	query := `
+		INSERT INTO user_timezones (user_id, timezone)
+		VALUES ($1, $2)
+		ON CONFLICT (user_id) DO UPDATE
+		SET timezone = EXCLUDED.timezone;
+	`
+	_, err := db.Pool.Exec(ctx, query, userID, timezone)
+	if err != nil {
+		return fmt.Errorf("failed to set user timezone: %w", err)
+	}
+	return nil
+}
+
+// GetUserTimezone retrieves a user's timezone
+func (db *DB) GetUserTimezone(ctx context.Context, userID string) (string, error) {
+	query := `
+		SELECT timezone
+		FROM user_timezones
+		WHERE user_id = $1
+	`
+	var timezone string
+	err := db.Pool.QueryRow(ctx, query, userID).Scan(&timezone)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil // Returns empty string if not found
+		}
+		return "", fmt.Errorf("failed to get user timezone: %w", err)
+	}
+	return timezone, nil
+}
