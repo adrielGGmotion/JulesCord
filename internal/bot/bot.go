@@ -121,6 +121,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Bank(database))
 	registry.Add(commands.Pet(database))
 	registry.Add(commands.Job(database))
+	registry.Add(commands.Prefix(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -666,12 +667,22 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 		}
 
 		// Custom Commands System
-		// Check if message starts with "!"
+		// Get custom prefix
+		prefix := "!"
+		if b.DB != nil && m.GuildID != "" {
+			p, err := b.DB.GetGuildPrefix(context.Background(), m.GuildID)
+			if err == nil && p != "" {
+				prefix = p
+			}
+		}
+
+		// Check if message starts with the prefix
 		contentLowerStr := strings.ToLower(strings.TrimSpace(m.Content))
-		if b.DB != nil && strings.HasPrefix(contentLowerStr, "!") {
+		prefixLower := strings.ToLower(prefix)
+		if b.DB != nil && strings.HasPrefix(contentLowerStr, prefixLower) {
 			parts := strings.Fields(contentLowerStr)
 			if len(parts) > 0 {
-				cmdName := strings.TrimPrefix(parts[0], "!")
+				cmdName := strings.TrimPrefix(parts[0], prefixLower)
 				if cmdName != "" {
 					cmd, err := b.DB.GetCustomCommand(context.Background(), m.GuildID, cmdName)
 					if err == nil && cmd != nil {

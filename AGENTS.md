@@ -837,3 +837,15 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `CreateJob`, `GetJobs`, `GetJob`, `SetUserJob`, `RemoveUserJob`
 - [x] `/job` commands — `list`, `apply`, `quit`, `info`
 - [x] Update `/work` to grant coins based on user's job salary instead of a random amount if they have a job
+
+### Phase 60 — Custom Prefixes
+- [x] `migrations/054_custom_prefixes.sql` — add `prefix` column to `guilds` table
+- [x] DB operations — `SetGuildPrefix`, `GetGuildPrefix`
+- [x] `/prefix` command — allows admins to set a custom text prefix (e.g., `!`, `?`)
+- [x] Update `messageCreateHandler` to check for custom prefix before checking for text commands
+
+- Implemented Phase 60 Custom Prefixes features: added migrations `054_custom_prefixes.up.sql` and `054_custom_prefixes.down.sql` with `prefix` column to `guilds` table.
+- Added DB operations `SetGuildPrefix` and `GetGuildPrefix` in `internal/db/db.go`.
+- Added `/prefix` command allowing admins to view and update the server's custom prefix in `internal/bot/commands/prefix.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to evaluate and honor the custom prefix instead of hardcoding `!`.
+- Updated `internal/bot/bot.go` to register the `prefix` command.
