@@ -332,28 +332,30 @@ func (db *DB) GetGuilds(ctx context.Context) ([]Guild, error) {
 
 // UserEconomy represents a user's economy state in a guild.
 type UserEconomy struct {
-	GuildID       string
-	UserID        string
-	XP            int64
-	Level         int
-	Coins         int64
-	LastDailyAt   *time.Time
-	BackgroundURL *string
-	LastWorkAt    *time.Time
-	LastCrimeAt   *time.Time
-	LastRobAt     *time.Time
+	GuildID        string
+	UserID         string
+	XP             int64
+	Level          int
+	Coins          int64
+	LastDailyAt    *time.Time
+	BackgroundURL  *string
+	LastWorkAt     *time.Time
+	LastCrimeAt    *time.Time
+	LastRobAt      *time.Time
+	Bank           int64
+	LastInterestAt *time.Time
 }
 
 // GetUserEconomy retrieves the economy record for a user in a guild.
 func (db *DB) GetUserEconomy(ctx context.Context, guildID, userID string) (*UserEconomy, error) {
 	query := `
-		SELECT guild_id, user_id, xp, level, coins, last_daily_at, background_url, last_work_at, last_crime_at, last_rob_at
+		SELECT guild_id, user_id, xp, level, coins, last_daily_at, background_url, last_work_at, last_crime_at, last_rob_at, bank, last_interest_at
 		FROM user_economy
 		WHERE guild_id = $1 AND user_id = $2
 	`
 	row := db.Pool.QueryRow(ctx, query, guildID, userID)
 	var e UserEconomy
-	err := row.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt, &e.BackgroundURL, &e.LastWorkAt, &e.LastCrimeAt, &e.LastRobAt)
+	err := row.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt, &e.BackgroundURL, &e.LastWorkAt, &e.LastCrimeAt, &e.LastRobAt, &e.Bank, &e.LastInterestAt)
 	if err != nil {
 		return nil, err
 	}
@@ -3762,4 +3764,88 @@ func (db *DB) GetUserBadges(userID string) ([]*Badge, error) {
 		badges = append(badges, b)
 	}
 	return badges, nil
+}
+
+// DepositCoins transfers coins from a user's wallet to their bank.
+func (db *DB) DepositCoins(ctx context.Context, guildID, userID string, amount int64) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Deduct from wallet
+	deductQuery := `
+		UPDATE user_economy
+		SET coins = GREATEST(0, coins - $1)
+		WHERE guild_id = $2 AND user_id = $3 AND coins >= $1
+	`
+	cmdTag, err := tx.Exec(ctx, deductQuery, amount, guildID, userID)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("insufficient coins in wallet")
+	}
+
+	// Add to bank
+	addQuery := `
+		UPDATE user_economy
+		SET bank = bank + $1
+		WHERE guild_id = $2 AND user_id = $3
+	`
+	_, err = tx.Exec(ctx, addQuery, amount, guildID, userID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// WithdrawCoins transfers coins from a user's bank to their wallet.
+func (db *DB) WithdrawCoins(ctx context.Context, guildID, userID string, amount int64) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Deduct from bank
+	deductQuery := `
+		UPDATE user_economy
+		SET bank = GREATEST(0, bank - $1)
+		WHERE guild_id = $2 AND user_id = $3 AND bank >= $1
+	`
+	cmdTag, err := tx.Exec(ctx, deductQuery, amount, guildID, userID)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("insufficient coins in bank")
+	}
+
+	// Add to wallet
+	addQuery := `
+		UPDATE user_economy
+		SET coins = coins + $1
+		WHERE guild_id = $2 AND user_id = $3
+	`
+	_, err = tx.Exec(ctx, addQuery, amount, guildID, userID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// ApplyInterest applies 1% interest to all eligible bank accounts.
+func (db *DB) ApplyInterest(ctx context.Context) (int64, error) {
+	query := `
+		UPDATE user_economy
+		SET bank = bank + GREATEST(1, CAST(bank * 0.01 AS BIGINT)),
+		    last_interest_at = NOW()
+		WHERE bank > 0 AND (last_interest_at IS NULL OR last_interest_at < NOW() - INTERVAL '1 day')
+	`
+	cmdTag, err := db.Pool.Exec(ctx, query)
+	return cmdTag.RowsAffected(), err
 }
