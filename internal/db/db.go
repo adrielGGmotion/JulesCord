@@ -339,22 +339,46 @@ type UserEconomy struct {
 	Coins         int64
 	LastDailyAt   *time.Time
 	BackgroundURL *string
+	LastWorkAt    *time.Time
+	LastCrimeAt   *time.Time
 }
 
 // GetUserEconomy retrieves the economy record for a user in a guild.
 func (db *DB) GetUserEconomy(ctx context.Context, guildID, userID string) (*UserEconomy, error) {
 	query := `
-		SELECT guild_id, user_id, xp, level, coins, last_daily_at, background_url
+		SELECT guild_id, user_id, xp, level, coins, last_daily_at, background_url, last_work_at, last_crime_at
 		FROM user_economy
 		WHERE guild_id = $1 AND user_id = $2
 	`
 	row := db.Pool.QueryRow(ctx, query, guildID, userID)
 	var e UserEconomy
-	err := row.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt, &e.BackgroundURL)
+	err := row.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt, &e.BackgroundURL, &e.LastWorkAt, &e.LastCrimeAt)
 	if err != nil {
 		return nil, err
 	}
 	return &e, nil
+}
+
+// UpdateWorkActivity updates a user's last work time.
+func (db *DB) UpdateWorkActivity(ctx context.Context, guildID, userID string) error {
+	query := `
+		UPDATE user_economy
+		SET last_work_at = NOW()
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID)
+	return err
+}
+
+// UpdateCrimeActivity updates a user's last crime time.
+func (db *DB) UpdateCrimeActivity(ctx context.Context, guildID, userID string) error {
+	query := `
+		UPDATE user_economy
+		SET last_crime_at = NOW()
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID)
+	return err
 }
 
 // AddXP adds XP to a user's economy record.
