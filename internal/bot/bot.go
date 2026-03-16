@@ -109,6 +109,8 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Autorole(database))
 	registry.Add(commands.MediaChannel(database))
 	registry.Add(commands.Badge(database))
+	registry.Add(commands.Transfer(database))
+	registry.Add(commands.Transfers(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
