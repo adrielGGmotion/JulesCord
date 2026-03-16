@@ -871,3 +871,15 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Implemented Phase 62 Voice XP System features: added migrations `056_voice_xp.up.sql` and `056_voice_xp.down.sql` with table `voice_xp`.
 - Added DB operations `SetVoiceJoinTime`, `GetVoiceJoinTime`, and `RemoveVoiceJoinTime` in `internal/db/db.go`.
 - Updated `voiceStateUpdateHandler` in `internal/bot/bot.go` to track join time and dynamically award economy XP and coins based on VC duration upon leaving.
+
+- Implemented Phase 63 Message Bookmarks features: added migrations `057_bookmarks.up.sql` and `057_bookmarks.down.sql` with table `bookmarks`.
+- Added DB operations `AddBookmark`, `RemoveBookmark`, and `GetBookmarks` in `internal/db/db.go`.
+- Added `Bookmark` message context command to save a message to the database.
+- Added `/bookmarks` slash command with `list` and `remove` subcommands to view and manage saved bookmarks in `internal/bot/commands/bookmark.go`.
+- Updated `internal/bot/bot.go` to register the `BookmarkContext` and `BookmarksSlash` commands.
+
+### Phase 63 — Message Bookmarks
+- [x] `migrations/057_bookmarks.sql` — `bookmarks` table (user_id, message_id, channel_id, guild_id, note)
+- [x] DB operations — `AddBookmark`, `RemoveBookmark`, `GetBookmarks`
+- [x] `Bookmark` message context command — allows users to right click a message and save it to their DMs/DB
+- [x] `/bookmarks` slash command — view, list and manage saved messages
