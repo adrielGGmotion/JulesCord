@@ -4214,3 +4214,66 @@ func (db *DB) GetUserTimezone(ctx context.Context, userID string) (string, error
 	}
 	return timezone, nil
 }
+
+// AddServerPoints upserts a user's points in a specific server
+func (db *DB) AddServerPoints(ctx context.Context, guildID string, userID string, points int64) error {
+	query := `
+		INSERT INTO server_leaderboards (guild_id, user_id, points)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, user_id)
+		DO UPDATE SET points = server_leaderboards.points + EXCLUDED.points
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, points)
+	if err != nil {
+		return fmt.Errorf("failed to add server points: %w", err)
+	}
+	return nil
+}
+
+// ServerLeaderboardEntry represents a user in the server leaderboard
+type ServerLeaderboardEntry struct {
+	UserID string
+	Points int64
+}
+
+// GetServerLeaderboard retrieves the top users by custom points in a specific server
+func (db *DB) GetServerLeaderboard(ctx context.Context, guildID string, limit int) ([]ServerLeaderboardEntry, error) {
+	query := `
+		SELECT user_id, points
+		FROM server_leaderboards
+		WHERE guild_id = $1
+		ORDER BY points DESC
+		LIMIT $2
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query server leaderboard: %w", err)
+	}
+	defer rows.Close()
+
+	var entries []ServerLeaderboardEntry
+	for rows.Next() {
+		var entry ServerLeaderboardEntry
+		if err := rows.Scan(&entry.UserID, &entry.Points); err != nil {
+			return nil, fmt.Errorf("failed to scan server leaderboard entry: %w", err)
+		}
+		entries = append(entries, entry)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over server leaderboard rows: %w", err)
+	}
+	return entries, nil
+}
+
+// ResetServerLeaderboard resets all points for a specific server
+func (db *DB) ResetServerLeaderboard(ctx context.Context, guildID string) error {
+	query := `
+		DELETE FROM server_leaderboards
+		WHERE guild_id = $1
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID)
+	if err != nil {
+		return fmt.Errorf("failed to reset server leaderboard: %w", err)
+	}
+	return nil
+}

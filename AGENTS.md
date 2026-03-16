@@ -563,6 +563,12 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/rolemenu` command with `setup` and `add_role` subcommands in `internal/bot/commands/rolemenu.go`.
 - Updated `internal/bot/bot.go` to register the `rolemenu` command and handle the `role_menu_select` dropdown interaction to assign/remove roles dynamically.
 
+- Implemented Phase 65 Server Leaderboards features: added migrations `059_server_leaderboards.up.sql` and `059_server_leaderboards.down.sql` with table `server_leaderboards`.
+- Added DB operations `AddServerPoints`, `GetServerLeaderboard`, and `ResetServerLeaderboard` in `internal/db/db.go`.
+- Added `/serverpoints` command with `add`, `remove`, and `reset` subcommands in `internal/bot/commands/serverpoints.go`.
+- Added `/serverleaderboard` command to display the top 10 users based on server points in `internal/bot/commands/serverleaderboard.go`.
+- Updated `internal/bot/bot.go` to register the `serverpoints` and `serverleaderboard` commands.
+
 ### Phase 31 — Marriage System
 - [x] `migrations/028_marriages.sql` — `marriages` table
 - [x] DB operations — `ProposeMarriage`, `AcceptMarriage`, `Divorce`, `GetMarriage`
@@ -893,3 +899,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `migrations/058_user_timezones.sql` — `user_timezones` table (`user_id`, `timezone`)
 - [x] DB operations — `SetUserTimezone`, `GetUserTimezone`
 - [x] `/timezone` command with `set` and `get` subcommands to allow users to set and view local times
+
+### Phase 65 — Server Leaderboards
+- [x] `migrations/059_server_leaderboards.sql` — `server_leaderboards` table to track custom server points
+- [x] DB operations — `AddServerPoints`, `GetServerLeaderboard`, `ResetServerLeaderboard`
+- [x] `/serverpoints add` and `/serverpoints remove` commands (admin only)
+- [x] `/serverleaderboard` command to display the top users based on server points
