@@ -344,18 +344,19 @@ type UserEconomy struct {
 	LastRobAt      *time.Time
 	Bank           int64
 	LastInterestAt *time.Time
+	JobID          *int
 }
 
 // GetUserEconomy retrieves the economy record for a user in a guild.
 func (db *DB) GetUserEconomy(ctx context.Context, guildID, userID string) (*UserEconomy, error) {
 	query := `
-		SELECT guild_id, user_id, xp, level, coins, last_daily_at, background_url, last_work_at, last_crime_at, last_rob_at, bank, last_interest_at
+		SELECT guild_id, user_id, xp, level, coins, last_daily_at, background_url, last_work_at, last_crime_at, last_rob_at, bank, last_interest_at, job_id
 		FROM user_economy
 		WHERE guild_id = $1 AND user_id = $2
 	`
 	row := db.Pool.QueryRow(ctx, query, guildID, userID)
 	var e UserEconomy
-	err := row.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt, &e.BackgroundURL, &e.LastWorkAt, &e.LastCrimeAt, &e.LastRobAt, &e.Bank, &e.LastInterestAt)
+	err := row.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt, &e.BackgroundURL, &e.LastWorkAt, &e.LastCrimeAt, &e.LastRobAt, &e.Bank, &e.LastInterestAt, &e.JobID)
 	if err != nil {
 		return nil, err
 	}
@@ -3924,5 +3925,89 @@ func (db *DB) UpdateAllPetStats(ctx context.Context) error {
 		    happiness = GREATEST(0, happiness - 5)
 	`
 	_, err := db.Pool.Exec(ctx, query)
+	return err
+}
+
+// Job represents an available job in a guild.
+type Job struct {
+	ID            int
+	GuildID       string
+	Name          string
+	Description   string
+	Salary        int
+	RequiredLevel int
+}
+
+// CreateJob creates a new job for a guild.
+func (db *DB) CreateJob(ctx context.Context, guildID, name, description string, salary, requiredLevel int) error {
+	query := `
+		INSERT INTO available_jobs (guild_id, name, description, salary, required_level)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, name, description, salary, requiredLevel)
+	return err
+}
+
+// GetJobs retrieves all available jobs for a guild.
+func (db *DB) GetJobs(ctx context.Context, guildID string) ([]Job, error) {
+	query := `
+		SELECT id, guild_id, name, description, salary, required_level
+		FROM available_jobs
+		WHERE guild_id = $1
+		ORDER BY required_level ASC
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var jobs []Job
+	for rows.Next() {
+		var j Job
+		if err := rows.Scan(&j.ID, &j.GuildID, &j.Name, &j.Description, &j.Salary, &j.RequiredLevel); err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, j)
+	}
+
+	return jobs, rows.Err()
+}
+
+// GetJob retrieves a specific job by ID.
+func (db *DB) GetJob(ctx context.Context, jobID int) (*Job, error) {
+	query := `
+		SELECT id, guild_id, name, description, salary, required_level
+		FROM available_jobs
+		WHERE id = $1
+	`
+	row := db.Pool.QueryRow(ctx, query, jobID)
+	var j Job
+	err := row.Scan(&j.ID, &j.GuildID, &j.Name, &j.Description, &j.Salary, &j.RequiredLevel)
+	if err != nil {
+		return nil, err
+	}
+	return &j, nil
+}
+
+// SetUserJob assigns a job to a user.
+func (db *DB) SetUserJob(ctx context.Context, guildID, userID string, jobID int) error {
+	query := `
+		UPDATE user_economy
+		SET job_id = $3
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, jobID)
+	return err
+}
+
+// RemoveUserJob removes the user's current job.
+func (db *DB) RemoveUserJob(ctx context.Context, guildID, userID string) error {
+	query := `
+		UPDATE user_economy
+		SET job_id = NULL
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID)
 	return err
 }

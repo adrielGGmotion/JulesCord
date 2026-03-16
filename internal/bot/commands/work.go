@@ -69,8 +69,17 @@ func Work(database *db.DB) *Command {
 				return
 			}
 
-			// Generate random reward
-			reward := rand.Intn(151) + 50 // 50 to 200 coins
+			// Generate reward
+			reward := rand.Intn(151) + 50 // 50 to 200 coins by default
+			jobName := "hard"
+
+			if eco.JobID != nil {
+				job, err := database.GetJob(ctx, *eco.JobID)
+				if err == nil {
+					reward = job.Salary
+					jobName = fmt.Sprintf("as a **%s**", job.Name)
+				}
+			}
 
 			// Add coins and update timestamp
 			err = database.AddCoins(ctx, guildID, userID, reward)
@@ -83,7 +92,7 @@ func Work(database *db.DB) *Command {
 
 			embed := &discordgo.MessageEmbed{
 				Title:       "Work Completed",
-				Description: fmt.Sprintf("You worked hard and earned **%d** coins!", reward),
+				Description: fmt.Sprintf("You worked %s and earned **%d** coins!", jobName, reward),
 				Color:       0x00FF00,
 			}
 

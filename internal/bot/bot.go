@@ -120,6 +120,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Use(database))
 	registry.Add(commands.Bank(database))
 	registry.Add(commands.Pet(database))
+	registry.Add(commands.Job(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
