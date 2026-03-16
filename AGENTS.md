@@ -184,6 +184,16 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Task Checklist
 
+- Implemented Phase 65 Reputation Leaderboard features:
+- Added DB operation `GetTopReputationUsers` in `internal/db/db.go`.
+- Added `/replb` command in `internal/bot/commands/replb.go`.
+- Updated `internal/bot/bot.go` to register the `replb` command.
+
+- Implemented Phase 66 Level Leaderboard features:
+- Added DB operation `GetTopLevelUsers` in `internal/db/db.go`.
+- Added `/levellb` command in `internal/bot/commands/levellb.go`.
+- Updated `internal/bot/bot.go` to register the `levellb` command.
+
 ### Phase 1 — Foundation
 - [x] Remove all old Node.js files (`index.js`, `deploy-commands.js`, `commands/`, `package.json`, `package-lock.json`)
 - [x] `go.mod` and `go.sum` with all required dependencies
@@ -893,3 +903,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `migrations/058_user_timezones.sql` — `user_timezones` table (`user_id`, `timezone`)
 - [x] DB operations — `SetUserTimezone`, `GetUserTimezone`
 - [x] `/timezone` command with `set` and `get` subcommands to allow users to set and view local times
+
+### Phase 65 — Reputation Leaderboard
+- [x] DB operation — `GetTopReputationUsers`
+- [x] `/replb` command — displays the top 10 users with the highest reputation
+
+### Phase 66 — Level Leaderboard
+- [x] DB operation — `GetTopLevelUsers`
+- [x] `/levellb` command — displays the top 10 users with the highest level

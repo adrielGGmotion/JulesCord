@@ -359,6 +359,14 @@ func (db *DB) GetGuilds(ctx context.Context) ([]Guild, error) {
 	return guilds, rows.Err()
 }
 
+
+// UserReputation represents a user's reputation score.
+type UserReputation struct {
+	GuildID string
+	UserID  string
+	Rep     int64
+}
+
 // UserEconomy represents a user's economy state in a guild.
 type UserEconomy struct {
 	GuildID        string
@@ -519,6 +527,35 @@ func (db *DB) GetTopUsersByCoins(ctx context.Context, guildID string) ([]UserEco
 	for rows.Next() {
 		var e UserEconomy
 		if err := rows.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt); err != nil {
+			return nil, err
+		}
+		topUsers = append(topUsers, e)
+	}
+
+	return topUsers, rows.Err()
+}
+
+// GetTopUsersByXP retrieves the top 10 users by XP in a guild.
+
+// GetTopLevelUsers retrieves the top 10 users by level and then XP in a guild.
+func (db *DB) GetTopLevelUsers(ctx context.Context, guildID string) ([]UserEconomy, error) {
+	query := `
+		SELECT guild_id, user_id, xp, level, coins, last_daily_at, background_url, last_work_at, last_crime_at, last_rob_at, bank, last_interest_at, job_id
+		FROM user_economy
+		WHERE guild_id = $1
+		ORDER BY level DESC, xp DESC
+		LIMIT 10
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var topUsers []UserEconomy
+	for rows.Next() {
+		var e UserEconomy
+		if err := rows.Scan(&e.GuildID, &e.UserID, &e.XP, &e.Level, &e.Coins, &e.LastDailyAt, &e.BackgroundURL, &e.LastWorkAt, &e.LastCrimeAt, &e.LastRobAt, &e.Bank, &e.LastInterestAt, &e.JobID); err != nil {
 			return nil, err
 		}
 		topUsers = append(topUsers, e)
@@ -2246,6 +2283,34 @@ func (db *DB) GetVoiceLogChannel(ctx context.Context, guildID string) (*string, 
 		return nil, err
 	}
 	return &channelID, nil
+}
+
+// GetReputation retrieves a user's reputation points in a guild.
+
+// GetTopReputationUsers retrieves the top 10 users by reputation in a guild.
+func (db *DB) GetTopReputationUsers(ctx context.Context, guildID string) ([]UserReputation, error) {
+	query := `
+		SELECT guild_id, user_id, rep
+		FROM reputation
+		WHERE guild_id = $1
+		ORDER BY rep DESC
+		LIMIT 10
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var topUsers []UserReputation
+	for rows.Next() {
+		var r UserReputation
+		if err := rows.Scan(&r.GuildID, &r.UserID, &r.Rep); err != nil {
+			return nil, err
+		}
+		topUsers = append(topUsers, r)
+	}
+	return topUsers, rows.Err()
 }
 
 // GetReputation retrieves a user's reputation points in a guild.
