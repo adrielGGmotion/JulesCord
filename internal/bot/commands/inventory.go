@@ -51,7 +51,7 @@ func Inventory(database *db.DB) *Command {
 			}
 
 			ctx := context.Background()
-			items, err := database.GetUserInventory(ctx, i.GuildID, targetUser.ID)
+			items, err := database.GetUserItems(ctx, i.GuildID, targetUser.ID)
 			if err != nil {
 				slog.Error("Failed to fetch user inventory", "error", err)
 				SendError(s, i, "Failed to fetch inventory.")
@@ -70,9 +70,14 @@ func Inventory(database *db.DB) *Command {
 				return
 			}
 
+			var totalItems int
+			for _, item := range items {
+				totalItems += item.Quantity
+			}
+
 			embed := &discordgo.MessageEmbed{
 				Title:       fmt.Sprintf("%s's Inventory", targetUser.Username),
-				Description: fmt.Sprintf("Items owned: **%d**", len(items)),
+				Description: fmt.Sprintf("Items owned: **%d**", totalItems),
 				Color:       0x5865F2,
 				Thumbnail: &discordgo.MessageEmbedThumbnail{
 					URL: targetUser.AvatarURL(""),
@@ -82,7 +87,7 @@ func Inventory(database *db.DB) *Command {
 			// Format list of items
 			var inventoryList string
 			for idx, item := range items {
-				inventoryList += fmt.Sprintf("• **%s** (Acquired: <t:%d:D>)\n", item.ItemName, item.AcquiredAt.Unix())
+				inventoryList += fmt.Sprintf("• %dx **%s**\n", item.Quantity, item.ItemName)
 				if idx >= 20 {
 					inventoryList += "*...and more*\n"
 					break
