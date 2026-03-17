@@ -4755,3 +4755,60 @@ func (db *DB) GetUserConfig(ctx context.Context, userID string) (*UserConfig, er
 	}
 	return &config, nil
 }
+
+type ActiveBan struct {
+	ID        int
+	UserID    string
+	GuildID   string
+	UnbanAt   time.Time
+	CreatedAt time.Time
+}
+
+func (db *DB) AddTempBan(userID, guildID string, unbanAt time.Time) error {
+	query := `
+		INSERT INTO active_bans (user_id, guild_id, unban_at)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (user_id, guild_id) DO UPDATE SET unban_at = EXCLUDED.unban_at
+	`
+	_, err := db.Pool.Exec(context.Background(), query, userID, guildID, unbanAt)
+	return err
+}
+
+func (db *DB) GetActiveTempBans() ([]*ActiveBan, error) {
+	query := `
+		SELECT id, user_id, guild_id, unban_at, created_at
+		FROM active_bans
+		WHERE unban_at <= NOW()
+	`
+	rows, err := db.Pool.Query(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var bans []*ActiveBan
+	for rows.Next() {
+		var b ActiveBan
+		if err := rows.Scan(&b.ID, &b.UserID, &b.GuildID, &b.UnbanAt, &b.CreatedAt); err != nil {
+			return nil, err
+		}
+		bans = append(bans, &b)
+	}
+	return bans, nil
+}
+
+func (db *DB) RemoveTempBan(userID, guildID string) error {
+	query := `DELETE FROM active_bans WHERE user_id = $1 AND guild_id = $2`
+	_, err := db.Pool.Exec(context.Background(), query, userID, guildID)
+	return err
+}
+
+func (db *DB) MarkAllUserModActionsResolved(ctx context.Context, guildID, userID, action string) error {
+	query := `
+		UPDATE mod_actions
+		SET resolved = true
+		WHERE guild_id = $1 AND user_id = $2 AND action = $3 AND resolved = false
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, action)
+	return err
+}

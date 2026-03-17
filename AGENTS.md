@@ -1045,3 +1045,16 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetNicknameTemplate`, `GetNicknameTemplate`
 - [x] `/nicktemplate` command to configure the format (e.g. `[Member] {user}`)
 - [x] Update `guildMemberAddHandler` to apply the nickname template when a user joins
+
+
+
+- Implemented Phase 79 Temporary User Bans features: added migrations `069_temp_bans.up.sql` and `069_temp_bans.down.sql` with table `active_bans`.
+- Added DB operations `AddTempBan`, `GetActiveTempBans`, `RemoveTempBan`, and `MarkAllUserModActionsResolved` in `internal/db/db.go`.
+- Updated `/ban` command in `internal/bot/commands/ban.go` to accept an optional `duration` parameter (e.g., "1h", "7d"), parse it, and save the temporary ban.
+- Added background goroutine `checkTempBans` in `internal/bot/bot.go` to automatically unban users when their temporary ban duration expires and mark the mod action as resolved.
+
+### Phase 79 — Temporary User Bans
+- [x] Update `migrations/060_mod_log_updates.sql` if needed, or create `migrations/069_temp_bans.sql` with `active_bans` table (user_id, guild_id, unban_at)
+- [x] DB operations — `AddTempBan`, `GetActiveTempBans`, `RemoveTempBan`
+- [x] Enhance `/ban` command to accept an optional `duration` parameter (e.g. "1h", "7d")
+- [x] Background goroutine to periodically unban users when their temp ban duration expires
