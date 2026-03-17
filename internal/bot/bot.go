@@ -254,6 +254,7 @@ func (b *Bot) readyHandler(s *discordgo.Session, event *discordgo.Ready) {
 	// Start giveaway checker
 	go b.checkGiveaways()
 	go b.checkBirthdays()
+	go b.checkTempBans()
 
 	// Start mute expiration checker
 	go b.checkExpiredMutes()
@@ -1741,5 +1742,51 @@ func (b *Bot) petStatsLoop() {
 			slog.Error("Failed to update pet stats in background loop", "error", err)
 		}
 		cancel()
+	}
+}
+
+func (b *Bot) checkTempBans() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if b.DB == nil {
+				continue
+			}
+
+			bans, err := b.DB.GetActiveTempBans()
+			if err != nil {
+				slog.Error("Error checking active temp bans", "error", err)
+				continue
+			}
+
+			for _, ban := range bans {
+				// Remove ban in discord
+				err = b.Session.GuildBanDelete(ban.GuildID, ban.UserID)
+				if err != nil {
+					slog.Error("Failed to unban user after temp ban expired", "user", ban.UserID, "guild", ban.GuildID, "error", err)
+					// If error is unknown ban, it might have been manually removed, so we still clear it from DB
+					if !strings.Contains(err.Error(), "Unknown Ban") {
+						continue
+					}
+				}
+
+				// Remove from active bans
+				err = b.DB.RemoveTempBan(ban.UserID, ban.GuildID)
+				if err != nil {
+					slog.Error("Failed to remove temp ban from db", "user", ban.UserID, "guild", ban.GuildID, "error", err)
+				}
+
+				// Mark Mod Action resolved
+				// We don't have the exact action ID here easily, but we can resolve any active ban for this user
+				// We can't mark by action ID easily without fetching it, so we added MarkAllUserModActionsResolved
+				err = b.DB.MarkAllUserModActionsResolved(context.Background(), ban.GuildID, ban.UserID, "ban")
+				if err != nil {
+					slog.Error("Failed to mark temp ban mod action resolved", "user", ban.UserID, "guild", ban.GuildID, "error", err)
+				}
+			}
+		}
 	}
 }
