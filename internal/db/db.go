@@ -4609,3 +4609,75 @@ func (db *DB) SetProfileLinks(ctx context.Context, guildID, userID string, websi
 	}
 	return nil
 }
+
+// Highlight represents a highlighted message in a server.
+type Highlight struct {
+	ID        int        `json:"id"`
+	GuildID   string     `json:"guild_id"`
+	MessageID string     `json:"message_id"`
+	ChannelID string     `json:"channel_id"`
+	AuthorID  string     `json:"author_id"`
+	AddedBy   string     `json:"added_by"`
+	CreatedAt *time.Time `json:"created_at"`
+}
+
+// AddHighlight adds a new highlight to the database.
+func (db *DB) AddHighlight(ctx context.Context, guildID, messageID, channelID, authorID, addedBy string) error {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("AddHighlight").Observe(time.Since(start).Seconds())
+
+	query := `
+		INSERT INTO highlights (guild_id, message_id, channel_id, author_id, added_by, created_at)
+		VALUES ($1, $2, $3, $4, $5, NOW())
+		ON CONFLICT (guild_id, message_id) DO NOTHING
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, messageID, channelID, authorID, addedBy)
+	return err
+}
+
+// GetHighlights retrieves all highlights for a guild, ordered by newest first.
+func (db *DB) GetHighlights(ctx context.Context, guildID string) ([]*Highlight, error) {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("GetHighlights").Observe(time.Since(start).Seconds())
+
+	query := `
+		SELECT id, guild_id, message_id, channel_id, author_id, added_by, created_at
+		FROM highlights
+		WHERE guild_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var highlights []*Highlight
+	for rows.Next() {
+		var h Highlight
+		if err := rows.Scan(&h.ID, &h.GuildID, &h.MessageID, &h.ChannelID, &h.AuthorID, &h.AddedBy, &h.CreatedAt); err != nil {
+			return nil, err
+		}
+		highlights = append(highlights, &h)
+	}
+	return highlights, nil
+}
+
+// RemoveHighlight deletes a highlight by its ID and Guild ID.
+func (db *DB) RemoveHighlight(ctx context.Context, id int, guildID string) error {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("RemoveHighlight").Observe(time.Since(start).Seconds())
+
+	query := `
+		DELETE FROM highlights
+		WHERE id = $1 AND guild_id = $2
+	`
+	tag, err := db.Pool.Exec(ctx, query, id, guildID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("highlight not found")
+	}
+	return nil
+}
