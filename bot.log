@@ -1,0 +1,19 @@
+{"time":"2026-03-17T02:16:33.577477105Z","level":"INFO","msg":"Starting JulesCord..."}
+{"time":"2026-03-17T02:16:33.577699436Z","level":"INFO","msg":"No .env file found or error reading it, falling back to environment variables"}
+{"time":"2026-03-17T02:16:33.577713577Z","level":"WARN","msg":"DATABASE_URL not set. Running without database."}
+{"time":"2026-03-17T02:16:33.577788131Z","level":"INFO","msg":"Attempted to register nil command or nil definition"}
+{"time":"2026-03-17T02:16:33.577808326Z","level":"INFO","msg":"Attempted to register nil command or nil definition"}
+{"time":"2026-03-17T02:16:33.577843026Z","level":"INFO","msg":"Attempted to register nil command or nil definition"}
+{"time":"2026-03-17T02:16:33.578396866Z","level":"INFO","msg":"Starting Discord bot..."}
+{"time":"2026-03-17T02:16:33.578505013Z","level":"INFO","msg":"Starting API server on :8080"}
+{"time":"2026-03-17T02:16:33.578821059Z","level":"INFO","msg":"JulesCord is now running. Press Ctrl+C to exit."}
+{"time":"2026-03-17T02:16:34.084712875Z","level":"INFO","msg":"Discord bot started successfully."}
+{"time":"2026-03-17T02:16:34.085113109Z","level":"INFO","msg":"Bot is ready! Logged in as Jules#6520"}
+{"time":"2026-03-17T02:16:34.085137251Z","level":"INFO","msg":"Registering slash commands..."}
+{"time":"2026-03-17T02:16:34.458752545Z","level":"INFO","msg":"Slash commands registered successfully. Count: 77"}
+{"time":"2026-03-17T02:16:40.214654222Z","level":"INFO","msg":"Received termination signal. Shutting down..."}
+{"time":"2026-03-17T02:16:40.214712213Z","level":"INFO","msg":"Stopping Discord bot..."}
+{"time":"2026-03-17T02:16:41.215813181Z","level":"INFO","msg":"Discord bot stopped gracefully."}
+{"time":"2026-03-17T02:16:41.215988203Z","level":"INFO","msg":"Stopping API server..."}
+{"time":"2026-03-17T02:16:41.216062099Z","level":"INFO","msg":"API server stopped gracefully."}
+{"time":"2026-03-17T02:16:41.21607271Z","level":"INFO","msg":"Shutdown complete. Exiting."}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiClient } from '../api';
-import { Server, Calendar } from 'lucide-react';
+import { Server, Calendar, Settings } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function Guilds() {
   const [guilds, setGuilds] = useState([]);
@@ -9,7 +10,7 @@ export default function Guilds() {
   useEffect(() => {
     const fetchGuilds = async () => {
       try {
-        const res = await apiClient.get('http://localhost:8080/api/guilds');
+        const res = await apiClient.get('/api/guilds');
         setGuilds(res.data || []);
       } catch (err) {
         console.error("Failed to fetch guilds:", err);
@@ -50,6 +51,7 @@ export default function Guilds() {
               <tr className="bg-gray-900/50 border-b border-gray-700">
                 <th className="px-6 py-4 font-semibold text-gray-300">Server ID</th>
                 <th className="px-6 py-4 font-semibold text-gray-300">Joined Date</th>
+                <th className="px-6 py-4 font-semibold text-gray-300 text-right">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -75,6 +77,15 @@ export default function Guilds() {
                         minute: '2-digit'
                       })}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <Link
+                      to={`/guilds/${guild.id}/settings`}
+                      className="inline-flex items-center justify-center p-2 rounded-lg bg-gray-700/50 hover:bg-indigo-600 hover:text-white text-gray-400 transition-all border border-gray-600/50 hover:border-indigo-500 shadow-sm group"
+                      title="Manage Settings"
+                    >
+                      <Settings className="w-4 h-4 group-hover:rotate-45 transition-transform duration-300" />
+                    </Link>
                   </td>
                 </tr>
               ))}

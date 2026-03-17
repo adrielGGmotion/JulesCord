@@ -204,6 +204,13 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Enhanced `/warn`, `/kick`, `/ban`, and `/mute` commands to accept evidence attachments (images/logs).
 - Updated the Mod Action Log embed to display the attached evidence.
 
+- Implemented Phase 69 Web Dashboard Guild Settings features:
+- Backend: Updated `GET /api/guilds/:id/config` to return all settings (prefix, log channel, welcome channel, auto-role, counting channel, suggestion channel).
+- Backend: Updated `PATCH /api/guilds/:id/config` to allow updating all these settings.
+- Frontend: Created GuildSettings component at `web/src/pages/GuildSettings.jsx`.
+- Frontend: Updated routing in `web/src/App.jsx` to include the new Guild Settings page.
+- Frontend: Updated Guilds page `web/src/pages/Guilds.jsx` to include an Action column with links to the settings page.
+
 ### Phase 1 — Foundation
 - [x] Remove all old Node.js files (`index.js`, `deploy-commands.js`, `commands/`, `package.json`, `package-lock.json`)
 - [x] `go.mod` and `go.sum` with all required dependencies
@@ -934,3 +941,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `GetActiveBans`, `GetActiveMutes`, `MarkModActionResolved`
 - [x] Enhance `/warn`, `/kick`, `/ban`, and `/mute` to accept evidence attachments (images/logs)
 - [x] Display attached evidence in the Mod Action Log embed
+
+### Phase 69 — Web Dashboard Guild Settings
+- [x] Backend: Update `GET /api/guilds/:id/config` to return all settings (prefix, log channel, welcome channel, auto-role, counting channel, suggestion channel)
+- [x] Backend: Update `PATCH /api/guilds/:id/config` to allow updating all these settings
+- [x] Frontend: Create GuildSettings component at `web/src/pages/GuildSettings.jsx`
+- [x] Frontend: Update routing in `web/src/App.jsx` to include the new Guild Settings page
