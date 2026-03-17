@@ -321,7 +321,39 @@ func (s *Server) registerRoutes() {
 			return
 		}
 
-		c.JSON(http.StatusOK, config)
+		prefix, _ := s.DB.GetGuildPrefix(c.Request.Context(), guildID)
+		countingConfig, _ := s.DB.GetCountingChannel(c.Request.Context(), guildID)
+		var countingChannelID *string
+		if countingConfig != nil {
+			countingChannelID = &countingConfig.ChannelID
+		}
+		suggestionChannel, _ := s.DB.GetSuggestionChannel(c.Request.Context(), guildID)
+		var suggestionChannelID *string
+		if suggestionChannel != "" {
+			suggestionChannelID = &suggestionChannel
+		}
+
+		response := struct {
+			GuildID             string  `json:"guild_id"`
+			LogChannelID        *string `json:"log_channel_id"`
+			WelcomeChannelID    *string `json:"welcome_channel_id"`
+			ModRoleID           *string `json:"mod_role_id"`
+			AutoRoleID          *string `json:"auto_role_id"`
+			Prefix              string  `json:"prefix"`
+			CountingChannelID   *string `json:"counting_channel_id"`
+			SuggestionChannelID *string `json:"suggestion_channel_id"`
+		}{
+			GuildID:             config.GuildID,
+			LogChannelID:        config.LogChannelID,
+			WelcomeChannelID:    config.WelcomeChannelID,
+			ModRoleID:           config.ModRoleID,
+			AutoRoleID:          config.AutoRoleID,
+			Prefix:              prefix,
+			CountingChannelID:   countingChannelID,
+			SuggestionChannelID: suggestionChannelID,
+		}
+
+		c.JSON(http.StatusOK, response)
 	})
 
 	s.Engine.PATCH("/api/guilds/:id/config", func(c *gin.Context) {
@@ -333,9 +365,13 @@ func (s *Server) registerRoutes() {
 		guildID := c.Param("id")
 
 		var req struct {
-			LogChannelID     *string `json:"log_channel_id"`
-			WelcomeChannelID *string `json:"welcome_channel_id"`
-			ModRoleID        *string `json:"mod_role_id"`
+			LogChannelID        *string `json:"log_channel_id"`
+			WelcomeChannelID    *string `json:"welcome_channel_id"`
+			ModRoleID           *string `json:"mod_role_id"`
+			AutoRoleID          *string `json:"auto_role_id"`
+			Prefix              *string `json:"prefix"`
+			CountingChannelID   *string `json:"counting_channel_id"`
+			SuggestionChannelID *string `json:"suggestion_channel_id"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -360,12 +396,31 @@ func (s *Server) registerRoutes() {
 		if req.ModRoleID != nil {
 			config.ModRoleID = req.ModRoleID
 		}
+		if req.AutoRoleID != nil {
+			config.AutoRoleID = req.AutoRoleID
+		}
 
 		if err := s.DB.UpdateGuildConfig(c.Request.Context(), guildID, *config); err != nil {
 			metrics.ErrorCounter.WithLabelValues("db_update_guild_config").Inc()
 			slog.Error("Error updating guild config", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update guild config"})
 			return
+		}
+
+		if req.Prefix != nil {
+			if err := s.DB.SetGuildPrefix(c.Request.Context(), guildID, *req.Prefix); err != nil {
+				slog.Error("Error updating guild prefix", "error", err)
+			}
+		}
+		if req.CountingChannelID != nil {
+			if err := s.DB.SetCountingChannel(c.Request.Context(), guildID, *req.CountingChannelID); err != nil {
+				slog.Error("Error updating counting channel", "error", err)
+			}
+		}
+		if req.SuggestionChannelID != nil {
+			if err := s.DB.SetSuggestionChannel(c.Request.Context(), guildID, *req.SuggestionChannelID); err != nil {
+				slog.Error("Error updating suggestion channel", "error", err)
+			}
 		}
 
 		c.JSON(http.StatusOK, gin.H{"status": "success"})
