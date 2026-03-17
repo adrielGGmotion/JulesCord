@@ -233,6 +233,20 @@ type Warning struct {
 	CreatedAt   string // Can parse as time.Time if needed, but string is fine for formatting
 }
 
+// RemoveWarning removes a specific warning by its ID.
+func (db *DB) RemoveWarning(ctx context.Context, warningID int) error {
+	query := `DELETE FROM warnings WHERE id = $1`
+	_, err := db.Pool.Exec(ctx, query, warningID)
+	return err
+}
+
+// ClearWarnings removes all warnings for a specific user in a guild.
+func (db *DB) ClearWarnings(ctx context.Context, guildID, userID string) error {
+	query := `DELETE FROM warnings WHERE guild_id = $1 AND user_id = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID)
+	return err
+}
+
 // GetWarnings retrieves all warnings for a specific user in a guild.
 func (db *DB) GetWarnings(ctx context.Context, guildID, userID string) ([]Warning, error) {
 	query := `
