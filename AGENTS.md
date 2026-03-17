@@ -76,6 +76,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 80 Moderation Unban and Clear Warnings features:
+- Added DB operations `RemoveWarning` and `ClearWarnings` in `internal/db/db.go`.
+- Added `/unban` command in `internal/bot/commands/unban.go` to unban a user by ID and mark active temp bans as resolved.
+- Added `/clearwarnings` command in `internal/bot/commands/clearwarnings.go` to clear a user's warning history.
+- Updated `internal/bot/bot.go` to register the `unban` and `clearwarnings` commands.
+
 - Implemented Phase 78 Nickname Automation features: added migrations `068_nicknames.up.sql` and `068_nicknames.down.sql` with table `nickname_config`.
 - Added DB operations `SetNicknameTemplate` and `GetNicknameTemplate` in `internal/db/db.go`.
 - Added `/nicktemplate` command with `set` and `view` subcommands in `internal/bot/commands/nicktemplate.go`.
@@ -1058,3 +1064,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `AddTempBan`, `GetActiveTempBans`, `RemoveTempBan`
 - [x] Enhance `/ban` command to accept an optional `duration` parameter (e.g. "1h", "7d")
 - [x] Background goroutine to periodically unban users when their temp ban duration expires
+
+### Phase 80 — Moderation Unban and Clear Warnings
+- [x] DB operations — `RemoveWarning`, `ClearWarnings`
+- [x] `/unban` command to unban a user by their user ID
+- [x] `/clearwarnings` command to clear a user's warning history
+- [x] Update `internal/bot/bot.go` to register the `unban` and `clearwarnings` commands
