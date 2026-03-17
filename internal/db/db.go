@@ -2492,6 +2492,9 @@ type UserProfile struct {
 	UserID    string
 	Bio       *string // using pointer to handle nullable columns natively
 	Color     *string // using pointer to handle nullable columns natively
+	Website   *string
+	Github    *string
+	Twitter   *string
 	UpdatedAt time.Time
 }
 
@@ -2528,13 +2531,13 @@ func (db *DB) SetProfileColor(ctx context.Context, guildID, userID, color string
 // GetProfile retrieves a user's profile for a specific guild
 func (db *DB) GetProfile(ctx context.Context, guildID, userID string) (*UserProfile, error) {
 	query := `
-		SELECT guild_id, user_id, bio, color, updated_at
+		SELECT guild_id, user_id, bio, color, website, github, twitter, updated_at
 		FROM user_profiles
 		WHERE guild_id = $1 AND user_id = $2
 	`
 	var p UserProfile
 	err := db.Pool.QueryRow(ctx, query, guildID, userID).Scan(
-		&p.GuildID, &p.UserID, &p.Bio, &p.Color, &p.UpdatedAt,
+		&p.GuildID, &p.UserID, &p.Bio, &p.Color, &p.Website, &p.Github, &p.Twitter, &p.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -4585,6 +4588,24 @@ func (db *DB) DeleteFact(ctx context.Context, guildID string, factID int) error 
 	}
 	if tag.RowsAffected() == 0 {
 		return errors.New("fact not found or access denied")
+	}
+	return nil
+}
+
+// SetProfileLinks sets the social links for a user's profile
+func (db *DB) SetProfileLinks(ctx context.Context, guildID, userID string, website, github, twitter *string) error {
+	query := `
+		INSERT INTO user_profiles (guild_id, user_id, website, github, twitter, updated_at)
+		VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+		ON CONFLICT (guild_id, user_id)
+		DO UPDATE SET website = COALESCE(EXCLUDED.website, user_profiles.website),
+					  github = COALESCE(EXCLUDED.github, user_profiles.github),
+					  twitter = COALESCE(EXCLUDED.twitter, user_profiles.twitter),
+					  updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, website, github, twitter)
+	if err != nil {
+		return fmt.Errorf("failed to set profile links: %w", err)
 	}
 	return nil
 }
