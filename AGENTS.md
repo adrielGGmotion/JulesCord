@@ -76,6 +76,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 76 Advanced User Configuration features: added migrations `066_user_config.up.sql` and `066_user_config.down.sql` with table `user_config`.
+- Added DB operations `SetUserConfig` and `GetUserConfig` in `internal/db/db.go`.
+- Added `/settings` command with `dnd` and `dm-notifications` subcommands in `internal/bot/commands/settings.go`.
+- Updated `internal/bot/bot.go` to register the `settings` command.
+
 - Implemented Phase 75 Server Highlights features: added migrations `065_highlights.up.sql` and `065_highlights.down.sql` with table `highlights`.
 - Added DB operations `AddHighlight`, `GetHighlights`, and `RemoveHighlight` in `internal/db/db.go`.
 - Added `/highlight` command with `add`, `list`, and `remove` subcommands in `internal/bot/commands/highlight.go`.
@@ -1011,3 +1016,21 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `AddHighlight`, `GetHighlights`, `RemoveHighlight`
 - [x] `/highlight` command with `add` (message link), `list`, and `remove` subcommands
 - [x] Update `internal/bot/bot.go` to register the `highlight` command
+
+### Phase 76 — Advanced User Configuration
+- [x] `migrations/066_user_config.sql` — `user_config` table (user_id, dnd_mode, dm_notifications)
+- [x] DB operations — `SetUserConfig`, `GetUserConfig`
+- [x] `/settings` command with `dnd` and `dm-notifications` subcommands in `internal/bot/commands/settings.go`
+- [x] Update `internal/bot/bot.go` to register the `settings` command
+
+### Phase 77 — Role Rewards Extension
+- [ ] Update `level_roles` to include `coins_reward` for reaching a level
+- [ ] DB operations — `GetLevelRoleReward`, `SetLevelRoleReward`
+- [ ] Update `/levelrole add` to accept a coins reward amount
+- [ ] Update `messageCreateHandler` to award coins when assigning a level role
+
+### Phase 78 — Nickname Automation
+- [ ] `migrations/067_nicknames.sql` — `nickname_config` table (guild_id, template)
+- [ ] DB operations — `SetNicknameTemplate`, `GetNicknameTemplate`
+- [ ] `/nicktemplate` command to configure the format (e.g. `[Member] {user}`)
+- [ ] Update `guildMemberAddHandler` to apply the nickname template when a user joins

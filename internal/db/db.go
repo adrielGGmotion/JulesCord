@@ -4681,3 +4681,44 @@ func (db *DB) RemoveHighlight(ctx context.Context, id int, guildID string) error
 	}
 	return nil
 }
+
+// UserConfig represents the user's advanced configuration settings.
+type UserConfig struct {
+	UserID          string `json:"user_id"`
+	DNDMode         bool   `json:"dnd_mode"`
+	DMNotifications bool   `json:"dm_notifications"`
+}
+
+// SetUserConfig upserts a user's configuration, preserving existing values for unprovided fields.
+func (db *DB) SetUserConfig(ctx context.Context, userID string, dndMode *bool, dmNotifications *bool) error {
+	query := `
+		INSERT INTO user_config (user_id, dnd_mode, dm_notifications)
+		VALUES ($1, COALESCE($2, FALSE), COALESCE($3, TRUE))
+		ON CONFLICT (user_id) DO UPDATE SET
+			dnd_mode = COALESCE($2, user_config.dnd_mode),
+			dm_notifications = COALESCE($3, user_config.dm_notifications)
+	`
+	_, err := db.Pool.Exec(ctx, query, userID, dndMode, dmNotifications)
+	if err != nil {
+		return fmt.Errorf("failed to set user config: %w", err)
+	}
+	return nil
+}
+
+// GetUserConfig retrieves a user's configuration, returning default values if none exists.
+func (db *DB) GetUserConfig(ctx context.Context, userID string) (*UserConfig, error) {
+	query := `SELECT user_id, dnd_mode, dm_notifications FROM user_config WHERE user_id = $1`
+	var config UserConfig
+	err := db.Pool.QueryRow(ctx, query, userID).Scan(&config.UserID, &config.DNDMode, &config.DMNotifications)
+	if err == pgx.ErrNoRows {
+		// Return defaults if not found
+		return &UserConfig{
+			UserID:          userID,
+			DNDMode:         false,
+			DMNotifications: true,
+		}, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get user config: %w", err)
+	}
+	return &config, nil
+}

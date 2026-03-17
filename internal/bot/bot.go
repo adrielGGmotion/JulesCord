@@ -55,6 +55,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Daily(database))
 	registry.Add(commands.Coins(database))
 	registry.Add(commands.Config(database))
+	registry.Add(commands.Settings(database))
 	registry.Add(commands.VoiceLog(database))
 	registry.Add(commands.ReactionRole(database))
 	registry.Add(commands.Schedule(database))
