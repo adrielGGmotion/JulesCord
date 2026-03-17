@@ -75,6 +75,10 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 ---
 
 ## Completed Work
+
+- Implemented Phase 74 Profile Links System features: added migrations `064_profile_links.up.sql` and `064_profile_links.down.sql` to add `website`, `github`, and `twitter` columns to `user_profiles`.
+- Added DB operation `SetProfileLinks` and updated `GetProfile` in `internal/db/db.go`.
+- Added `set-links` subcommand to `/profile` command in `internal/bot/commands/profile.go` and updated `view` embed to display social links.
 - Implemented Phase 73 Custom Roles System features: added migrations `063_custom_roles.up.sql` and `063_custom_roles.down.sql` with table `custom_roles`.
 - Added DB operations `CreateCustomRole`, `GetCustomRole`, `UpdateCustomRole`, and `DeleteCustomRole` in `internal/db/db.go`.
 - Added `/myrole` command with `create`, `name`, `color`, `icon`, and `delete` subcommands in `internal/bot/commands/myrole.go`.
@@ -990,3 +994,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Add `/roll` command in `internal/bot/commands/roll.go` to roll virtual dice
 - [x] Add `/rps` command in `internal/bot/commands/rps.go` to play Rock, Paper, Scissors against the bot
 - [x] Update `internal/bot/bot.go` to register the `8ball`, `roll`, and `rps` commands
+
+### Phase 74 — Profile Links System
+- [x] `migrations/064_profile_links.sql` — add `website`, `github`, and `twitter` columns to `user_profiles` table
+- [x] DB operations — update `GetProfile` to fetch the new links, and add `SetProfileLinks` to update them
+- [x] `/profile set-links` command in `internal/bot/commands/profile.go` to allow users to set their social links
+- [x] Update `/profile view` embed to display the user's social links

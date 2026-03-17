@@ -58,6 +58,31 @@ func NewProfileCommand(database *db.DB) *Command {
 						},
 					},
 				},
+				{
+					Name:        "set-links",
+					Description: "Set your profile social links",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "website",
+							Description: "Your personal website URL",
+							Required:    false,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "github",
+							Description: "Your GitHub username or URL",
+							Required:    false,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "twitter",
+							Description: "Your Twitter/X handle or URL",
+							Required:    false,
+						},
+					},
+				},
 			},
 		},
 		Handler: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -80,6 +105,8 @@ func NewProfileCommand(database *db.DB) *Command {
 				handleProfileSetBio(s, i, database, subcommand.Options)
 			case "set-color":
 				handleProfileSetColor(s, i, database, subcommand.Options)
+			case "set-links":
+				handleProfileSetLinks(s, i, database, subcommand.Options)
 			}
 		},
 	}
@@ -182,8 +209,31 @@ func handleProfileView(s *discordgo.Session, i *discordgo.InteractionCreate, dat
 		badgeStr = sb.String()
 	}
 
+	// Format Social Links
+	var links []string
+	if profile != nil {
+		if profile.Website != nil && *profile.Website != "" {
+			links = append(links, fmt.Sprintf("🌐 [Website](%s)", *profile.Website))
+		}
+		if profile.Github != nil && *profile.Github != "" {
+			links = append(links, fmt.Sprintf("🐙 [GitHub](%s)", *profile.Github))
+		}
+		if profile.Twitter != nil && *profile.Twitter != "" {
+			links = append(links, fmt.Sprintf("🐦 [Twitter](%s)", *profile.Twitter))
+		}
+	}
+	linksStr := "None set."
+	if len(links) > 0 {
+		linksStr = strings.Join(links, " | ")
+	}
+
 	// Build Embed fields
 	fields := []*discordgo.MessageEmbedField{
+		{
+			Name:   "Social Links",
+			Value:  linksStr,
+			Inline: false,
+		},
 		{
 			Name:   "Economy",
 			Value:  fmt.Sprintf("Level: **%d**\nXP: **%d**\nCoins: **%d**", level, xp, coins),
@@ -298,5 +348,43 @@ func handleProfileSetColor(s *discordgo.Session, i *discordgo.InteractionCreate,
 		Title:       "Color Updated",
 		Description: fmt.Sprintf("Your profile embed color has been updated to **%s**.", fullHexColor),
 		Color:       int(embedColor),
+	})
+}
+
+func handleProfileSetLinks(s *discordgo.Session, i *discordgo.InteractionCreate, database *db.DB, options []*discordgo.ApplicationCommandInteractionDataOption) {
+	var userID string
+	if i.Member != nil && i.Member.User != nil {
+		userID = i.Member.User.ID
+	} else if i.User != nil {
+		userID = i.User.ID
+	}
+
+	var website, github, twitter *string
+
+	for _, opt := range options {
+		switch opt.Name {
+		case "website":
+			val := opt.StringValue()
+			website = &val
+		case "github":
+			val := opt.StringValue()
+			github = &val
+		case "twitter":
+			val := opt.StringValue()
+			twitter = &val
+		}
+	}
+
+	err := database.SetProfileLinks(context.Background(), i.GuildID, userID, website, github, twitter)
+	if err != nil {
+		slog.Error("Failed to set profile links", "err", err)
+		SendError(s, i, "An error occurred while setting your profile links.")
+		return
+	}
+
+	SendEmbed(s, i, &discordgo.MessageEmbed{
+		Title:       "Social Links Updated",
+		Description: "Your profile social links have been updated successfully.",
+		Color:       0x00FF00,
 	})
 }

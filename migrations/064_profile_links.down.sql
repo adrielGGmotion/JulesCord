@@ -1,0 +1,4 @@
+ALTER TABLE user_profiles
+DROP COLUMN IF EXISTS website,
+DROP COLUMN IF EXISTS github,
+DROP COLUMN IF EXISTS twitter;
