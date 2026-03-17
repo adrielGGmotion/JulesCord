@@ -219,6 +219,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Added `/stop` command to clear the music queue in `internal/bot/commands/stop.go`.
 - Updated `internal/bot/bot.go` to register the `skip` and `stop` commands and pass the DB connection to the `play` command.
 
+- Implemented Phase 71 Custom Bot Status features: added migrations `062_bot_status.up.sql` and `062_bot_status.down.sql` with table `bot_status_config`.
+- Added DB operations `SetBotStatus`, `GetBotStatus`, and `DeleteBotStatus` in `internal/db/db.go`.
+- Added `/botstatus` command with `set` and `clear` subcommands in `internal/bot/commands/botstatus.go`.
+- Updated `rotateStatus` loop in `internal/bot/bot.go` to use the custom status and registered the `botstatus` command.
+
 ### Phase 1 — Foundation
 - [x] Remove all old Node.js files (`index.js`, `deploy-commands.js`, `commands/`, `package.json`, `package-lock.json`)
 - [x] `go.mod` and `go.sum` with all required dependencies
@@ -961,3 +966,15 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Implement actual logic for `/play` command in `internal/bot/commands/play.go` using a mock URL player or text confirmation.
 - [x] Add `/skip` command to skip the currently playing track in `internal/bot/commands/skip.go`.
 - [x] Add `/stop` command to stop music and clear the queue in `internal/bot/commands/stop.go`.
+
+### Phase 71 — Custom Bot Status
+- [x] `migrations/062_bot_status.up.sql` and `062_bot_status.down.sql` - `bot_status_config` table
+- [x] DB operations - `SetBotStatus`, `GetBotStatus`
+- [x] `/botstatus` command - configure custom playing/streaming/listening status for the bot
+- [x] Update bot startup and background loop to use custom status if set
+
+### Phase 72 — Starboard Enhancements
+- [ ] `migrations/063_starboard_enhancements.up.sql` and `063_starboard_enhancements.down.sql` - add `self_star` boolean to `starboard_config`
+- [ ] DB operations - update `SetStarboardConfig` and `GetStarboardConfig`
+- [ ] `/starboard setup` command - update to allow configuring `self_star`
+- [ ] Update `messageReactionAddHandler` to enforce `self_star` setting

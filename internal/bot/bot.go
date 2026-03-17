@@ -130,6 +130,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.AutoThread(database))
 	registry.Add(commands.RepLB(database))
 	registry.Add(commands.LevelLB(database))
+	registry.Add(commands.BotStatusCommand(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -300,19 +301,51 @@ func (b *Bot) rotateStatus() {
 		"Watching the dashboard...",
 	}
 
+	updateFunc := func() {
+		// Check for custom status in DB
+		var status *db.BotStatusConfig
+		var err error
+
+		if b.DB != nil {
+			status, err = b.DB.GetBotStatus(context.Background())
+			if err != nil {
+				slog.Error("Failed to fetch custom bot status from DB", "error", err)
+				return
+			}
+		}
+
+		if status != nil {
+			err = b.Session.UpdateStatusComplex(discordgo.UpdateStatusData{
+				Activities: []*discordgo.Activity{
+					{
+						Name: status.Name,
+						Type: discordgo.ActivityType(status.ActivityType),
+					},
+				},
+			})
+			if err != nil {
+				slog.Error("Failed to update custom bot status", "error", err)
+			}
+			return
+		}
+
+		// Fallback to random default status
+		randomStatus := statuses[rand.Intn(len(statuses))]
+		err = b.Session.UpdateGameStatus(0, randomStatus)
+		if err != nil {
+			slog.Error("Failed to update bot status", "error", err)
+		}
+	}
+
+	// Update immediately
+	updateFunc()
+
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
 	for {
-		// Pick a random status
-		status := statuses[rand.Intn(len(statuses))]
-
-		err := b.Session.UpdateGameStatus(0, status)
-		if err != nil {
-			slog.Error("Failed to update bot status", "error", err)
-		}
-
 		<-ticker.C
+		updateFunc()
 	}
 }
 

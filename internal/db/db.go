@@ -4485,3 +4485,41 @@ func (db *DB) GetQueue(ctx context.Context, guildID string) ([]MusicQueue, error
 	}
 	return queue, rows.Err()
 }
+
+// BotStatusConfig represents the configured custom bot status
+type BotStatusConfig struct {
+	ActivityType int
+	Name         string
+}
+
+// SetBotStatus sets the custom bot status
+func (db *DB) SetBotStatus(ctx context.Context, activityType int, name string) error {
+	_, err := db.Pool.Exec(ctx, `
+		INSERT INTO bot_status_config (id, activity_type, name)
+		VALUES (1, $1, $2)
+		ON CONFLICT (id) DO UPDATE
+		SET activity_type = EXCLUDED.activity_type, name = EXCLUDED.name, updated_at = NOW()
+	`, activityType, name)
+	return err
+}
+
+// GetBotStatus gets the custom bot status, returns nil if not set
+func (db *DB) GetBotStatus(ctx context.Context) (*BotStatusConfig, error) {
+	var c BotStatusConfig
+	err := db.Pool.QueryRow(ctx, `
+		SELECT activity_type, name FROM bot_status_config WHERE id = 1
+	`).Scan(&c.ActivityType, &c.Name)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &c, nil
+}
+
+// DeleteBotStatus clears the custom bot status
+func (db *DB) DeleteBotStatus(ctx context.Context) error {
+	_, err := db.Pool.Exec(ctx, `DELETE FROM bot_status_config WHERE id = 1`)
+	return err
+}
