@@ -9,21 +9,13 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// Play returns the play slash command.
-func Play(database *db.DB) *Command {
+// Stop returns the stop slash command.
+func Stop(database *db.DB) *Command {
 	return &Command{
 		Definition: &discordgo.ApplicationCommand{
-			Name:        "play",
-			Description: "Play a song from YouTube/Spotify or a query",
+			Name:        "stop",
+			Description: "Stop music and clear the queue",
 			DMPermission: new(bool),
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Name:        "query",
-					Description: "Song name or URL",
-					Type:        discordgo.ApplicationCommandOptionString,
-					Required:    true,
-				},
-			},
 		},
 		Handler: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			if i.Member == nil {
@@ -48,29 +40,21 @@ func Play(database *db.DB) *Command {
 				return
 			}
 
-			var query string
-			for _, opt := range i.ApplicationCommandData().Options {
-				if opt.Name == "query" {
-					query = opt.StringValue()
-					break
-				}
-			}
-
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
-			q, err := database.PlayMusic(ctx, i.GuildID, i.Member.User.ID, query)
+			err = database.StopMusic(ctx, i.GuildID)
 			if err != nil {
-				SendError(s, i, "Failed to enqueue music")
+				SendError(s, i, "Failed to clear the queue")
 				return
 			}
 
 			embed := &discordgo.MessageEmbed{
-				Title:       "🎵 Added to Queue",
-				Description: fmt.Sprintf("**Query:** %s\n**Position:** #%d", q.Query, q.Position),
-				Color:       0x1DB954, // Spotify Green
+				Title:       "⏹️ Music Stopped",
+				Description: "Playback stopped and queue cleared.",
+				Color:       0xED4245, // Red
 				Footer: &discordgo.MessageEmbedFooter{
-					Text: fmt.Sprintf("Requested by %s", i.Member.User.String()),
+					Text: fmt.Sprintf("Stopped by %s", i.Member.User.String()),
 				},
 				Timestamp: time.Now().Format(time.RFC3339),
 			}

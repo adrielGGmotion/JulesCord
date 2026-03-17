@@ -4403,3 +4403,85 @@ func (db *DB) GetUserRoles(ctx context.Context, userID, guildID string) ([]strin
 	}
 	return roleIDs, nil
 }
+
+// MusicQueue represents a queued song in a guild's music system.
+type MusicQueue struct {
+	ID        int
+	GuildID   string
+	UserID    string
+	Query     string
+	Position  int
+	CreatedAt time.Time
+}
+
+// PlayMusic adds a new song query to the end of the guild's music queue.
+func (db *DB) PlayMusic(ctx context.Context, guildID, userID, query string) (MusicQueue, error) {
+	var q MusicQueue
+	err := db.Pool.QueryRow(ctx, `
+		INSERT INTO music_queue (guild_id, user_id, query, position)
+		VALUES ($1, $2, $3, COALESCE((SELECT MAX(position) FROM music_queue WHERE guild_id = $1), 0) + 1)
+		RETURNING id, guild_id, user_id, query, position, created_at
+	`, guildID, userID, query).Scan(&q.ID, &q.GuildID, &q.UserID, &q.Query, &q.Position, &q.CreatedAt)
+	return q, err
+}
+
+// SkipMusic removes the first song from the queue and returns it.
+func (db *DB) SkipMusic(ctx context.Context, guildID string) (*MusicQueue, error) {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	var q MusicQueue
+	err = tx.QueryRow(ctx, `
+		DELETE FROM music_queue
+		WHERE id = (
+			SELECT id FROM music_queue
+			WHERE guild_id = $1
+			ORDER BY position ASC
+			LIMIT 1
+		)
+		RETURNING id, guild_id, user_id, query, position, created_at
+	`, guildID).Scan(&q.ID, &q.GuildID, &q.UserID, &q.Query, &q.Position, &q.CreatedAt)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Queue is empty
+		}
+		return nil, err
+	}
+
+	err = tx.Commit(ctx)
+	return &q, err
+}
+
+// StopMusic clears the entire queue for the given guild.
+func (db *DB) StopMusic(ctx context.Context, guildID string) error {
+	_, err := db.Pool.Exec(ctx, "DELETE FROM music_queue WHERE guild_id = $1", guildID)
+	return err
+}
+
+// GetQueue retrieves all songs currently in the queue for a given guild, ordered by position.
+func (db *DB) GetQueue(ctx context.Context, guildID string) ([]MusicQueue, error) {
+	rows, err := db.Pool.Query(ctx, `
+		SELECT id, guild_id, user_id, query, position, created_at
+		FROM music_queue
+		WHERE guild_id = $1
+		ORDER BY position ASC
+	`, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var queue []MusicQueue
+	for rows.Next() {
+		var q MusicQueue
+		if err := rows.Scan(&q.ID, &q.GuildID, &q.UserID, &q.Query, &q.Position, &q.CreatedAt); err != nil {
+			return nil, err
+		}
+		queue = append(queue, q)
+	}
+	return queue, rows.Err()
+}

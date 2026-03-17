@@ -9,21 +9,13 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// Play returns the play slash command.
-func Play(database *db.DB) *Command {
+// Skip returns the skip slash command.
+func Skip(database *db.DB) *Command {
 	return &Command{
 		Definition: &discordgo.ApplicationCommand{
-			Name:        "play",
-			Description: "Play a song from YouTube/Spotify or a query",
+			Name:        "skip",
+			Description: "Skip the currently playing track",
 			DMPermission: new(bool),
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Name:        "query",
-					Description: "Song name or URL",
-					Type:        discordgo.ApplicationCommandOptionString,
-					Required:    true,
-				},
-			},
 		},
 		Handler: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			if i.Member == nil {
@@ -48,31 +40,35 @@ func Play(database *db.DB) *Command {
 				return
 			}
 
-			var query string
-			for _, opt := range i.ApplicationCommandData().Options {
-				if opt.Name == "query" {
-					query = opt.StringValue()
-					break
-				}
-			}
-
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
-			q, err := database.PlayMusic(ctx, i.GuildID, i.Member.User.ID, query)
+			q, err := database.SkipMusic(ctx, i.GuildID)
 			if err != nil {
-				SendError(s, i, "Failed to enqueue music")
+				SendError(s, i, "Failed to skip track")
+				return
+			}
+
+			if q == nil {
+				SendError(s, i, "The queue is currently empty.")
 				return
 			}
 
 			embed := &discordgo.MessageEmbed{
-				Title:       "🎵 Added to Queue",
-				Description: fmt.Sprintf("**Query:** %s\n**Position:** #%d", q.Query, q.Position),
+				Title:       "⏭️ Track Skipped",
+				Description: fmt.Sprintf("Skipped: **%s**", q.Query),
 				Color:       0x1DB954, // Spotify Green
 				Footer: &discordgo.MessageEmbedFooter{
-					Text: fmt.Sprintf("Requested by %s", i.Member.User.String()),
+					Text: fmt.Sprintf("Skipped by %s", i.Member.User.String()),
 				},
 				Timestamp: time.Now().Format(time.RFC3339),
+			}
+
+			// Try to peek next
+			nextList, nextErr := database.GetQueue(ctx, i.GuildID)
+			if nextErr == nil && len(nextList) > 0 {
+				next := nextList[0]
+				embed.Description += fmt.Sprintf("\n\n**Next up:** %s", next.Query)
 			}
 
 			_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
