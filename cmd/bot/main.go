@@ -2,9 +2,11 @@ package main
 
 import (
 	"log/slog"
+	"math/rand"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"julescord/internal/api"
 	"julescord/internal/bot"
@@ -13,6 +15,7 @@ import (
 )
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
 	// Initialize default JSON logger
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)

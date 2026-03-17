@@ -13,8 +13,8 @@ import (
 func Stop(database *db.DB) *Command {
 	return &Command{
 		Definition: &discordgo.ApplicationCommand{
-			Name:        "stop",
-			Description: "Stop music and clear the queue",
+			Name:         "stop",
+			Description:  "Stop music and clear the queue",
 			DMPermission: new(bool),
 		},
 		Handler: func(s *discordgo.Session, i *discordgo.InteractionCreate) {

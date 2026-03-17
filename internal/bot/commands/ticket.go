@@ -168,9 +168,9 @@ func HandleCreateTicket(s *discordgo.Session, i *discordgo.InteractionCreate, da
 
 	permissionOverwrites := []*discordgo.PermissionOverwrite{
 		{
-			ID:    i.GuildID, // @everyone role ID is the same as the guild ID
-			Type:  discordgo.PermissionOverwriteTypeRole,
-			Deny:  discordgo.PermissionViewChannel,
+			ID:   i.GuildID, // @everyone role ID is the same as the guild ID
+			Type: discordgo.PermissionOverwriteTypeRole,
+			Deny: discordgo.PermissionViewChannel,
 		},
 		{
 			ID:    s.State.User.ID, // Bot

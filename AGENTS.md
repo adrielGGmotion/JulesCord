@@ -219,6 +219,13 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Added `/stop` command to clear the music queue in `internal/bot/commands/stop.go`.
 - Updated `internal/bot/bot.go` to register the `skip` and `stop` commands and pass the DB connection to the `play` command.
 
+
+- Implemented Phase 71 Fun Commands features:
+- Added `/8ball` command in `internal/bot/commands/8ball.go`.
+- Added `/roll` command in `internal/bot/commands/roll.go`.
+- Added `/rps` command in `internal/bot/commands/rps.go`.
+- Updated `internal/bot/bot.go` to register the `8ball`, `roll`, and `rps` commands.
+
 ### Phase 1 — Foundation
 - [x] Remove all old Node.js files (`index.js`, `deploy-commands.js`, `commands/`, `package.json`, `package-lock.json`)
 - [x] `go.mod` and `go.sum` with all required dependencies
@@ -961,3 +968,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Implement actual logic for `/play` command in `internal/bot/commands/play.go` using a mock URL player or text confirmation.
 - [x] Add `/skip` command to skip the currently playing track in `internal/bot/commands/skip.go`.
 - [x] Add `/stop` command to stop music and clear the queue in `internal/bot/commands/stop.go`.
+
+### Phase 71 — Fun Commands
+- [x] Add `/8ball` command in `internal/bot/commands/8ball.go` to answer yes/no questions
+- [x] Add `/roll` command in `internal/bot/commands/roll.go` to roll virtual dice
+- [x] Add `/rps` command in `internal/bot/commands/rps.go` to play Rock, Paper, Scissors against the bot
+- [x] Update `internal/bot/bot.go` to register the `8ball`, `roll`, and `rps` commands

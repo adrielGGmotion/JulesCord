@@ -12,7 +12,7 @@ import (
 func Birthday(database *db.DB) *Command {
 	return &Command{
 		Definition: &discordgo.ApplicationCommand{
-			Name:        "birthday",
+			Name:         "birthday",
 			DMPermission: new(bool),
 
 			Description: "Manage server birthdays",

@@ -12,9 +12,9 @@ import (
 func TempVoice(database *db.DB) *Command {
 	return &Command{
 		Definition: &discordgo.ApplicationCommand{
-			Name:        "tempvoice",
+			Name:         "tempvoice",
 			DMPermission: new(bool),
-			Description: "Manage temporary voice channel configuration",
+			Description:  "Manage temporary voice channel configuration",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Name:        "setup",
@@ -22,18 +22,18 @@ func TempVoice(database *db.DB) *Command {
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
-							Name:        "category",
-							Description: "The category to create temporary channels in",
-							Type:        discordgo.ApplicationCommandOptionChannel,
+							Name:         "category",
+							Description:  "The category to create temporary channels in",
+							Type:         discordgo.ApplicationCommandOptionChannel,
 							ChannelTypes: []discordgo.ChannelType{discordgo.ChannelTypeGuildCategory},
-							Required:    true,
+							Required:     true,
 						},
 						{
-							Name:        "trigger_channel",
-							Description: "The voice channel users join to trigger creation",
-							Type:        discordgo.ApplicationCommandOptionChannel,
+							Name:         "trigger_channel",
+							Description:  "The voice channel users join to trigger creation",
+							Type:         discordgo.ApplicationCommandOptionChannel,
 							ChannelTypes: []discordgo.ChannelType{discordgo.ChannelTypeGuildVoice},
-							Required:    true,
+							Required:     true,
 						},
 					},
 				},

@@ -91,13 +91,13 @@ func (db *DB) UpsertGuild(ctx context.Context, id string) error {
 
 // Ticket represents a support ticket in a guild.
 type Ticket struct {
-	ID        int       `json:"id"`
-	GuildID   string    `json:"guild_id"`
-	UserID    string    `json:"user_id"`
-	ChannelID string    `json:"channel_id"`
-	Reason    string    `json:"reason"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        int        `json:"id"`
+	GuildID   string     `json:"guild_id"`
+	UserID    string     `json:"user_id"`
+	ChannelID string     `json:"channel_id"`
+	Reason    string     `json:"reason"`
+	Status    string     `json:"status"`
+	CreatedAt time.Time  `json:"created_at"`
 	ClosedAt  *time.Time `json:"closed_at"`
 }
 
@@ -450,7 +450,6 @@ func (db *DB) GetGuilds(ctx context.Context) ([]Guild, error) {
 
 	return guilds, rows.Err()
 }
-
 
 // UserReputation represents a user's reputation score.
 type UserReputation struct {
@@ -3251,13 +3250,13 @@ func (db *DB) GetTransfers(ctx context.Context, guildID, userID string, limit in
 
 // GamblingStats represents a user's gambling statistics.
 type GamblingStats struct {
-	GuildID    string
-	UserID     string
-	CoinsWon   int64
-	CoinsLost  int64
+	GuildID     string
+	UserID      string
+	CoinsWon    int64
+	CoinsLost   int64
 	GamesPlayed int
-	GamesWon   int
-	GamesLost  int
+	GamesWon    int
+	GamesLost   int
 }
 
 // UpdateGamblingStats updates a user's gambling stats.

@@ -149,14 +149,14 @@ func handleProfileView(s *discordgo.Session, i *discordgo.InteractionCreate, dat
 		bio = *profile.Bio
 	}
 
-    // Prepare economy defaults
-    var level int
-    var xp, coins int64
-    if economy != nil {
-        level = economy.Level
-        xp = economy.XP
-        coins = economy.Coins
-    }
+	// Prepare economy defaults
+	var level int
+	var xp, coins int64
+	if economy != nil {
+		level = economy.Level
+		xp = economy.XP
+		coins = economy.Coins
+	}
 
 	// Format Marriage
 	marriageStatus := "Single"
@@ -222,9 +222,9 @@ func handleProfileView(s *discordgo.Session, i *discordgo.InteractionCreate, dat
 			Embeds: []*discordgo.MessageEmbed{embed},
 		},
 	})
-    if err != nil {
-        slog.Error("Failed to respond to profile view", "error", err)
-    }
+	if err != nil {
+		slog.Error("Failed to respond to profile view", "error", err)
+	}
 }
 
 func handleProfileSetBio(s *discordgo.Session, i *discordgo.InteractionCreate, database *db.DB, options []*discordgo.ApplicationCommandInteractionDataOption) {
