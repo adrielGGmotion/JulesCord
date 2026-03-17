@@ -76,6 +76,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 75 Server Highlights features: added migrations `065_highlights.up.sql` and `065_highlights.down.sql` with table `highlights`.
+- Added DB operations `AddHighlight`, `GetHighlights`, and `RemoveHighlight` in `internal/db/db.go`.
+- Added `/highlight` command with `add`, `list`, and `remove` subcommands in `internal/bot/commands/highlight.go`.
+- Updated `internal/bot/bot.go` to register the `highlight` command.
+
 - Implemented Phase 74 Profile Links System features: added migrations `064_profile_links.up.sql` and `064_profile_links.down.sql` to add `website`, `github`, and `twitter` columns to `user_profiles`.
 - Added DB operation `SetProfileLinks` and updated `GetProfile` in `internal/db/db.go`.
 - Added `set-links` subcommand to `/profile` command in `internal/bot/commands/profile.go` and updated `view` embed to display social links.
@@ -1000,3 +1005,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — update `GetProfile` to fetch the new links, and add `SetProfileLinks` to update them
 - [x] `/profile set-links` command in `internal/bot/commands/profile.go` to allow users to set their social links
 - [x] Update `/profile view` embed to display the user's social links
+
+### Phase 75 — Server Highlights
+- [x] `migrations/065_highlights.sql` — `highlights` table (id, guild_id, message_id, channel_id, author_id, added_by, created_at)
+- [x] DB operations — `AddHighlight`, `GetHighlights`, `RemoveHighlight`
+- [x] `/highlight` command with `add` (message link), `list`, and `remove` subcommands
+- [x] Update `internal/bot/bot.go` to register the `highlight` command
