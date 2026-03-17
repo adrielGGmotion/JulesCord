@@ -15,9 +15,9 @@ import (
 func Music(database *db.DB) *Command {
 	return &Command{
 		Definition: &discordgo.ApplicationCommand{
-			Name:        "music",
-			Description: "Configure the music system",
-			DMPermission: new(bool),
+			Name:                     "music",
+			Description:              "Configure the music system",
+			DMPermission:             new(bool),
 			DefaultMemberPermissions: func(p int64) *int64 { return &p }(discordgo.PermissionAdministrator),
 			Options: []*discordgo.ApplicationCommandOption{
 				{

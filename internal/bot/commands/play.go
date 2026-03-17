@@ -13,8 +13,8 @@ import (
 func Play(database *db.DB) *Command {
 	return &Command{
 		Definition: &discordgo.ApplicationCommand{
-			Name:        "play",
-			Description: "Play a song from YouTube/Spotify or a query",
+			Name:         "play",
+			Description:  "Play a song from YouTube/Spotify or a query",
 			DMPermission: new(bool),
 			Options: []*discordgo.ApplicationCommandOption{
 				{

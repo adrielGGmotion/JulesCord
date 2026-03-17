@@ -45,8 +45,8 @@ func Avatar(database *db.DB) *Command {
 			avatarURL := targetUser.AvatarURL("1024")
 
 			embed := &discordgo.MessageEmbed{
-				Title:       fmt.Sprintf("%s's Avatar", targetUser.Username),
-				Color:       0x0099ff,
+				Title: fmt.Sprintf("%s's Avatar", targetUser.Username),
+				Color: 0x0099ff,
 				Image: &discordgo.MessageEmbedImage{
 					URL: avatarURL,
 				},

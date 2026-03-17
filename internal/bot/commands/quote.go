@@ -15,8 +15,8 @@ import (
 func Quote(database *db.DB) *Command {
 	return &Command{
 		Definition: &discordgo.ApplicationCommand{
-			Name:        "quote",
-			Description: "Save and retrieve quotes",
+			Name:         "quote",
+			Description:  "Save and retrieve quotes",
 			DMPermission: new(bool),
 			Options: []*discordgo.ApplicationCommandOption{
 				{

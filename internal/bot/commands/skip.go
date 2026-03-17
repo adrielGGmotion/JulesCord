@@ -13,8 +13,8 @@ import (
 func Skip(database *db.DB) *Command {
 	return &Command{
 		Definition: &discordgo.ApplicationCommand{
-			Name:        "skip",
-			Description: "Skip the currently playing track",
+			Name:         "skip",
+			Description:  "Skip the currently playing track",
 			DMPermission: new(bool),
 		},
 		Handler: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
