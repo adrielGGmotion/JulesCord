@@ -2263,26 +2263,28 @@ func (db *DB) RemoveNote(ctx context.Context, guildID string, id int) error {
 
 // LevelRole represents a level role reward configuration in a guild.
 type LevelRole struct {
-	GuildID   string    `json:"guild_id"`
-	Level     int       `json:"level"`
-	RoleID    string    `json:"role_id"`
-	CreatedAt time.Time `json:"created_at"`
+	GuildID     string    `json:"guild_id"`
+	Level       int       `json:"level"`
+	RoleID      string    `json:"role_id"`
+	CoinsReward int       `json:"coins_reward"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // SetLevelRole adds or updates a role reward for a specific level in a guild.
-func (db *DB) SetLevelRole(ctx context.Context, guildID string, level int, roleID string) error {
+func (db *DB) SetLevelRole(ctx context.Context, guildID string, level int, roleID string, coinsReward int) error {
 	start := time.Now()
 	defer func() {
 		metrics.DBQueryLatency.WithLabelValues("SetLevelRole").Observe(time.Since(start).Seconds())
 	}()
 
 	query := `
-		INSERT INTO level_roles (guild_id, level, role_id)
-		VALUES ($1, $2, $3)
+		INSERT INTO level_roles (guild_id, level, role_id, coins_reward)
+		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (guild_id, level) DO UPDATE SET
-			role_id = EXCLUDED.role_id
+			role_id = EXCLUDED.role_id,
+			coins_reward = EXCLUDED.coins_reward
 	`
-	_, err := db.Pool.Exec(ctx, query, guildID, level, roleID)
+	_, err := db.Pool.Exec(ctx, query, guildID, level, roleID, coinsReward)
 	return err
 }
 
@@ -2306,7 +2308,7 @@ func (db *DB) GetLevelRoles(ctx context.Context, guildID string) ([]LevelRole, e
 	}()
 
 	query := `
-		SELECT guild_id, level, role_id, created_at
+		SELECT guild_id, level, role_id, coins_reward, created_at
 		FROM level_roles
 		WHERE guild_id = $1
 		ORDER BY level ASC
@@ -2320,7 +2322,7 @@ func (db *DB) GetLevelRoles(ctx context.Context, guildID string) ([]LevelRole, e
 	var roles []LevelRole
 	for rows.Next() {
 		var r LevelRole
-		if err := rows.Scan(&r.GuildID, &r.Level, &r.RoleID, &r.CreatedAt); err != nil {
+		if err := rows.Scan(&r.GuildID, &r.Level, &r.RoleID, &r.CoinsReward, &r.CreatedAt); err != nil {
 			return nil, err
 		}
 		roles = append(roles, r)
@@ -2330,22 +2332,23 @@ func (db *DB) GetLevelRoles(ctx context.Context, guildID string) ([]LevelRole, e
 }
 
 // GetLevelRole retrieves the configured role reward for a specific level in a guild.
-func (db *DB) GetLevelRole(ctx context.Context, guildID string, level int) (*string, error) {
+func (db *DB) GetLevelRole(ctx context.Context, guildID string, level int) (*string, int, error) {
 	start := time.Now()
 	defer func() {
 		metrics.DBQueryLatency.WithLabelValues("GetLevelRole").Observe(time.Since(start).Seconds())
 	}()
 
-	query := `SELECT role_id FROM level_roles WHERE guild_id = $1 AND level = $2`
+	query := `SELECT role_id, coins_reward FROM level_roles WHERE guild_id = $1 AND level = $2`
 	var roleID string
-	err := db.Pool.QueryRow(ctx, query, guildID, level).Scan(&roleID)
+	var coinsReward int
+	err := db.Pool.QueryRow(ctx, query, guildID, level).Scan(&roleID, &coinsReward)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil // No role configured for this level
+			return nil, 0, nil // No role configured for this level
 		}
-		return nil, err
+		return nil, 0, err
 	}
-	return &roleID, nil
+	return &roleID, coinsReward, nil
 }
 
 // SetVoiceLogChannel sets the voice log channel for a guild.

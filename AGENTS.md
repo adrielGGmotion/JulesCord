@@ -76,6 +76,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 77 Role Rewards Extension features: added migrations `067_level_role_rewards.up.sql` and `067_level_role_rewards.down.sql` to add `coins_reward` to `level_roles` table.
+- Added `coins_reward` support to `SetLevelRole`, `GetLevelRole`, and `GetLevelRoles` in `internal/db/db.go`.
+- Updated `/levelrole add` command to accept a `coins` reward amount, and `/levelrole list` to display it in `internal/bot/commands/levelrole.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to retrieve the coin reward from the DB and award it via `AddCoins` when assigning a level role.
+
 - Implemented Phase 76 Advanced User Configuration features: added migrations `066_user_config.up.sql` and `066_user_config.down.sql` with table `user_config`.
 - Added DB operations `SetUserConfig` and `GetUserConfig` in `internal/db/db.go`.
 - Added `/settings` command with `dnd` and `dm-notifications` subcommands in `internal/bot/commands/settings.go`.
@@ -1024,10 +1029,10 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `internal/bot/bot.go` to register the `settings` command
 
 ### Phase 77 — Role Rewards Extension
-- [ ] Update `level_roles` to include `coins_reward` for reaching a level
-- [ ] DB operations — `GetLevelRoleReward`, `SetLevelRoleReward`
-- [ ] Update `/levelrole add` to accept a coins reward amount
-- [ ] Update `messageCreateHandler` to award coins when assigning a level role
+- [x] Update `level_roles` to include `coins_reward` for reaching a level
+- [x] DB operations — `GetLevelRoleReward`, `SetLevelRoleReward`
+- [x] Update `/levelrole add` to accept a coins reward amount
+- [x] Update `messageCreateHandler` to award coins when assigning a level role
 
 ### Phase 78 — Nickname Automation
 - [ ] `migrations/067_nicknames.sql` — `nickname_config` table (guild_id, template)
