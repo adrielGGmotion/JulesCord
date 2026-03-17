@@ -1058,3 +1058,15 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `AddTempBan`, `GetActiveTempBans`, `RemoveTempBan`
 - [x] Enhance `/ban` command to accept an optional `duration` parameter (e.g. "1h", "7d")
 - [x] Background goroutine to periodically unban users when their temp ban duration expires
+
+
+- Implemented Phase 80 Channel Moderation Commands features: added `/slowmode`, `/lock`, and `/unlock` commands.
+- `/slowmode` uses `s.ChannelEdit` to update the channel's `RateLimitPerUser`.
+- `/lock` and `/unlock` use `s.ChannelPermissionSet` to deny/allow the `@everyone` role from sending messages.
+- Updated `internal/bot/bot.go` to register these three new commands.
+
+### Phase 80 — Channel Moderation Commands
+- [x] `/slowmode` command — allows mods to set the slowmode delay of a channel (in seconds)
+- [x] `/lock` command — locks the current channel, preventing `@everyone` from sending messages
+- [x] `/unlock` command — unlocks the current channel, allowing `@everyone` to send messages again
+- [x] Update `internal/bot/bot.go` to register these three commands
