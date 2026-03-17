@@ -3619,6 +3619,68 @@ func (db *DB) DeleteQuote(ctx context.Context, id int, guildID string) error {
 	return err
 }
 
+type CustomRole struct {
+	ID      int
+	GuildID string
+	UserID  string
+	RoleID  string
+	Name    string
+	Color   int
+	IconURL string
+}
+
+func (db *DB) CreateCustomRole(ctx context.Context, guildID, userID, roleID, name string, color int, iconURL string) error {
+	query := `
+		INSERT INTO custom_roles (guild_id, user_id, role_id, name, color, icon_url)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT (guild_id, user_id) DO UPDATE SET
+			role_id = EXCLUDED.role_id,
+			name = EXCLUDED.name,
+			color = EXCLUDED.color,
+			icon_url = EXCLUDED.icon_url
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, roleID, name, color, iconURL)
+	return err
+}
+
+func (db *DB) GetCustomRole(ctx context.Context, guildID, userID string) (*CustomRole, error) {
+	query := `
+		SELECT id, guild_id, user_id, role_id, name, color, icon_url
+		FROM custom_roles
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	role := &CustomRole{}
+	err := db.Pool.QueryRow(ctx, query, guildID, userID).Scan(
+		&role.ID, &role.GuildID, &role.UserID, &role.RoleID, &role.Name, &role.Color, &role.IconURL,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return role, nil
+}
+
+func (db *DB) UpdateCustomRole(ctx context.Context, guildID, userID, name string, color int, iconURL string) error {
+	query := `
+		UPDATE custom_roles
+		SET name = $3, color = $4, icon_url = $5
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, name, color, iconURL)
+	return err
+}
+
+func (db *DB) DeleteCustomRole(ctx context.Context, guildID, userID string) error {
+	query := `
+		DELETE FROM custom_roles
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID)
+	return err
+}
+
 // SetMusicChannel sets the music channel for a guild.
 func (db *DB) SetMusicChannel(ctx context.Context, guildID, channelID string) error {
 	query := `
