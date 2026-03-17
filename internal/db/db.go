@@ -4685,6 +4685,36 @@ func (db *DB) RemoveHighlight(ctx context.Context, id int, guildID string) error
 	return nil
 }
 
+// SetNicknameTemplate updates or inserts a nickname template for a guild.
+func (db *DB) SetNicknameTemplate(ctx context.Context, guildID, template string) error {
+	query := `
+		INSERT INTO nickname_config (guild_id, template)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE SET
+			template = EXCLUDED.template,
+			updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, template)
+	if err != nil {
+		return fmt.Errorf("failed to set nickname template: %w", err)
+	}
+	return nil
+}
+
+// GetNicknameTemplate retrieves the nickname template for a guild.
+func (db *DB) GetNicknameTemplate(ctx context.Context, guildID string) (*string, error) {
+	query := `SELECT template FROM nickname_config WHERE guild_id = $1`
+	var template string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&template)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Return nil, nil if no template is found
+		}
+		return nil, fmt.Errorf("failed to get nickname template: %w", err)
+	}
+	return &template, nil
+}
+
 // UserConfig represents the user's advanced configuration settings.
 type UserConfig struct {
 	UserID          string `json:"user_id"`
