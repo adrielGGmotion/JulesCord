@@ -226,6 +226,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Added `/rps` command in `internal/bot/commands/rps.go`.
 - Updated `internal/bot/bot.go` to register the `8ball`, `roll`, and `rps` commands.
 
+### Phase 72 — Fact System
+- [x] `migrations/062_facts.sql` — `facts` table (id, guild_id, text, author_id, created_at)
+- [x] DB operations — `AddFact`, `GetRandomFact`, `DeleteFact`
+- [x] `/fact` command with `add`, `random`, and `delete` subcommands in `internal/bot/commands/fact.go`
+- [x] Update `internal/bot/bot.go` to register the `fact` command
+
 ### Phase 1 — Foundation
 - [x] Remove all old Node.js files (`index.js`, `deploy-commands.js`, `commands/`, `package.json`, `package-lock.json`)
 - [x] `go.mod` and `go.sum` with all required dependencies
