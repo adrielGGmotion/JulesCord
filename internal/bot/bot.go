@@ -784,15 +784,25 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 							slog.Error("Failed to update level for user %s", "arg1", m.Author.ID, "error", err)
 						} else {
 							// Check for level role reward
-							roleID, roleErr := b.DB.GetLevelRole(context.Background(), m.GuildID, newLevel)
+							roleID, coinsReward, roleErr := b.DB.GetLevelRole(context.Background(), m.GuildID, newLevel)
 							if roleErr != nil {
 								slog.Error("Failed to check for level role", "error", roleErr, "guild_id", m.GuildID, "level", newLevel)
-							} else if roleID != nil && *roleID != "" {
-								grantErr := s.GuildMemberRoleAdd(m.GuildID, m.Author.ID, *roleID)
-								if grantErr != nil {
-									slog.Error("Failed to grant level role", "error", grantErr, "guild_id", m.GuildID, "user_id", m.Author.ID, "role_id", *roleID)
-								} else {
-									slog.Info("Granted level role", "guild_id", m.GuildID, "user_id", m.Author.ID, "role_id", *roleID, "level", newLevel)
+							} else {
+								if roleID != nil && *roleID != "" {
+									grantErr := s.GuildMemberRoleAdd(m.GuildID, m.Author.ID, *roleID)
+									if grantErr != nil {
+										slog.Error("Failed to grant level role", "error", grantErr, "guild_id", m.GuildID, "user_id", m.Author.ID, "role_id", *roleID)
+									} else {
+										slog.Info("Granted level role", "guild_id", m.GuildID, "user_id", m.Author.ID, "role_id", *roleID, "level", newLevel)
+									}
+								}
+								if coinsReward > 0 {
+									err := b.DB.AddCoins(context.Background(), m.GuildID, m.Author.ID, coinsReward)
+									if err != nil {
+										slog.Error("Failed to grant level role coins reward", "error", err, "guild_id", m.GuildID, "user_id", m.Author.ID, "coins", coinsReward)
+									} else {
+										slog.Info("Granted level role coins reward", "guild_id", m.GuildID, "user_id", m.Author.ID, "coins", coinsReward, "level", newLevel)
+									}
 								}
 							}
 
@@ -800,6 +810,9 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 							msg := fmt.Sprintf("🎉 Congratulations <@%s>, you just advanced to **Level %d**!", m.Author.ID, newLevel)
 							if roleID != nil && *roleID != "" {
 								msg += fmt.Sprintf(" You've been awarded the <@&%s> role!", *roleID)
+							}
+							if coinsReward > 0 {
+								msg += fmt.Sprintf(" You've also been awarded **%d coins**!", coinsReward)
 							}
 							_, err = s.ChannelMessageSend(m.ChannelID, msg)
 							if err != nil {

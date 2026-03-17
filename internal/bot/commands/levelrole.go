@@ -36,6 +36,13 @@ func LevelRole(database *db.DB) *Command {
 							Description: "The role to award",
 							Required:    true,
 						},
+						{
+							Type:        discordgo.ApplicationCommandOptionInteger,
+							Name:        "coins",
+							Description: "The coins reward to award",
+							Required:    false,
+							MinValue:    func(v float64) *float64 { return &v }(0),
+						},
 					},
 				},
 				{
@@ -77,6 +84,7 @@ func LevelRole(database *db.DB) *Command {
 			case "add":
 				var level int
 				var roleID string
+				var coinsReward int
 
 				for _, opt := range subcommand.Options {
 					switch opt.Name {
@@ -84,6 +92,8 @@ func LevelRole(database *db.DB) *Command {
 						level = int(opt.IntValue())
 					case "role":
 						roleID = opt.RoleValue(s, i.GuildID).ID
+					case "coins":
+						coinsReward = int(opt.IntValue())
 					}
 				}
 
@@ -93,16 +103,21 @@ func LevelRole(database *db.DB) *Command {
 				}
 
 				// Basic validation: Check if role exists and is manageable by bot (this is not full validation, discordgo doesn't provide easy pos check without fetching roles, but catching the ID works)
-				err := database.SetLevelRole(context.Background(), i.GuildID, level, roleID)
+				err := database.SetLevelRole(context.Background(), i.GuildID, level, roleID, coinsReward)
 				if err != nil {
 					slog.Error("Failed to set level role", "error", err, "guild_id", i.GuildID, "level", level)
 					SendError(s, i, "Failed to set level role reward.")
 					return
 				}
 
+				desc := fmt.Sprintf("Users will now receive <@&%s> upon reaching **Level %d**.", roleID, level)
+				if coinsReward > 0 {
+					desc += fmt.Sprintf("\nThey will also receive **%d coins**.", coinsReward)
+				}
+
 				SendEmbed(s, i, &discordgo.MessageEmbed{
 					Title:       "Level Role Added",
-					Description: fmt.Sprintf("Users will now receive <@&%s> upon reaching **Level %d**.", roleID, level),
+					Description: desc,
 					Color:       0x00FF00,
 				})
 
@@ -152,7 +167,11 @@ func LevelRole(database *db.DB) *Command {
 
 				description := ""
 				for _, r := range roles {
-					description += fmt.Sprintf("**Level %d:** <@&%s>\n", r.Level, r.RoleID)
+					rewardStr := fmt.Sprintf("**Level %d:** <@&%s>", r.Level, r.RoleID)
+					if r.CoinsReward > 0 {
+						rewardStr += fmt.Sprintf(" + %d coins", r.CoinsReward)
+					}
+					description += rewardStr + "\n"
 				}
 
 				SendEmbed(s, i, &discordgo.MessageEmbed{
