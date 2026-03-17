@@ -4484,3 +4484,45 @@ func (db *DB) GetQueue(ctx context.Context, guildID string) ([]MusicQueue, error
 	}
 	return queue, rows.Err()
 }
+
+// AddFact inserts a new fact for a guild.
+func (db *DB) AddFact(ctx context.Context, guildID string, authorID string, text string) (int, error) {
+	var id int
+	err := db.Pool.QueryRow(ctx,
+		"INSERT INTO facts (guild_id, author_id, text) VALUES ($1, $2, $3) RETURNING id",
+		guildID, authorID, text,
+	).Scan(&id)
+	return id, err
+}
+
+// GetRandomFact returns a random fact for a guild.
+func (db *DB) GetRandomFact(ctx context.Context, guildID string) (*int, *string, *string, error) {
+	var id int
+	var text, authorID string
+	err := db.Pool.QueryRow(ctx,
+		"SELECT id, text, author_id FROM facts WHERE guild_id = $1 ORDER BY RANDOM() LIMIT 1",
+		guildID,
+	).Scan(&id, &text, &authorID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil, nil, nil
+		}
+		return nil, nil, nil, err
+	}
+	return &id, &text, &authorID, nil
+}
+
+// DeleteFact deletes a fact by ID and guild ID.
+func (db *DB) DeleteFact(ctx context.Context, guildID string, factID int) error {
+	tag, err := db.Pool.Exec(ctx,
+		"DELETE FROM facts WHERE guild_id = $1 AND id = $2",
+		guildID, factID,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return errors.New("fact not found or access denied")
+	}
+	return nil
+}

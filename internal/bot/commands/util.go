@@ -43,6 +43,14 @@ func SendError(s *discordgo.Session, i *discordgo.InteractionCreate, message str
 	})
 }
 
+// SendErrorEdit sends an error message reply to a deferred interaction.
+func SendErrorEdit(s *discordgo.Session, i *discordgo.InteractionCreate, message string) {
+	content := "❌ " + message
+	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content: &content,
+	})
+}
+
 // SendEmbed sends an embed reply to an interaction.
 func SendEmbed(s *discordgo.Session, i *discordgo.InteractionCreate, embed *discordgo.MessageEmbed) {
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
