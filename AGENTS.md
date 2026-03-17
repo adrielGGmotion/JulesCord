@@ -75,6 +75,10 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 ---
 
 ## Completed Work
+- Implemented Phase 73 Custom Roles System features: added migrations `063_custom_roles.up.sql` and `063_custom_roles.down.sql` with table `custom_roles`.
+- Added DB operations `CreateCustomRole`, `GetCustomRole`, `UpdateCustomRole`, and `DeleteCustomRole` in `internal/db/db.go`.
+- Added `/myrole` command with `create`, `name`, `color`, `icon`, and `delete` subcommands in `internal/bot/commands/myrole.go`.
+- Updated `internal/bot/bot.go` to register the `myrole` command.
 - Implemented Phase 2 Database Foundation: created `internal/db/db.go` with connection pooling via `pgxpool`, and configured automated migration runs using `golang-migrate`.
 - Authored initial migration `migrations/001_init.sql` defining `guilds`, `users`, and `command_log` tables.
 - Integrated database with the Discord bot in `internal/bot/bot.go` to handle `guildCreate` (upserting guilds) and interaction creates (upserting users and logging commands).
@@ -231,6 +235,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] DB operations — `AddFact`, `GetRandomFact`, `DeleteFact`
 - [x] `/fact` command with `add`, `random`, and `delete` subcommands in `internal/bot/commands/fact.go`
 - [x] Update `internal/bot/bot.go` to register the `fact` command
+
+### Phase 73 — Custom Roles System
+- [x] `migrations/063_custom_roles.sql` — `custom_roles` table (id, guild_id, user_id, role_id, name, color, icon_url)
+- [x] DB operations — `CreateCustomRole`, `GetCustomRole`, `UpdateCustomRole`, `DeleteCustomRole`
+- [x] `/myrole` command with `create`, `name`, `color`, `icon`, and `delete` subcommands in `internal/bot/commands/myrole.go`
+- [x] Update `internal/bot/bot.go` to register the `myrole` command
 
 ### Phase 1 — Foundation
 - [x] Remove all old Node.js files (`index.js`, `deploy-commands.js`, `commands/`, `package.json`, `package-lock.json`)
