@@ -137,6 +137,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.FactCommand(database))
 	registry.Add(commands.MyRoleCommand(database))
 	registry.Add(commands.HighlightCommand(database))
+	registry.Add(commands.NickTemplate(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -1006,6 +1007,21 @@ func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemb
 			}
 		}
 		slog.Info("Restored user roles", "user_id", m.User.ID, "guild_id", m.GuildID, "role_count", len(savedRoles))
+	}
+
+	// Apply nickname template if configured
+	nickTemplate, err := b.DB.GetNicknameTemplate(context.Background(), m.GuildID)
+	if err != nil {
+		slog.Error("Failed to fetch nickname template", "guild_id", m.GuildID, "error", err)
+	} else if nickTemplate != nil && *nickTemplate != "" {
+		newNickname := strings.ReplaceAll(*nickTemplate, "{user}", m.User.Username)
+		if len(newNickname) > 32 {
+			newNickname = newNickname[:32]
+		}
+		err := s.GuildMemberNickname(m.GuildID, m.User.ID, newNickname)
+		if err != nil {
+			slog.Error("Failed to apply nickname template", "guild_id", m.GuildID, "user_id", m.User.ID, "nickname", newNickname, "error", err)
+		}
 	}
 }
 

@@ -76,6 +76,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 78 Nickname Automation features: added migrations `068_nicknames.up.sql` and `068_nicknames.down.sql` with table `nickname_config`.
+- Added DB operations `SetNicknameTemplate` and `GetNicknameTemplate` in `internal/db/db.go`.
+- Added `/nicktemplate` command with `set` and `view` subcommands in `internal/bot/commands/nicktemplate.go`.
+- Updated `guildMemberAddHandler` in `internal/bot/bot.go` to automatically apply the configured nickname template to new members.
+- Updated `internal/bot/bot.go` to register the `nicktemplate` command.
+
 - Implemented Phase 77 Role Rewards Extension features: added migrations `067_level_role_rewards.up.sql` and `067_level_role_rewards.down.sql` to add `coins_reward` to `level_roles` table.
 - Added `coins_reward` support to `SetLevelRole`, `GetLevelRole`, and `GetLevelRoles` in `internal/db/db.go`.
 - Updated `/levelrole add` command to accept a `coins` reward amount, and `/levelrole list` to display it in `internal/bot/commands/levelrole.go`.
@@ -1035,7 +1041,7 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `messageCreateHandler` to award coins when assigning a level role
 
 ### Phase 78 — Nickname Automation
-- [ ] `migrations/067_nicknames.sql` — `nickname_config` table (guild_id, template)
-- [ ] DB operations — `SetNicknameTemplate`, `GetNicknameTemplate`
-- [ ] `/nicktemplate` command to configure the format (e.g. `[Member] {user}`)
-- [ ] Update `guildMemberAddHandler` to apply the nickname template when a user joins
+- [x] `migrations/068_nicknames.sql` — `nickname_config` table (guild_id, template)
+- [x] DB operations — `SetNicknameTemplate`, `GetNicknameTemplate`
+- [x] `/nicktemplate` command to configure the format (e.g. `[Member] {user}`)
+- [x] Update `guildMemberAddHandler` to apply the nickname template when a user joins
