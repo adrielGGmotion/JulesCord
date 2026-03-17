@@ -4484,3 +4484,72 @@ func (db *DB) GetQueue(ctx context.Context, guildID string) ([]MusicQueue, error
 	}
 	return queue, rows.Err()
 }
+
+// FollowUser adds a follow record where followerID follows followingID.
+func (db *DB) FollowUser(ctx context.Context, followerID, followingID string) error {
+	query := `
+		INSERT INTO social_follows (follower_id, following_id)
+		VALUES ($1, $2)
+		ON CONFLICT (follower_id, following_id) DO NOTHING
+	`
+	_, err := db.Pool.Exec(ctx, query, followerID, followingID)
+	return err
+}
+
+// UnfollowUser removes a follow record.
+func (db *DB) UnfollowUser(ctx context.Context, followerID, followingID string) error {
+	query := `
+		DELETE FROM social_follows
+		WHERE follower_id = $1 AND following_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, followerID, followingID)
+	return err
+}
+
+// GetFollowers returns a list of user IDs who follow the given user.
+func (db *DB) GetFollowers(ctx context.Context, userID string) ([]string, error) {
+	query := `
+		SELECT follower_id
+		FROM social_follows
+		WHERE following_id = $1
+	`
+	rows, err := db.Pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var followers []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		followers = append(followers, id)
+	}
+	return followers, nil
+}
+
+// GetFollowing returns a list of user IDs whom the given user follows.
+func (db *DB) GetFollowing(ctx context.Context, userID string) ([]string, error) {
+	query := `
+		SELECT following_id
+		FROM social_follows
+		WHERE follower_id = $1
+	`
+	rows, err := db.Pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var following []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		following = append(following, id)
+	}
+	return following, nil
+}

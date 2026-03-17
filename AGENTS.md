@@ -220,6 +220,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Updated `internal/bot/bot.go` to register the `skip` and `stop` commands and pass the DB connection to the `play` command.
 
 
+- Implemented Phase 72 User Social System features: added migrations `062_social_follows.up.sql` and `062_social_follows.down.sql` with table `social_follows`.
+- Added DB operations `FollowUser`, `UnfollowUser`, `GetFollowers`, and `GetFollowing` in `internal/db/db.go`.
+- Added `/social` command with `follow`, `unfollow`, `followers`, and `following` subcommands in `internal/bot/commands/social.go`.
+- Updated `internal/bot/bot.go` to register the `social` command.
+
 - Implemented Phase 71 Fun Commands features:
 - Added `/8ball` command in `internal/bot/commands/8ball.go`.
 - Added `/roll` command in `internal/bot/commands/roll.go`.
@@ -974,3 +979,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Add `/roll` command in `internal/bot/commands/roll.go` to roll virtual dice
 - [x] Add `/rps` command in `internal/bot/commands/rps.go` to play Rock, Paper, Scissors against the bot
 - [x] Update `internal/bot/bot.go` to register the `8ball`, `roll`, and `rps` commands
+
+### Phase 72 — User Social System
+- [x] `migrations/062_social_follows.sql` — `social_follows` table (`follower_id`, `following_id`)
+- [x] DB operations — `FollowUser`, `UnfollowUser`, `GetFollowers`, `GetFollowing`
+- [x] `/social` command with `follow`, `unfollow`, `followers`, and `following` subcommands
+- [x] Update `internal/bot/bot.go` to register the `social` command
