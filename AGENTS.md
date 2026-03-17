@@ -211,6 +211,14 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Frontend: Updated routing in `web/src/App.jsx` to include the new Guild Settings page.
 - Frontend: Updated Guilds page `web/src/pages/Guilds.jsx` to include an Action column with links to the settings page.
 
+
+- Implemented Phase 70 Music System Enhancements features: added migrations `061_music_queue.up.sql` and `061_music_queue.down.sql` with table `music_queue`.
+- Added DB operations `PlayMusic`, `SkipMusic`, `StopMusic`, and `GetQueue` in `internal/db/db.go`.
+- Updated `/play` command in `internal/bot/commands/play.go` to insert songs into the DB queue instead of showing a placeholder.
+- Added `/skip` command to remove the currently playing song from the queue in `internal/bot/commands/skip.go`.
+- Added `/stop` command to clear the music queue in `internal/bot/commands/stop.go`.
+- Updated `internal/bot/bot.go` to register the `skip` and `stop` commands and pass the DB connection to the `play` command.
+
 ### Phase 1 — Foundation
 - [x] Remove all old Node.js files (`index.js`, `deploy-commands.js`, `commands/`, `package.json`, `package-lock.json`)
 - [x] `go.mod` and `go.sum` with all required dependencies
@@ -947,3 +955,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Backend: Update `PATCH /api/guilds/:id/config` to allow updating all these settings
 - [x] Frontend: Create GuildSettings component at `web/src/pages/GuildSettings.jsx`
 - [x] Frontend: Update routing in `web/src/App.jsx` to include the new Guild Settings page
+
+### Phase 70 — Music System Enhancements
+- [x] Backend: Add `PlayMusic`, `SkipMusic`, `StopMusic`, and `GetQueue` DB operations in `internal/db/db.go` to mock/store currently playing music state.
+- [x] Implement actual logic for `/play` command in `internal/bot/commands/play.go` using a mock URL player or text confirmation.
+- [x] Add `/skip` command to skip the currently playing track in `internal/bot/commands/skip.go`.
+- [x] Add `/stop` command to stop music and clear the queue in `internal/bot/commands/stop.go`.
