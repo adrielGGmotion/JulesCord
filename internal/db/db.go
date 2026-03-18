@@ -979,6 +979,7 @@ type ReactionRole struct {
 	EmojiID   string `json:"emoji_id"`
 	IsCustom  bool   `json:"is_custom"`
 	RoleID    string `json:"role_id"`
+	GroupID   *int   `json:"group_id"`
 }
 
 // AddReactionRole adds a new reaction role mapping.
@@ -1007,12 +1008,12 @@ func (db *DB) RemoveReactionRole(ctx context.Context, messageID, emoji, emojiID 
 // GetReactionRole retrieves a reaction role mapping.
 func (db *DB) GetReactionRole(ctx context.Context, messageID, emoji, emojiID string) (*ReactionRole, error) {
 	query := `
-		SELECT message_id, emoji, emoji_id, is_custom, role_id
+		SELECT message_id, emoji, emoji_id, is_custom, role_id, group_id
 		FROM reaction_roles
 		WHERE message_id = $1 AND emoji = $2 AND emoji_id = $3
 	`
 	var rr ReactionRole
-	err := db.Pool.QueryRow(ctx, query, messageID, emoji, emojiID).Scan(&rr.MessageID, &rr.Emoji, &rr.EmojiID, &rr.IsCustom, &rr.RoleID)
+	err := db.Pool.QueryRow(ctx, query, messageID, emoji, emojiID).Scan(&rr.MessageID, &rr.Emoji, &rr.EmojiID, &rr.IsCustom, &rr.RoleID, &rr.GroupID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil // Return nil if no mapping is found
@@ -4951,7 +4952,6 @@ func (db *DB) GetAdvancedLogConfig(ctx context.Context, guildID string) (*Advanc
 	return &config, nil
 }
 
-
 // SetDynamicVoiceConfig updates the dynamic voice config for a guild.
 func (db *DB) SetDynamicVoiceConfig(ctx context.Context, guildID, categoryID, triggerChannelID string) error {
 	query := `
@@ -4963,14 +4963,12 @@ func (db *DB) SetDynamicVoiceConfig(ctx context.Context, guildID, categoryID, tr
 	return err
 }
 
-
 // DynamicVoiceConfig represents the configuration for dynamic voice channels.
 type DynamicVoiceConfig struct {
 	GuildID          string `json:"guild_id"`
 	CategoryID       string `json:"category_id"`
 	TriggerChannelID string `json:"trigger_channel_id"`
 }
-
 
 // GetDynamicVoiceConfig gets the dynamic voice config for a guild.
 func (db *DB) GetDynamicVoiceConfig(ctx context.Context, guildID string) (*DynamicVoiceConfig, error) {
@@ -4984,4 +4982,104 @@ func (db *DB) GetDynamicVoiceConfig(ctx context.Context, guildID string) (*Dynam
 		return nil, err
 	}
 	return &config, nil
+}
+
+// ReactionRoleGroup represents a group of reaction roles
+type ReactionRoleGroup struct {
+	ID          int
+	GuildID     string
+	Name        string
+	IsExclusive bool
+	MaxRoles    int
+}
+
+// CreateReactionRoleGroup creates a new reaction role group
+func (db *DB) CreateReactionRoleGroup(ctx context.Context, group *ReactionRoleGroup) error {
+	query := `
+		INSERT INTO reaction_role_groups (guild_id, name, is_exclusive, max_roles)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id
+	`
+	err := db.Pool.QueryRow(ctx, query, group.GuildID, group.Name, group.IsExclusive, group.MaxRoles).Scan(&group.ID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetReactionRoleGroups gets all reaction role groups for a guild
+func (db *DB) GetReactionRoleGroups(ctx context.Context, guildID string) ([]ReactionRoleGroup, error) {
+	query := `
+		SELECT id, guild_id, name, is_exclusive, max_roles
+		FROM reaction_role_groups
+		WHERE guild_id = $1
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var groups []ReactionRoleGroup
+	for rows.Next() {
+		var g ReactionRoleGroup
+		if err := rows.Scan(&g.ID, &g.GuildID, &g.Name, &g.IsExclusive, &g.MaxRoles); err != nil {
+			return nil, err
+		}
+		groups = append(groups, g)
+	}
+	return groups, nil
+}
+
+// AssignRoleToGroup assigns a reaction role to a group
+func (db *DB) AssignRoleToGroup(ctx context.Context, messageID, emoji, emojiID string, groupID int) error {
+	query := `
+		UPDATE reaction_roles
+		SET group_id = $1
+		WHERE message_id = $2 AND emoji = $3 AND emoji_id = $4
+	`
+	_, err := db.Pool.Exec(ctx, query, groupID, messageID, emoji, emojiID)
+	return err
+}
+
+// GetGroupRoles gets all role IDs that belong to a specific reaction role group
+func (db *DB) GetGroupRoles(ctx context.Context, groupID int) ([]string, error) {
+	query := `
+		SELECT role_id
+		FROM reaction_roles
+		WHERE group_id = $1
+	`
+	rows, err := db.Pool.Query(ctx, query, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var roleIDs []string
+	for rows.Next() {
+		var roleID string
+		if err := rows.Scan(&roleID); err != nil {
+			return nil, err
+		}
+		roleIDs = append(roleIDs, roleID)
+	}
+	return roleIDs, nil
+}
+
+// GetReactionRoleGroup gets a reaction role group by ID
+func (db *DB) GetReactionRoleGroup(ctx context.Context, id int) (*ReactionRoleGroup, error) {
+	query := `
+		SELECT id, guild_id, name, is_exclusive, max_roles
+		FROM reaction_role_groups
+		WHERE id = $1
+	`
+	var g ReactionRoleGroup
+	err := db.Pool.QueryRow(ctx, query, id).Scan(&g.ID, &g.GuildID, &g.Name, &g.IsExclusive, &g.MaxRoles)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &g, nil
 }
