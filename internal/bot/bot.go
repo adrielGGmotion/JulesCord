@@ -143,6 +143,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Lock(database))
 	registry.Add(commands.Unlock(database))
 	registry.Add(commands.Slowmode(database))
+	registry.Add(commands.Cooldown(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -572,6 +573,22 @@ func (b *Bot) interactionCreateHandler(s *discordgo.Session, i *discordgo.Intera
 			err = b.DB.LogCommand(context.Background(), commandName, user.ID, i.GuildID)
 			if err != nil {
 				slog.Error("Failed to log command execution for %s", "arg1", commandName, "error", err)
+			}
+
+			// Check custom command cooldown
+			expiresAt, err := b.DB.GetCommandCooldown(context.Background(), user.ID, commandName)
+			if err != nil {
+				slog.Error("Failed to check command cooldown", "error", err)
+			} else if !expiresAt.IsZero() && expiresAt.After(time.Now()) {
+				durationStr := expiresAt.Sub(time.Now()).Round(time.Second).String()
+				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: fmt.Sprintf("You are on cooldown for `/%s`. Try again in %s.", commandName, durationStr),
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				return
 			}
 		}
 	}

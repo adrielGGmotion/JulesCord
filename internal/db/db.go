@@ -4826,3 +4826,34 @@ func (db *DB) MarkAllUserModActionsResolved(ctx context.Context, guildID, userID
 	_, err := db.Pool.Exec(ctx, query, guildID, userID, action)
 	return err
 }
+
+// SetCommandCooldown sets or updates a user's command cooldown duration.
+func (db *DB) SetCommandCooldown(ctx context.Context, userID, command string, duration time.Duration) error {
+	query := `
+		INSERT INTO command_cooldowns (user_id, command, expires_at)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (user_id, command)
+		DO UPDATE SET expires_at = EXCLUDED.expires_at;
+	`
+	expiresAt := time.Now().Add(duration)
+	_, err := db.Pool.Exec(ctx, query, userID, command, expiresAt)
+	return err
+}
+
+// GetCommandCooldown retrieves a user's current command cooldown expiration time, if any.
+// If the user has no active cooldown for the command, it returns a zero time.Time and nil error.
+func (db *DB) GetCommandCooldown(ctx context.Context, userID, command string) (time.Time, error) {
+	query := `
+		SELECT expires_at FROM command_cooldowns
+		WHERE user_id = $1 AND command = $2;
+	`
+	var expiresAt time.Time
+	err := db.Pool.QueryRow(ctx, query, userID, command).Scan(&expiresAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return time.Time{}, nil // Not on cooldown
+		}
+		return time.Time{}, err
+	}
+	return expiresAt, nil
+}

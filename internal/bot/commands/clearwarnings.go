@@ -81,7 +81,7 @@ func ClearWarnings(database *db.DB) *Command {
 			// Clear warnings
 			err := database.ClearWarnings(context.Background(), i.GuildID, targetUser.ID)
 			if err != nil {
-				slog.Error("Error clearing warnings for user", "user_id", "arg1", targetUser.ID, "error", err)
+				slog.Error("Error clearing warnings for user", "user_id", targetUser.ID, "error", err)
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
@@ -98,7 +98,7 @@ func ClearWarnings(database *db.DB) *Command {
 			// Log Moderation Action
 			err = database.LogModActionComplex(context.Background(), i.GuildID, targetUser.ID, moderator.ID, "clearwarnings", reason, nil, nil)
 			if err != nil {
-				slog.Error("Error logging mod action 'clearwarnings'", "user_id", "arg1", targetUser.ID, "error", err)
+				slog.Error("Error logging mod action 'clearwarnings'", "user_id", targetUser.ID, "error", err)
 			}
 
 			// Respond with Embed

@@ -71,7 +71,7 @@ func Unban(database *db.DB) *Command {
 			// Execute the unban
 			err := s.GuildBanDelete(i.GuildID, targetUserID)
 			if err != nil {
-				slog.Error("Error unbanning user", "user_id", "arg1", targetUserID, "arg2", i.GuildID, "error", err)
+				slog.Error("Error unbanning user", "user_id", targetUserID, "guild_id", i.GuildID, "error", err)
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
@@ -101,7 +101,7 @@ func Unban(database *db.DB) *Command {
 				// Log Moderation Action
 				err = database.LogModActionComplex(context.Background(), i.GuildID, targetUserID, moderator.ID, "unban", reason, nil, nil)
 				if err != nil {
-					slog.Error("Error logging mod action 'unban'", "user_id", "arg1", targetUserID, "error", err)
+					slog.Error("Error logging mod action 'unban'", "user_id", targetUserID, "error", err)
 				}
 			}
 
