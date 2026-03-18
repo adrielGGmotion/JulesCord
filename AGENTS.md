@@ -76,6 +76,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 93 Auto-Publish (Crosspost) Messages features: added migrations `079_auto_publish.up.sql` and `079_auto_publish.down.sql` with table `auto_publish_config`.
+- Added DB operations `AddAutoPublishChannel`, `IsAutoPublishChannel`, and `RemoveAutoPublishChannel` in `internal/db/db.go`.
+- Added `/autopublish` command in `internal/bot/commands/autopublish.go` with `add` and `remove` subcommands.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to automatically crosspost messages sent in configured announcement channels.
+- Updated `internal/bot/bot.go` to register the `autopublish` command.
+
 - Implemented Phase 91 Thread Management features: added migrations `077_thread_management.up.sql` and `077_thread_management.down.sql` with table `thread_config`.
 - Added DB operations `SetThreadConfig` and `GetThreadConfig` in `internal/db/db.go`.
 - Added `/thread` command with `setup`, `lock`, and `unlock` subcommands in `internal/bot/commands/thread.go`.
@@ -1209,3 +1215,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `messageReactionRemoveHandler` in `internal/bot/bot.go` to log role removals if `advanced_log_config` enables role logging.
 
  — Dynamic Voice Channels
+
+### Phase 93 — Auto-Publish (Crosspost) Messages
+- [x] `migrations/079_auto_publish.sql` — `auto_publish_config` table (guild_id, channel_id)
+- [x] DB operations — `SetAutoPublishChannel`, `GetAutoPublishChannel`, `RemoveAutoPublishChannel`
+- [x] `/autopublish` command with `add` and `remove` subcommands
+- [x] Update `messageCreateHandler` to automatically crosspost (`ChannelMessageCrosspost`) messages in configured announcement channels
