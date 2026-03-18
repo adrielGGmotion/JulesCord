@@ -20,10 +20,10 @@ import (
 
 // Bot manages the Discord connection.
 type Bot struct {
-	Session        *discordgo.Session
-	Config         *config.Config
-	Registry       *commands.Registry
-	DB             *db.DB
+	Session          *discordgo.Session
+	Config           *config.Config
+	Registry         *commands.Registry
+	DB               *db.DB
 	xpCooldown       sync.Map // map[string]time.Time (key: guildID_channelID_userID)
 	AutoResponders   sync.Map // map[string][]*db.AutoResponder (key: guildID)
 	antiSpamTracking sync.Map // map[string][]time.Time (key: guildID_userID)
@@ -149,6 +149,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Unlock(database))
 	registry.Add(commands.Slowmode(database))
 	registry.Add(commands.Cooldown(database))
+	registry.Add(commands.ReactionGroup(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -986,6 +987,7 @@ func (b *Bot) messageReactionAddHandler(s *discordgo.Session, r *discordgo.Messa
 	}
 
 	if rr != nil {
+
 		err = s.GuildMemberRoleAdd(r.GuildID, r.UserID, rr.RoleID)
 		if err != nil {
 			slog.Error("Failed to add role %s to user %s via reaction", "arg1", rr.RoleID, "arg2", r.UserID, "error", err)
@@ -996,6 +998,32 @@ func (b *Bot) messageReactionAddHandler(s *discordgo.Session, r *discordgo.Messa
 				Color:       0x2ECC71, // Green
 			}
 			b.handleAdvancedLog(s, r.GuildID, "role_update", embed)
+
+			if rr.GroupID != nil {
+				group, err := b.DB.GetReactionRoleGroup(context.Background(), *rr.GroupID)
+				if err == nil && group != nil && group.IsExclusive {
+					groupRoles, err := b.DB.GetGroupRoles(context.Background(), *rr.GroupID)
+					if err == nil {
+						member, err := s.GuildMember(r.GuildID, r.UserID)
+						if err == nil {
+							// Remove other roles in the group
+							for _, roleID := range groupRoles {
+								if roleID != rr.RoleID {
+									for _, memberRole := range member.Roles {
+										if roleID == memberRole {
+											err = s.GuildMemberRoleRemove(r.GuildID, r.UserID, roleID)
+											if err != nil {
+												slog.Error("Failed to remove exclusive reaction role", "error", err)
+											}
+											break
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 }

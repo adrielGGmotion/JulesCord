@@ -250,6 +250,13 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Updated `voiceStateUpdateHandler` in `internal/bot/bot.go` to support dynamic voice creation, moving users into them, and deleting them when empty.
 - Updated `internal/bot/bot.go` to register the `dynamicvoice` command.
 
+
+- Implemented Phase 89 Reaction Role Groups features: added migrations `075_reaction_role_groups.up.sql` and `075_reaction_role_groups.down.sql` with table `reaction_role_groups` and altering `reaction_roles` table to add `group_id`.
+- Added DB operations `CreateReactionRoleGroup`, `GetReactionRoleGroups`, `AssignRoleToGroup`, `GetGroupRoles`, and `GetReactionRoleGroup` in `internal/db/db.go`.
+- Added `/reactiongroup` command with `create`, `list`, and `addrole` subcommands in `internal/bot/commands/reactiongroup.go`.
+- Updated `messageReactionAddHandler` in `internal/bot/bot.go` to enforce exclusivity by removing other roles in the group when a role is assigned.
+- Updated `internal/bot/bot.go` to register the `reactiongroup` command.
+
 ## Task Checklist
 
 - Implemented Phase 65 Reputation Leaderboard features:
@@ -405,6 +412,13 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Slash commands are registered with Discord's REST API on every bot startup
 - Use embeds for all Discord responses — never plain text
 
+
+
+### Phase 89 — Reaction Role Groups (Exclusive Roles)
+- [x] `migrations/075_reaction_role_groups.sql` — `reaction_role_groups` table (id, guild_id, name, is_exclusive, max_roles)
+- [x] DB operations — `CreateReactionRoleGroup`, `GetReactionRoleGroups`, `AssignRoleToGroup`
+- [x] `/reactiongroup` command — `create`, `list`, and `addrole` subcommands
+- [x] Update `messageReactionAddHandler` to enforce exclusivity (remove other roles in group when one is selected)
 
 ### Phase 88 — Dynamic Voice Channels
 - [x] `migrations/074_dynamic_voice.sql` — `dynamic_voice_config` table (guild_id, category_id, trigger_channel_id)
