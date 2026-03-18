@@ -4950,3 +4950,38 @@ func (db *DB) GetAdvancedLogConfig(ctx context.Context, guildID string) (*Advanc
 	}
 	return &config, nil
 }
+
+
+// SetDynamicVoiceConfig updates the dynamic voice config for a guild.
+func (db *DB) SetDynamicVoiceConfig(ctx context.Context, guildID, categoryID, triggerChannelID string) error {
+	query := `
+		INSERT INTO dynamic_voice_config (guild_id, category_id, trigger_channel_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id) DO UPDATE SET category_id = EXCLUDED.category_id, trigger_channel_id = EXCLUDED.trigger_channel_id
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, categoryID, triggerChannelID)
+	return err
+}
+
+
+// DynamicVoiceConfig represents the configuration for dynamic voice channels.
+type DynamicVoiceConfig struct {
+	GuildID          string `json:"guild_id"`
+	CategoryID       string `json:"category_id"`
+	TriggerChannelID string `json:"trigger_channel_id"`
+}
+
+
+// GetDynamicVoiceConfig gets the dynamic voice config for a guild.
+func (db *DB) GetDynamicVoiceConfig(ctx context.Context, guildID string) (*DynamicVoiceConfig, error) {
+	query := `SELECT guild_id, category_id, trigger_channel_id FROM dynamic_voice_config WHERE guild_id = $1`
+	var config DynamicVoiceConfig
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&config.GuildID, &config.CategoryID, &config.TriggerChannelID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No config set
+		}
+		return nil, err
+	}
+	return &config, nil
+}
