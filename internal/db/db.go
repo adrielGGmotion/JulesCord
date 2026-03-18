@@ -5241,3 +5241,75 @@ func (db *DB) IsAutoPublishChannel(ctx context.Context, guildID, channelID strin
 	metrics.DBQueryLatency.WithLabelValues("IsAutoPublishChannel").Observe(time.Since(start).Seconds())
 	return exists, nil
 }
+
+// CustomEmbed represents a custom embed stored for a guild.
+type CustomEmbed struct {
+	ID          int
+	GuildID     string
+	Name        string
+	Title       *string
+	Description *string
+	Color       *int
+	CreatedAt   time.Time
+}
+
+// SaveCustomEmbed creates or updates a custom embed by name.
+func (db *DB) SaveCustomEmbed(ctx context.Context, guildID, name string, title, description *string, color *int) error {
+	query := `
+		INSERT INTO custom_embeds (guild_id, name, title, description, color)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (guild_id, name) DO UPDATE SET
+			title = EXCLUDED.title,
+			description = EXCLUDED.description,
+			color = EXCLUDED.color;
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, name, title, description, color)
+	return err
+}
+
+// GetCustomEmbed retrieves a custom embed by name.
+func (db *DB) GetCustomEmbed(ctx context.Context, guildID, name string) (*CustomEmbed, error) {
+	query := `SELECT id, guild_id, name, title, description, color, created_at FROM custom_embeds WHERE guild_id = $1 AND name = $2`
+
+	var ce CustomEmbed
+	err := db.Pool.QueryRow(ctx, query, guildID, name).Scan(
+		&ce.ID, &ce.GuildID, &ce.Name, &ce.Title, &ce.Description, &ce.Color, &ce.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &ce, nil
+}
+
+// DeleteCustomEmbed deletes a custom embed by name.
+func (db *DB) DeleteCustomEmbed(ctx context.Context, guildID, name string) error {
+	query := `DELETE FROM custom_embeds WHERE guild_id = $1 AND name = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, name)
+	return err
+}
+
+// ListCustomEmbeds returns all custom embeds for a guild.
+func (db *DB) ListCustomEmbeds(ctx context.Context, guildID string) ([]*CustomEmbed, error) {
+	query := `SELECT id, guild_id, name, title, description, color, created_at FROM custom_embeds WHERE guild_id = $1 ORDER BY created_at DESC LIMIT 50`
+
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var embeds []*CustomEmbed
+	for rows.Next() {
+		var ce CustomEmbed
+		if err := rows.Scan(&ce.ID, &ce.GuildID, &ce.Name, &ce.Title, &ce.Description, &ce.Color, &ce.CreatedAt); err != nil {
+			return nil, err
+		}
+		embeds = append(embeds, &ce)
+	}
+
+	return embeds, rows.Err()
+}

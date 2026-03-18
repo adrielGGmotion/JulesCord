@@ -76,6 +76,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 94 Custom Embed Builder features: added migrations `080_custom_embeds.up.sql` and `080_custom_embeds.down.sql` with table `custom_embeds`.
+- Added DB operations `SaveCustomEmbed`, `GetCustomEmbed`, `DeleteCustomEmbed`, and `ListCustomEmbeds` in `internal/db/db.go`.
+- Added `/embed` command with `create`, `view`, `delete`, and `list` subcommands in `internal/bot/commands/embed.go`.
+- Updated `internal/bot/bot.go` to register the `embed` command.
+
 - Implemented Phase 93 Auto-Publish (Crosspost) Messages features: added migrations `079_auto_publish.up.sql` and `079_auto_publish.down.sql` with table `auto_publish_config`.
 - Added DB operations `AddAutoPublishChannel`, `IsAutoPublishChannel`, and `RemoveAutoPublishChannel` in `internal/db/db.go`.
 - Added `/autopublish` command in `internal/bot/commands/autopublish.go` with `add` and `remove` subcommands.
@@ -1221,3 +1226,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetAutoPublishChannel`, `GetAutoPublishChannel`, `RemoveAutoPublishChannel`
 - [x] `/autopublish` command with `add` and `remove` subcommands
 - [x] Update `messageCreateHandler` to automatically crosspost (`ChannelMessageCrosspost`) messages in configured announcement channels
+
+### Phase 94 — Custom Embed Builder
+- [x] `migrations/080_custom_embeds.sql` — `custom_embeds` table (id, guild_id, name, title, description, color)
+- [x] DB operations — `SaveCustomEmbed`, `GetCustomEmbed`, `DeleteCustomEmbed`, `ListCustomEmbeds`
+- [x] `/embed` command with `create`, `view`, `delete`, and `list` subcommands
+- [x] Update `internal/bot/bot.go` to register the `embed` command
