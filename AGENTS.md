@@ -223,6 +223,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ---
 
+- Implemented Phase 83 Role Information Commands features:
+- Added `/roleinfo` command in `internal/bot/commands/roleinfo.go` to display detailed information about a role.
+- Updated `/userinfo` command in `internal/bot/commands/userinfo.go` to include the highest role.
+- Updated `internal/bot/bot.go` to register the `roleinfo` command.
+
 ## Task Checklist
 
 - Implemented Phase 65 Reputation Leaderboard features:

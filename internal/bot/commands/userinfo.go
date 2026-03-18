@@ -78,11 +78,35 @@ func Userinfo(database *db.DB) *Command {
 
 			// Format roles
 			rolesStr := "None"
+			highestRoleStr := "None"
 			if len(targetMember.Roles) > 0 {
 				var roles []string
-				for _, roleID := range targetMember.Roles {
-					roles = append(roles, fmt.Sprintf("<@&%s>", roleID))
+				highestPosition := -1
+
+				guild, err := s.State.Guild(i.GuildID)
+				if err == nil {
+					// Map role ID to Position
+					rolePosMap := make(map[string]int)
+					for _, r := range guild.Roles {
+						rolePosMap[r.ID] = r.Position
+					}
+
+					for _, roleID := range targetMember.Roles {
+						roles = append(roles, fmt.Sprintf("<@&%s>", roleID))
+
+						if pos, ok := rolePosMap[roleID]; ok {
+							if pos > highestPosition {
+								highestPosition = pos
+								highestRoleStr = fmt.Sprintf("<@&%s>", roleID)
+							}
+						}
+					}
+				} else {
+					for _, roleID := range targetMember.Roles {
+						roles = append(roles, fmt.Sprintf("<@&%s>", roleID))
+					}
 				}
+
 				rolesStr = strings.Join(roles, ", ")
 				// Truncate if too long to avoid embed field limits
 				if len(rolesStr) > 1024 {
@@ -127,6 +151,11 @@ func Userinfo(database *db.DB) *Command {
 						Name:   "Joined Server",
 						Value:  joinedAt,
 						Inline: false,
+					},
+					{
+						Name:   "Highest Role",
+						Value:  highestRoleStr,
+						Inline: true,
 					},
 					{
 						Name:   fmt.Sprintf("Roles [%d]", len(targetMember.Roles)),
