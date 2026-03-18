@@ -76,6 +76,10 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 87 Reaction Roles Logging features:
+- Updated `messageReactionAddHandler` in `internal/bot/bot.go` to log role assignments if `advanced_log_config` enables role logging.
+- Updated `messageReactionRemoveHandler` in `internal/bot/bot.go` to log role removals if `advanced_log_config` enables role logging.
+
 - Implemented Phase 86 Advanced Logging System features: added migrations `073_advanced_logging.up.sql` and `073_advanced_logging.down.sql` with table `advanced_log_config`.
 - Added DB operations `SetAdvancedLogConfig` and `GetAdvancedLogConfig` in `internal/db/db.go`.
 - Added `/advancedlog` command in `internal/bot/commands/advancedlog.go` to configure detailed event logging per channel.
@@ -1135,3 +1139,7 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetAdvancedLogConfig`, `GetAdvancedLogConfig`
 - [x] `/advancedlog` command — configure detailed event logging per channel
 - [x] Implement enhanced event tracking and routing
+
+### Phase 87 — Reaction Roles Logging
+- [x] Update `messageReactionAddHandler` in `internal/bot/bot.go` to log role assignments if `advanced_log_config` enables role logging.
+- [x] Update `messageReactionRemoveHandler` in `internal/bot/bot.go` to log role removals if `advanced_log_config` enables role logging.
