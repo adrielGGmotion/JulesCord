@@ -1165,6 +1165,16 @@ func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemb
 		return
 	}
 
+	channelID, message, err := b.DB.GetWelcomeMessage(context.Background(), m.GuildID)
+	if err != nil {
+		slog.Error("Failed to get welcome message", "error", err)
+	} else if channelID != "" && message != "" {
+		_, err = s.ChannelMessageSend(channelID, message)
+		if err != nil {
+			slog.Error("Failed to send welcome message", "channel_id", channelID, "error", err)
+		}
+	}
+
 	config, err := b.DB.GetGuildConfig(context.Background(), m.GuildID)
 	if err != nil {
 		slog.Error("Failed to get guild config for welcome message/auto-role", "error", err)

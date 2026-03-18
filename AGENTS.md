@@ -1252,3 +1252,16 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `CreateReactionMenu`, `AddReactionMenuItem`, `GetReactionMenuItems`
 - [x] `/reactionmenu` command — `create` and `add-role` subcommands
 - [x] Update `messageReactionAddHandler` and `messageReactionRemoveHandler` to assign/remove roles based on `reaction_menu_items`
+
+### Phase 97 — Welcome Messages System
+- [x] `migrations/082_welcome_messages.sql` — `welcome_messages` table (guild_id, channel_id, message)
+- [x] DB operations — `SetWelcomeMessage`, `GetWelcomeMessage`, `RemoveWelcomeMessage`
+- [x] `/welcome` command with `set` and `remove` subcommands
+- [x] Update `guildMemberAddHandler` to send the welcome message when a user joins
+
+### Completed Work
+
+- Implemented Phase 97 Welcome Messages System: added migrations `082_welcome_messages.up.sql` and `082_welcome_messages.down.sql` with table `welcome_messages`.
+- Added DB operations `SetWelcomeMessage`, `GetWelcomeMessage`, and `RemoveWelcomeMessage` in `internal/db/db.go`.
+- Updated `/welcome` command in `internal/bot/commands/welcome.go` to support `set` and `remove` subcommands while preserving existing functionality.
+- Updated `guildMemberAddHandler` in `internal/bot/bot.go` to send the welcome message when a user joins the server.
