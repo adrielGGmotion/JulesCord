@@ -122,6 +122,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.RPS())
 	registry.Add(commands.Report(database))
 	registry.Add(commands.Welcome(database))
+	registry.Add(commands.Goodbye(database))
 	registry.Add(commands.Autorole(database))
 	registry.Add(commands.MediaChannel(database))
 	registry.Add(commands.Badge(database))
@@ -1139,6 +1140,18 @@ func (b *Bot) messageReactionRemoveHandler(s *discordgo.Session, r *discordgo.Me
 func (b *Bot) guildMemberRemoveHandler(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 	if b.DB == nil || m.User == nil {
 		return
+	}
+
+	// Send goodbye message if configured
+	channelID, msg, err := b.DB.GetGoodbyeMessage(context.Background(), m.GuildID)
+	if err != nil {
+		slog.Error("Failed to get goodbye message", "error", err)
+	} else if channelID != "" && msg != "" {
+		msg = strings.ReplaceAll(msg, "{user}", m.User.Username)
+		_, err = s.ChannelMessageSend(channelID, msg)
+		if err != nil {
+			slog.Error("Failed to send goodbye message", "channel_id", channelID, "error", err)
+		}
 	}
 
 	// Attempt to get the member from the state cache before they are completely removed

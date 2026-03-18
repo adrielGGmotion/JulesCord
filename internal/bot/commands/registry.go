@@ -67,6 +67,11 @@ func (r *Registry) RegisterWithDiscord(s *discordgo.Session, appID string, guild
 		commands = append(commands, cmd.Definition)
 	}
 
+	// Truncate to 100 commands to avoid Discord API rejection
+	if len(commands) > 100 {
+		commands = commands[:100]
+	}
+
 	if appID == "" {
 		appID = s.State.User.ID
 	}

@@ -1259,7 +1259,19 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `/welcome` command with `set` and `remove` subcommands
 - [x] Update `guildMemberAddHandler` to send the welcome message when a user joins
 
+### Phase 98 — Goodbye Messages System
+- [x] `migrations/083_goodbye_messages.sql` — `goodbye_messages` table (guild_id, channel_id, message)
+- [x] DB operations — `SetGoodbyeMessage`, `GetGoodbyeMessage`, `RemoveGoodbyeMessage`
+- [x] `/goodbye` command with `set` and `remove` subcommands
+- [x] Update `guildMemberRemoveHandler` to send the goodbye message when a user leaves
+
 ### Completed Work
+
+- Implemented Phase 98 Goodbye Messages System: added migrations `083_goodbye_messages.up.sql` and `083_goodbye_messages.down.sql` with table `goodbye_messages`.
+- Added DB operations `SetGoodbyeMessage`, `GetGoodbyeMessage`, and `RemoveGoodbyeMessage` in `internal/db/db.go`.
+- Added `/goodbye` command in `internal/bot/commands/goodbye.go` to support `set` and `remove` subcommands.
+- Updated `guildMemberRemoveHandler` in `internal/bot/bot.go` to send the goodbye message when a user leaves the server. Registered the `goodbye` command.
+
 
 - Implemented Phase 97 Welcome Messages System: added migrations `082_welcome_messages.up.sql` and `082_welcome_messages.down.sql` with table `welcome_messages`.
 - Added DB operations `SetWelcomeMessage`, `GetWelcomeMessage`, and `RemoveWelcomeMessage` in `internal/db/db.go`.
