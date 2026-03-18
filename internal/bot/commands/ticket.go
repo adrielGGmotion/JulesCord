@@ -1,6 +1,9 @@
 package commands
 
+
 import (
+	"bytes"
+
 	"context"
 	"fmt"
 	"log/slog"
@@ -37,6 +40,11 @@ func Ticket(database *db.DB) *Command {
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 				},
 				{
+					Name:        "transcripts",
+					Description: "View your saved ticket transcripts",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
+				{
 					Name:        "panel",
 					Description: "Create a ticket panel in the current channel (Admin only)",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
@@ -60,6 +68,8 @@ func Ticket(database *db.DB) *Command {
 				HandleCreateTicket(s, i, database, subcommand.Options)
 			case "close":
 				handleCloseTicket(s, i, database)
+						case "transcripts":
+				handleTicketTranscripts(s, i, database)
 			case "panel":
 				handlePanelTicket(s, i, database)
 			}
@@ -257,6 +267,55 @@ func handleCloseTicket(s *discordgo.Session, i *discordgo.InteractionCreate, dat
 		return
 	}
 
+	// Generate transcript before closing
+	messages, msgErr := s.ChannelMessages(i.ChannelID, 100, "", "", "")
+	if msgErr != nil {
+		slog.Error("Failed to fetch messages for transcript", "error", msgErr)
+	} else {
+		var buffer bytes.Buffer
+		buffer.WriteString(fmt.Sprintf("Transcript for Ticket #%d (Channel: %s)\n", ticket.ID, i.ChannelID))
+		buffer.WriteString(fmt.Sprintf("Opened by User ID: %s\n", ticket.UserID))
+		buffer.WriteString(fmt.Sprintf("Reason: %s\n\n", ticket.Reason))
+		buffer.WriteString("--- Messages ---\n\n")
+
+		// Reverse messages to chronological order
+		for j := len(messages) - 1; j >= 0; j-- {
+			msg := messages[j]
+			buffer.WriteString(fmt.Sprintf("[%s] %s: %s\n", msg.Timestamp.Format(time.RFC822), msg.Author.Username, msg.Content))
+		}
+
+		transcriptFileName := fmt.Sprintf("transcript-%d.txt", ticket.ID)
+
+		// Create DM channel with the user
+		dmChannel, dmErr := s.UserChannelCreate(ticket.UserID)
+		if dmErr == nil {
+			// Send the transcript to the DM channel
+			dmMsg, sendErr := s.ChannelMessageSendComplex(dmChannel.ID, &discordgo.MessageSend{
+				Content: fmt.Sprintf("Your ticket **%s** has been closed. Here is your transcript.", ticket.Reason),
+				Files: []*discordgo.File{
+					{
+						Name:        transcriptFileName,
+						ContentType: "text/plain",
+						Reader:      bytes.NewReader(buffer.Bytes()),
+					},
+				},
+			})
+
+			if sendErr == nil && len(dmMsg.Attachments) > 0 {
+				// Save transcript URL
+				transcriptURL := dmMsg.Attachments[0].URL
+				err = database.SaveTicketTranscript(context.Background(), ticket.ID, ticket.ChannelID, ticket.GuildID, ticket.UserID, transcriptURL)
+				if err != nil {
+					slog.Error("Failed to save transcript URL to DB", "error", err)
+				}
+			} else {
+				slog.Error("Failed to send transcript to user or no attachments", "error", sendErr)
+			}
+		} else {
+			slog.Error("Failed to create DM channel for transcript", "error", dmErr)
+		}
+	}
+
 	// Send closing message
 	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -276,4 +335,49 @@ func handleCloseTicket(s *discordgo.Session, i *discordgo.InteractionCreate, dat
 			slog.Error("Failed to delete ticket channel", "error", err)
 		}
 	}()
+}
+
+
+func handleTicketTranscripts(s *discordgo.Session, i *discordgo.InteractionCreate, database *db.DB) {
+	var userID string
+	if i.Member != nil {
+		userID = i.Member.User.ID
+	} else {
+		userID = i.User.ID
+	}
+
+	transcripts, err := database.GetTicketTranscripts(context.Background(), i.GuildID, userID)
+	if err != nil {
+		slog.Error("Failed to fetch ticket transcripts", "error", err)
+		SendError(s, i, "Failed to fetch your transcripts.")
+		return
+	}
+
+	if len(transcripts) == 0 {
+		SendError(s, i, "You don't have any saved ticket transcripts.")
+		return
+	}
+
+	description := ""
+	for idx, t := range transcripts {
+		description += fmt.Sprintf("**Ticket #%d** • <t:%d:R>\n[View Transcript](%s)\n\n", t.TicketID, t.CreatedAt.Unix(), t.TranscriptURL)
+		if idx >= 9 { // Limit to 10 entries for embed length limits
+			description += "*...and more*"
+			break
+		}
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:       "Your Ticket Transcripts",
+		Description: description,
+		Color:       0x3B82F6, // Blue
+	}
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Embeds: []*discordgo.MessageEmbed{embed},
+			Flags:  discordgo.MessageFlagsEphemeral,
+		},
+	})
 }

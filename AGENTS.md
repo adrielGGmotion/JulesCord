@@ -76,6 +76,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 90 Ticket Transcripts features: added migrations `076_ticket_transcripts.up.sql` and `076_ticket_transcripts.down.sql` with table `ticket_transcripts`.
+- Added DB operations `SaveTicketTranscript` and `GetTicketTranscripts` in `internal/db/db.go`.
+- Enhanced `/ticket close` command in `internal/bot/commands/ticket.go` to generate and DM channel transcripts to the user before deleting the channel.
+- Added `/ticket transcripts` command to allow users to view their saved transcripts.
+
+
 - Implemented Phase 87 Reaction Roles Logging features:
 - Updated `messageReactionAddHandler` in `internal/bot/bot.go` to log role assignments if `advanced_log_config` enables role logging.
 - Updated `messageReactionRemoveHandler` in `internal/bot/bot.go` to log role removals if `advanced_log_config` enables role logging.
@@ -413,6 +419,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Use embeds for all Discord responses — never plain text
 
 
+
+### Phase 90 — Ticket Transcripts
+- [x] `migrations/076_ticket_transcripts.sql` — `ticket_transcripts` table (id, ticket_id, channel_id, guild_id, user_id, transcript_url, created_at)
+- [x] DB operations — `SaveTicketTranscript`, `GetTicketTranscripts`
+- [x] Enhance `/ticket close` command to automatically generate a transcript of the channel messages and save it before deleting the channel.
+- [x] Add `/ticket transcripts` command to view saved transcripts for a user.
 
 ### Phase 89 — Reaction Role Groups (Exclusive Roles)
 - [x] `migrations/075_reaction_role_groups.sql` — `reaction_role_groups` table (id, guild_id, name, is_exclusive, max_roles)
