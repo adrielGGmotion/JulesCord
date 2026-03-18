@@ -24,8 +24,9 @@ type Bot struct {
 	Config         *config.Config
 	Registry       *commands.Registry
 	DB             *db.DB
-	xpCooldown     sync.Map // map[string]time.Time (key: guildID_channelID_userID)
-	AutoResponders sync.Map // map[string][]*db.AutoResponder (key: guildID)
+	xpCooldown       sync.Map // map[string]time.Time (key: guildID_channelID_userID)
+	AutoResponders   sync.Map // map[string][]*db.AutoResponder (key: guildID)
+	antiSpamTracking sync.Map // map[string][]time.Time (key: guildID_userID)
 }
 
 // New initializes a new bot instance.
@@ -142,6 +143,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Unban(database))
 	registry.Add(commands.ClearWarnings(database))
 	registry.Add(commands.Lock(database))
+	registry.Add(commands.AntiSpam(database))
 	registry.Add(commands.Unlock(database))
 	registry.Add(commands.Slowmode(database))
 	registry.Add(commands.Cooldown(database))
@@ -608,6 +610,67 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	// Auto-Moderation System
 	if b.checkAutomod(s, m.GuildID, m.ChannelID, m.ID, m.Content, m.Author.ID, m.Author.String(), m.Author.AvatarURL("")) {
 		return
+	}
+
+	// Advanced Anti-Spam System
+	if b.DB != nil && m.GuildID != "" {
+		antiSpamCfg, err := b.DB.GetAntiSpamConfig(context.Background(), m.GuildID)
+		if err == nil && antiSpamCfg != nil {
+			trackKey := fmt.Sprintf("%s_%s", m.GuildID, m.Author.ID)
+			now := time.Now()
+
+			var timestamps []time.Time
+			val, ok := b.antiSpamTracking.Load(trackKey)
+			if ok {
+				timestamps = val.([]time.Time)
+			}
+
+			// Filter out timestamps older than the window
+			windowStart := now.Add(-time.Duration(antiSpamCfg.TimeWindow) * time.Second)
+			var validTimestamps []time.Time
+			for _, t := range timestamps {
+				if t.After(windowStart) {
+					validTimestamps = append(validTimestamps, t)
+				}
+			}
+
+			validTimestamps = append(validTimestamps, now)
+
+			if len(validTimestamps) > antiSpamCfg.MessageLimit {
+				// Spam detected
+				b.antiSpamTracking.Delete(trackKey) // Clear tracking to avoid repeated mutes
+
+				muteDur, err := time.ParseDuration(antiSpamCfg.MuteDuration)
+				if err == nil {
+					until := now.Add(muteDur)
+
+					// Apply mute via Discord API
+					err = s.GuildMemberTimeout(m.GuildID, m.Author.ID, &until)
+					if err == nil {
+						// Log mute in database
+						_ = b.DB.AddMute(context.Background(), m.GuildID, m.Author.ID, s.State.User.ID, "Auto-Mute: Spamming", until)
+
+						s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("⚠️ <@%s> has been muted for **%s** for spamming.", m.Author.ID, antiSpamCfg.MuteDuration))
+
+						// Optionally post to mod log
+						logChan, err := b.DB.GetGuildLogChannel(context.Background(), m.GuildID)
+						if err == nil && logChan != "" {
+							embed := &discordgo.MessageEmbed{
+								Title:       "User Auto-Muted (Anti-Spam)",
+								Color:       0xFFA500,
+								Description: fmt.Sprintf("**User:** <@%s>\n**Reason:** Spamming in <#%s>\n**Duration:** %s", m.Author.ID, m.ChannelID, antiSpamCfg.MuteDuration),
+								Timestamp:   now.Format(time.RFC3339),
+							}
+							s.ChannelMessageSendEmbed(logChan, embed)
+						}
+					} else {
+						slog.Error("Failed to timeout user for spam", "guild", m.GuildID, "user", m.Author.ID, "error", err)
+					}
+				}
+			} else {
+				b.antiSpamTracking.Store(trackKey, validTimestamps)
+			}
+		}
 	}
 
 	// Auto-Threads System

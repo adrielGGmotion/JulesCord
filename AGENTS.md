@@ -76,6 +76,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 85 Advanced Anti-Spam features: added migrations `072_anti_spam.up.sql` and `072_anti_spam.down.sql` with table `anti_spam_config`.
+- Added DB operations `SetAntiSpamConfig` and `GetAntiSpamConfig` in `internal/db/db.go`.
+- Added `/antispam` command in `internal/bot/commands/antispam.go` to configure message limits and mute durations.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to track message rates per user and apply mutes when thresholds are exceeded.
+- Updated `internal/bot/bot.go` to register the `antispam` command.
+
 
 - Implemented Phase 81 Channel Moderation Commands features:
 - Added `/lock` command in `internal/bot/commands/lock.go` to deny SendMessages for the `@everyone` role in the current channel.
@@ -1111,3 +1117,10 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Updated `interactionCreateHandler` in `internal/bot/bot.go` to enforce command cooldowns.
 - Added `/cooldown` command in `internal/bot/commands/cooldown.go` to manage custom command cooldowns.
 - Updated `internal/bot/bot.go` to register the `cooldown` command.
+
+
+### Phase 85 — Advanced Anti-Spam
+- [x] `migrations/072_anti_spam.sql` — `anti_spam_config` table (guild_id, message_limit, time_window, mute_duration)
+- [x] DB operations — `SetAntiSpamConfig`, `GetAntiSpamConfig`
+- [x] `/antispam` command — `setup` to configure limit, time window, and mute duration
+- [x] Update message handler to track message rate per user and auto-mute if exceeded

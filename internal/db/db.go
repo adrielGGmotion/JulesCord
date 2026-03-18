@@ -1,11 +1,11 @@
 package db
 
 import (
-	"regexp"
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"time"
 
 	"julescord/internal/metrics"
@@ -4871,4 +4871,49 @@ func (db *DB) GetCommandCooldown(ctx context.Context, userID, command string) (t
 		return time.Time{}, err
 	}
 	return expiresAt, nil
+}
+
+// AntiSpamConfig represents a guild's anti-spam configuration.
+type AntiSpamConfig struct {
+	GuildID      string
+	MessageLimit int
+	TimeWindow   int
+	MuteDuration string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+// SetAntiSpamConfig sets or updates the anti-spam configuration for a guild.
+func (db *DB) SetAntiSpamConfig(ctx context.Context, guildID string, messageLimit, timeWindow int, muteDuration string) error {
+	query := `
+		INSERT INTO anti_spam_config (guild_id, message_limit, time_window, mute_duration, updated_at)
+		VALUES ($1, $2, $3, $4, NOW())
+		ON CONFLICT (guild_id) DO UPDATE
+		SET message_limit = EXCLUDED.message_limit,
+		    time_window = EXCLUDED.time_window,
+		    mute_duration = EXCLUDED.mute_duration,
+		    updated_at = NOW()
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, messageLimit, timeWindow, muteDuration)
+	return err
+}
+
+// GetAntiSpamConfig gets the anti-spam configuration for a guild.
+func (db *DB) GetAntiSpamConfig(ctx context.Context, guildID string) (*AntiSpamConfig, error) {
+	query := `
+		SELECT guild_id, message_limit, time_window, mute_duration, created_at, updated_at
+		FROM anti_spam_config
+		WHERE guild_id = $1
+	`
+	c := &AntiSpamConfig{}
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(
+		&c.GuildID, &c.MessageLimit, &c.TimeWindow, &c.MuteDuration, &c.CreatedAt, &c.UpdatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil // Return nil, nil if no config exists
+		}
+		return nil, err
+	}
+	return c, nil
 }
