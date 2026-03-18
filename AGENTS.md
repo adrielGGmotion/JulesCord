@@ -76,6 +76,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 96 Member Count Channel System features: added migrations `081_member_count.up.sql` and `081_member_count.down.sql` with table `member_count_config`.
+- Added DB operations `SetMemberCountConfig`, `GetMemberCountConfig`, and `RemoveMemberCountConfig` in `internal/db/db.go`.
+- Added `/membercount` command in `internal/bot/commands/membercount.go` with `setup` and `remove` subcommands.
+- Updated `guildMemberAddHandler` and `guildMemberRemoveHandler` in `internal/bot/bot.go` to dynamically update the member count channel name when users join or leave. Registered the `membercount` command.
+
 - Implemented Phase 93 Auto-Publish (Crosspost) Messages features: added migrations `079_auto_publish.up.sql` and `079_auto_publish.down.sql` with table `auto_publish_config`.
 - Added DB operations `AddAutoPublishChannel`, `IsAutoPublishChannel`, and `RemoveAutoPublishChannel` in `internal/db/db.go`.
 - Added `/autopublish` command in `internal/bot/commands/autopublish.go` with `add` and `remove` subcommands.
@@ -1240,3 +1245,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetAutoPublishChannel`, `GetAutoPublishChannel`, `RemoveAutoPublishChannel`
 - [x] `/autopublish` command with `add` and `remove` subcommands
 - [x] Update `messageCreateHandler` to automatically crosspost (`ChannelMessageCrosspost`) messages in configured announcement channels
+
+### Phase 96 — Member Count Channel System
+- [x] `migrations/081_member_count.sql` — `member_count_config` table (guild_id, channel_id, template)
+- [x] DB operations — `SetMemberCountConfig`, `GetMemberCountConfig`, `RemoveMemberCountConfig`
+- [x] `/membercount` command with `setup` and `remove` subcommands
+- [x] Update `guildMemberAddHandler` and `guildMemberRemoveHandler` to update the channel name

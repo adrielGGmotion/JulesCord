@@ -155,6 +155,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Cooldown(database))
 	registry.Add(commands.ReactionGroup(database))
 	registry.Add(commands.Role(database))
+	registry.Add(commands.MemberCount(database))
 	registry.Add(commands.StickyRole(database))
 
 	// Load auto-responders into memory cache
@@ -1112,6 +1113,9 @@ func (b *Bot) guildMemberRemoveHandler(s *discordgo.Session, m *discordgo.GuildM
 		return
 	}
 
+	// Update member count channel
+	go b.updateMemberCountChannel(s, m.GuildID)
+
 	// Attempt to get the member from the state cache before they are completely removed
 	member, err := s.State.Member(m.GuildID, m.User.ID)
 	if err != nil || member == nil {
@@ -1135,6 +1139,9 @@ func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemb
 	if b.DB == nil {
 		return
 	}
+
+	// Update member count channel
+	go b.updateMemberCountChannel(s, m.GuildID)
 
 	config, err := b.DB.GetGuildConfig(context.Background(), m.GuildID)
 	if err != nil {
@@ -2198,4 +2205,31 @@ func (b *Bot) guildRoleDeleteHandler(s *discordgo.Session, r *discordgo.GuildRol
 		Color:       0xE74C3C, // Red
 	}
 	b.handleAdvancedLog(s, r.GuildID, "role_delete", embed)
+}
+
+// updateMemberCountChannel fetches the config and updates the member count channel name
+func (b *Bot) updateMemberCountChannel(s *discordgo.Session, guildID string) {
+	ctx := context.Background()
+	config, err := b.DB.GetMemberCountConfig(ctx, guildID)
+	if err != nil || config == nil {
+		return
+	}
+
+	guild, err := s.State.Guild(guildID)
+	if err != nil {
+		guild, err = s.Guild(guildID)
+	}
+
+	if err == nil && guild != nil {
+		name := strings.ReplaceAll(config.Template, "{count}", fmt.Sprintf("%d", guild.MemberCount))
+		if len(name) > 100 {
+			name = name[:100] // Discord limit
+		}
+		_, editErr := s.ChannelEdit(config.ChannelID, &discordgo.ChannelEdit{
+			Name: name,
+		})
+		if editErr != nil {
+			slog.Error("Failed to edit member count channel", "error", editErr, "guild", guildID)
+		}
+	}
 }

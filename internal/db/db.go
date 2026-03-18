@@ -5285,3 +5285,51 @@ func (db *DB) RemoveStickyRole(ctx context.Context, guildID, userID, roleID stri
 	_, err := db.Pool.Exec(ctx, query, guildID, userID, roleID)
 	return err
 }
+
+// MemberCountConfig represents the configuration for the member count channel.
+type MemberCountConfig struct {
+	GuildID   string
+	ChannelID string
+	Template  string
+}
+
+// SetMemberCountConfig saves the member count channel configuration.
+func (db *DB) SetMemberCountConfig(ctx context.Context, guildID, channelID, template string) error {
+	query := `
+		INSERT INTO member_count_config (guild_id, channel_id, template)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id) DO UPDATE SET channel_id = EXCLUDED.channel_id, template = EXCLUDED.template
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, template)
+	return err
+}
+
+// GetMemberCountConfig retrieves the member count channel configuration.
+func (db *DB) GetMemberCountConfig(ctx context.Context, guildID string) (*MemberCountConfig, error) {
+	query := `
+		SELECT guild_id, channel_id, template
+		FROM member_count_config
+		WHERE guild_id = $1
+	`
+	row := db.Pool.QueryRow(ctx, query, guildID)
+
+	var config MemberCountConfig
+	if err := row.Scan(&config.GuildID, &config.ChannelID, &config.Template); err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &config, nil
+}
+
+// RemoveMemberCountConfig deletes the member count channel configuration.
+func (db *DB) RemoveMemberCountConfig(ctx context.Context, guildID string) error {
+	query := `
+		DELETE FROM member_count_config
+		WHERE guild_id = $1
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID)
+	return err
+}

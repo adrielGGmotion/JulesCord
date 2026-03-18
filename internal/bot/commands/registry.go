@@ -71,7 +71,15 @@ func (r *Registry) RegisterWithDiscord(s *discordgo.Session, appID string, guild
 		appID = s.State.User.ID
 	}
 
+
+	// Discord allows max 100 global commands
+	if len(commands) > 100 {
+		slog.Warn("More than 100 commands registered, truncating to 100 to meet Discord limits.")
+		commands = commands[:100]
+	}
+
 	_, err := s.ApplicationCommandBulkOverwrite(appID, guildID, commands)
+
 	if err != nil {
 		metrics.ErrorCounter.WithLabelValues("command_registration").Inc()
 		slog.Error("Cannot overwrite commands", "error", err)
