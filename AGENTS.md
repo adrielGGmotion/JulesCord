@@ -243,6 +243,13 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Updated `/userinfo` command in `internal/bot/commands/userinfo.go` to include the highest role.
 - Updated `internal/bot/bot.go` to register the `roleinfo` command.
 
+
+- Implemented Phase 88 Dynamic Voice Channels features: added migrations `074_dynamic_voice.up.sql` and `074_dynamic_voice.down.sql` with table `dynamic_voice_config`.
+- Added DB operations `SetDynamicVoiceConfig` and `GetDynamicVoiceConfig` in `internal/db/db.go`.
+- Added `/dynamicvoice` command with `setup` subcommand in `internal/bot/commands/dynamicvoice.go`.
+- Updated `voiceStateUpdateHandler` in `internal/bot/bot.go` to support dynamic voice creation, moving users into them, and deleting them when empty.
+- Updated `internal/bot/bot.go` to register the `dynamicvoice` command.
+
 ## Task Checklist
 
 - Implemented Phase 65 Reputation Leaderboard features:
@@ -397,6 +404,13 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Use pgx connection pool — never open raw individual DB connections
 - Slash commands are registered with Discord's REST API on every bot startup
 - Use embeds for all Discord responses — never plain text
+
+
+### Phase 88 — Dynamic Voice Channels
+- [x] `migrations/074_dynamic_voice.sql` — `dynamic_voice_config` table (guild_id, category_id, trigger_channel_id)
+- [x] DB operations — `SetDynamicVoiceConfig`, `GetDynamicVoiceConfig`
+- [x] `/dynamicvoice` command — `setup` subcommand
+- [x] Update `voiceStateUpdateHandler` to support multiple dynamic voice instances per user
 
 ## Notes for Next Iteration
 
@@ -1143,3 +1157,5 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 ### Phase 87 — Reaction Roles Logging
 - [x] Update `messageReactionAddHandler` in `internal/bot/bot.go` to log role assignments if `advanced_log_config` enables role logging.
 - [x] Update `messageReactionRemoveHandler` in `internal/bot/bot.go` to log role removals if `advanced_log_config` enables role logging.
+
+ — Dynamic Voice Channels

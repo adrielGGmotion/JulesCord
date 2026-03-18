@@ -98,6 +98,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Inventory(database))
 	registry.Add(commands.Birthday(database))
 	registry.Add(commands.TempVoice(database))
+	registry.Add(commands.DynamicVoice(database))
 	registry.Add(commands.NewCountingCommand(database))
 	registry.Add(commands.NewTriviaCommand(database))
 	registry.Add(commands.CustomCommand(database))
@@ -1631,6 +1632,40 @@ func (b *Bot) voiceStateUpdateHandler(s *discordgo.Session, v *discordgo.VoiceSt
 		}
 	}
 
+	// Dynamic Voice Channels Logic
+	if newChannelID != "" {
+		dynamicConfig, err := b.DB.GetDynamicVoiceConfig(context.Background(), v.GuildID)
+		if err == nil && dynamicConfig != nil && dynamicConfig.TriggerChannelID == newChannelID {
+			// User joined the trigger channel, create a new dynamic channel
+			var name string
+			if user != nil {
+				name = user.Username + "'s Channel"
+			} else {
+				name = "Dynamic Channel"
+			}
+
+			channelData := discordgo.GuildChannelCreateData{
+				Name:     name,
+				Type:     discordgo.ChannelTypeGuildVoice,
+				ParentID: dynamicConfig.CategoryID,
+			}
+
+			createdChannel, err := s.GuildChannelCreateComplex(v.GuildID, channelData)
+			if err != nil {
+				slog.Error("Failed to create dynamic voice channel", "error", err)
+			} else {
+				// Move the user to the new channel
+				err = s.GuildMemberMove(v.GuildID, v.UserID, &createdChannel.ID)
+				if err != nil {
+					slog.Error("Failed to move user to dynamic voice channel", "error", err)
+					// Clean up the channel if we can't move the user to it
+					_, _ = s.ChannelDelete(createdChannel.ID)
+				}
+				// We don't save to DB for dynamic voice channels since we rely on ParentID
+			}
+		}
+	}
+
 	// Temporary Voice Channels Logic
 	if newChannelID != "" {
 		tempConfig, err := b.DB.GetTempVoiceConfig(context.Background(), v.GuildID)
@@ -1671,6 +1706,33 @@ func (b *Bot) voiceStateUpdateHandler(s *discordgo.Session, v *discordgo.VoiceSt
 	}
 
 	if oldChannelID != "" {
+		// Dynamic Voice Cleanup Logic
+		dynamicConfig, err := b.DB.GetDynamicVoiceConfig(context.Background(), v.GuildID)
+		if err == nil && dynamicConfig != nil {
+			// Check if the old channel was in the dynamic category and is not the trigger channel itself
+			channel, err := s.State.Channel(oldChannelID)
+			if err == nil && channel.ParentID == dynamicConfig.CategoryID && oldChannelID != dynamicConfig.TriggerChannelID {
+				// Check if the channel is now empty
+				guild, err := s.State.Guild(v.GuildID)
+				if err == nil {
+					isEmpty := true
+					for _, vs := range guild.VoiceStates {
+						if vs.ChannelID == oldChannelID {
+							isEmpty = false
+							break
+						}
+					}
+
+					if isEmpty {
+						_, err := s.ChannelDelete(oldChannelID)
+						if err != nil {
+							slog.Error("Failed to delete empty dynamic voice channel", "error", err)
+						}
+					}
+				}
+			}
+		}
+
 		// Check if the old channel was a temporary voice channel
 		tempChannel, err := b.DB.GetTempVoiceChannel(context.Background(), oldChannelID)
 		if err == nil && tempChannel != nil {
