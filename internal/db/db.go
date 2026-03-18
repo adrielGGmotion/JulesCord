@@ -5466,3 +5466,61 @@ func (db *DB) RemoveWelcomeMessage(ctx context.Context, guildID string) error {
 	}
 	return nil
 }
+
+// SetMemberCountChannel sets or updates the member count channel config for a guild.
+func (db *DB) SetMemberCountChannel(ctx context.Context, guildID, channelID string) error {
+	query := `
+		INSERT INTO member_count_config (guild_id, channel_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE SET channel_id = EXCLUDED.channel_id
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+// GetMemberCountChannel retrieves the member count channel config for a guild.
+func (db *DB) GetMemberCountChannel(ctx context.Context, guildID string) (string, error) {
+	query := `SELECT channel_id FROM member_count_config WHERE guild_id = $1`
+	var channelID string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&channelID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		return "", err
+	}
+	return channelID, nil
+}
+
+// RemoveMemberCountChannel removes the member count channel config for a guild.
+func (db *DB) RemoveMemberCountChannel(ctx context.Context, guildID string) error {
+	query := `DELETE FROM member_count_config WHERE guild_id = $1`
+	_, err := db.Pool.Exec(ctx, query, guildID)
+	return err
+}
+
+// MemberCountConfig represents a member count channel config.
+type MemberCountConfig struct {
+	GuildID   string
+	ChannelID string
+}
+
+// GetAllMemberCountChannels retrieves all member count channel configs.
+func (db *DB) GetAllMemberCountChannels(ctx context.Context) ([]MemberCountConfig, error) {
+	query := `SELECT guild_id, channel_id FROM member_count_config`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var configs []MemberCountConfig
+	for rows.Next() {
+		var c MemberCountConfig
+		if err := rows.Scan(&c.GuildID, &c.ChannelID); err != nil {
+			return nil, err
+		}
+		configs = append(configs, c)
+	}
+	return configs, nil
+}

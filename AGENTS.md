@@ -1267,6 +1267,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 
 ### Completed Work
 
+- Implemented Phase 99 Member Count Channel System: added migrations `084_member_count.up.sql` and `084_member_count.down.sql` with table `member_count_config`.
+- Added DB operations `SetMemberCountChannel`, `GetMemberCountChannel`, `RemoveMemberCountChannel`, and `GetAllMemberCountChannels` in `internal/db/db.go`.
+- Added `/membercount` command with `setup` and `remove` subcommands in `internal/bot/commands/membercount.go`.
+- Added a background goroutine `memberCountLoop` in `internal/bot/bot.go` to update configured member count channels periodically, respecting Discord's rate limits. Registered the `membercount` command.
+
 - Implemented Phase 98 Goodbye Messages System: added migrations `083_goodbye_messages.up.sql` and `083_goodbye_messages.down.sql` with table `goodbye_messages`.
 - Added DB operations `SetGoodbyeMessage`, `GetGoodbyeMessage`, and `RemoveGoodbyeMessage` in `internal/db/db.go`.
 - Added `/goodbye` command in `internal/bot/commands/goodbye.go` to support `set` and `remove` subcommands.
@@ -1277,3 +1282,10 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added DB operations `SetWelcomeMessage`, `GetWelcomeMessage`, and `RemoveWelcomeMessage` in `internal/db/db.go`.
 - Updated `/welcome` command in `internal/bot/commands/welcome.go` to support `set` and `remove` subcommands while preserving existing functionality.
 - Updated `guildMemberAddHandler` in `internal/bot/bot.go` to send the welcome message when a user joins the server.
+
+
+### Phase 99 — Member Count Channel System
+- [x] `migrations/084_member_count.sql` — `member_count_config` table (guild_id, channel_id)
+- [x] DB operations — `SetMemberCountChannel`, `GetMemberCountChannel`, `RemoveMemberCountChannel`
+- [x] `/membercount` command with `setup` and `remove` subcommands
+- [x] Update `guildMemberAddHandler` and `guildMemberRemoveHandler` to update the channel name (e.g. `Members: 123`)
