@@ -5285,3 +5285,106 @@ func (db *DB) RemoveStickyRole(ctx context.Context, guildID, userID, roleID stri
 	_, err := db.Pool.Exec(ctx, query, guildID, userID, roleID)
 	return err
 }
+
+// ReactionMenu represents a reaction role menu.
+type ReactionMenu struct {
+	MessageID string
+	GuildID   string
+	ChannelID string
+}
+
+// ReactionMenuItem represents an item in a reaction role menu.
+type ReactionMenuItem struct {
+	MessageID string
+	Emoji     string
+	RoleID    string
+}
+
+// CreateReactionMenu saves a new reaction menu to the database.
+func (db *DB) CreateReactionMenu(ctx context.Context, messageID, guildID, channelID string) error {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("CreateReactionMenu").Observe(time.Since(start).Seconds())
+
+	query := `
+		INSERT INTO reaction_menus (message_id, guild_id, channel_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (message_id) DO NOTHING
+	`
+	_, err := db.Pool.Exec(ctx, query, messageID, guildID, channelID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		slog.Error("Failed to create reaction menu", "error", err)
+	}
+	return err
+}
+
+// AddReactionMenuItem adds a new item to a reaction menu.
+func (db *DB) AddReactionMenuItem(ctx context.Context, messageID, emoji, roleID string) error {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("AddReactionMenuItem").Observe(time.Since(start).Seconds())
+
+	query := `
+		INSERT INTO reaction_menu_items (message_id, emoji, role_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (message_id, emoji) DO UPDATE SET role_id = EXCLUDED.role_id
+	`
+	_, err := db.Pool.Exec(ctx, query, messageID, emoji, roleID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		slog.Error("Failed to add reaction menu item", "error", err)
+	}
+	return err
+}
+
+// GetReactionMenuItems retrieves all items for a reaction menu.
+func (db *DB) GetReactionMenuItems(ctx context.Context, messageID string) ([]*ReactionMenuItem, error) {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("GetReactionMenuItems").Observe(time.Since(start).Seconds())
+
+	query := `
+		SELECT message_id, emoji, role_id
+		FROM reaction_menu_items
+		WHERE message_id = $1
+	`
+	rows, err := db.Pool.Query(ctx, query, messageID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		slog.Error("Failed to get reaction menu items", "error", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []*ReactionMenuItem
+	for rows.Next() {
+		item := &ReactionMenuItem{}
+		if err := rows.Scan(&item.MessageID, &item.Emoji, &item.RoleID); err != nil {
+			slog.Error("Failed to scan reaction menu item", "error", err)
+			continue
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+// GetReactionMenu retrieves a reaction menu by its message ID.
+func (db *DB) GetReactionMenu(ctx context.Context, messageID string) (*ReactionMenu, error) {
+	start := time.Now()
+	metrics.DBQueryLatency.WithLabelValues("GetReactionMenu").Observe(time.Since(start).Seconds())
+
+	query := `
+		SELECT message_id, guild_id, channel_id
+		FROM reaction_menus
+		WHERE message_id = $1
+	`
+	menu := &ReactionMenu{}
+	err := db.Pool.QueryRow(ctx, query, messageID).Scan(&menu.MessageID, &menu.GuildID, &menu.ChannelID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		slog.Error("Failed to get reaction menu", "error", err)
+		return nil, err
+	}
+	return menu, nil
+}

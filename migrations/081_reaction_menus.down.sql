@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS reaction_menu_items CASCADE;
+DROP TABLE IF EXISTS reaction_menus CASCADE;

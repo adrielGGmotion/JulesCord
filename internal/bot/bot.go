@@ -155,6 +155,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Cooldown(database))
 	registry.Add(commands.ReactionGroup(database))
 	registry.Add(commands.Role(database))
+	registry.Add(commands.ReactionMenu(database))
 	registry.Add(commands.StickyRole(database))
 
 	// Load auto-responders into memory cache
@@ -1013,6 +1014,20 @@ func (b *Bot) messageReactionAddHandler(s *discordgo.Session, r *discordgo.Messa
 	emojiName := r.Emoji.Name
 	emojiID := r.Emoji.ID
 
+	// Check for reaction menu roles
+	items, err := b.DB.GetReactionMenuItems(context.Background(), r.MessageID)
+	if err == nil && len(items) > 0 {
+		for _, item := range items {
+			if item.Emoji == emojiName {
+				err = s.GuildMemberRoleAdd(r.GuildID, r.UserID, item.RoleID)
+				if err != nil {
+					slog.Error("Failed to add reaction menu role", "error", err, "user", r.UserID, "role", item.RoleID)
+				}
+				break
+			}
+		}
+	}
+
 	// Check for giveaway entry
 	if emojiName == "🎉" && emojiID == "" {
 		g, err := b.DB.GetGiveawayByMessage(context.Background(), r.MessageID)
@@ -1102,6 +1117,20 @@ func (b *Bot) messageReactionRemoveHandler(s *discordgo.Session, r *discordgo.Me
 				Color:       0xE74C3C, // Red
 			}
 			b.handleAdvancedLog(s, r.GuildID, "role_update", embed)
+		}
+	}
+
+	// Check for reaction menu roles
+	items, err := b.DB.GetReactionMenuItems(context.Background(), r.MessageID)
+	if err == nil && len(items) > 0 {
+		for _, item := range items {
+			if item.Emoji == emojiName {
+				err = s.GuildMemberRoleRemove(r.GuildID, r.UserID, item.RoleID)
+				if err != nil {
+					slog.Error("Failed to remove reaction menu role", "error", err, "user", r.UserID, "role", item.RoleID)
+				}
+				break
+			}
 		}
 	}
 }
