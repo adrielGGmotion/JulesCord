@@ -76,6 +76,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+
+- Implemented Phase 81 Channel Moderation Commands features:
+- Added `/lock` command in `internal/bot/commands/lock.go` to deny SendMessages for the `@everyone` role in the current channel.
+- Added `/unlock` command in `internal/bot/commands/unlock.go` to remove the SendMessages deny overwrite for the `@everyone` role.
+- Added `/slowmode` command in `internal/bot/commands/slowmode.go` to set the channel slowmode duration.
+- Updated `internal/bot/bot.go` to register the `lock`, `unlock`, and `slowmode` commands.
 - Implemented Phase 80 Moderation Unban and Clear Warnings features:
 - Added DB operations `RemoveWarning` and `ClearWarnings` in `internal/db/db.go`.
 - Added `/unban` command in `internal/bot/commands/unban.go` to unban a user by ID and mark active temp bans as resolved.
@@ -1070,3 +1076,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `/unban` command to unban a user by their user ID
 - [x] `/clearwarnings` command to clear a user's warning history
 - [x] Update `internal/bot/bot.go` to register the `unban` and `clearwarnings` commands
+
+### Phase 81 — Channel Moderation Commands
+- [x] Add `/lock` command in `internal/bot/commands/lock.go` to deny SendMessages for the `@everyone` role in the current channel.
+- [x] Add `/unlock` command in `internal/bot/commands/unlock.go` to remove the SendMessages deny overwrite for the `@everyone` role in the current channel.
+- [x] Add `/slowmode` command in `internal/bot/commands/slowmode.go` to set the channel slowmode duration.
+- [x] Update `internal/bot/bot.go` to register the `lock`, `unlock`, and `slowmode` commands.
