@@ -18,6 +18,34 @@ func Welcome(database *db.DB) *Command {
 			Description: "Configure and test welcome images for your server",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
+					Name:        "set",
+					Description: "Set the welcome channel and message",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionChannel,
+							Name:        "channel",
+							Description: "The channel to send welcome messages in",
+							Required:    true,
+							ChannelTypes: []discordgo.ChannelType{
+								discordgo.ChannelTypeGuildText,
+								discordgo.ChannelTypeGuildNews,
+							},
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "message",
+							Description: "The welcome message",
+							Required:    true,
+						},
+					},
+				},
+				{
+					Name:        "remove",
+					Description: "Remove the welcome message configuration",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
+				{
 					Name:        "setup-image",
 					Description: "Set an image URL to be included in welcome messages",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
@@ -53,12 +81,64 @@ func Welcome(database *db.DB) *Command {
 			subcommand := options[0].Name
 
 			switch subcommand {
+			case "set":
+				handleWelcomeSet(s, i, database, options[0].Options)
+			case "remove":
+				handleWelcomeRemove(s, i, database)
 			case "setup-image":
 				handleWelcomeSetupImage(s, i, database, options[0].Options)
 			case "test":
 				handleWelcomeTest(s, i, database)
 			}
 		},
+	}
+}
+
+func handleWelcomeSet(s *discordgo.Session, i *discordgo.InteractionCreate, database *db.DB, options []*discordgo.ApplicationCommandInteractionDataOption) {
+	var channelID, message string
+	for _, opt := range options {
+		switch opt.Name {
+		case "channel":
+			channelID = opt.Value.(string)
+		case "message":
+			message = opt.StringValue()
+		}
+	}
+
+	err := database.SetWelcomeMessage(context.Background(), i.GuildID, channelID, message)
+	if err != nil {
+		slog.Error("Failed to set welcome message", "guild", i.GuildID, "error", err)
+		SendError(s, i, "Failed to set welcome message.")
+		return
+	}
+
+	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("Welcome message set! It will be sent to <#%s>.", channelID),
+		},
+	})
+	if err != nil {
+		fmt.Printf("Failed to respond: %v\n", err)
+	}
+}
+
+func handleWelcomeRemove(s *discordgo.Session, i *discordgo.InteractionCreate, database *db.DB) {
+	err := database.RemoveWelcomeMessage(context.Background(), i.GuildID)
+	if err != nil {
+		slog.Error("Failed to remove welcome message", "guild", i.GuildID, "error", err)
+		SendError(s, i, "Failed to remove welcome message.")
+		return
+	}
+
+	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Welcome message configuration removed.",
+		},
+	})
+	if err != nil {
+		fmt.Printf("Failed to respond: %v\n", err)
 	}
 }
 

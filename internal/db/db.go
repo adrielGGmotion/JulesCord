@@ -5388,3 +5388,42 @@ func (db *DB) GetReactionMenu(ctx context.Context, messageID string) (*ReactionM
 	}
 	return menu, nil
 }
+
+// SetWelcomeMessage configures or updates the welcome message and channel for a guild.
+func (db *DB) SetWelcomeMessage(ctx context.Context, guildID, channelID, message string) error {
+	query := `
+		INSERT INTO welcome_messages (guild_id, channel_id, message)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id) DO UPDATE
+		SET channel_id = EXCLUDED.channel_id, message = EXCLUDED.message
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, message)
+	if err != nil {
+		return fmt.Errorf("failed to set welcome message: %w", err)
+	}
+	return nil
+}
+
+// GetWelcomeMessage retrieves the configured welcome channel ID and message for a guild.
+func (db *DB) GetWelcomeMessage(ctx context.Context, guildID string) (string, string, error) {
+	query := `SELECT channel_id, message FROM welcome_messages WHERE guild_id = $1`
+	var channelID, message string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&channelID, &message)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", "", nil
+		}
+		return "", "", fmt.Errorf("failed to get welcome message: %w", err)
+	}
+	return channelID, message, nil
+}
+
+// RemoveWelcomeMessage disables the welcome message for a guild.
+func (db *DB) RemoveWelcomeMessage(ctx context.Context, guildID string) error {
+	query := `DELETE FROM welcome_messages WHERE guild_id = $1`
+	_, err := db.Pool.Exec(ctx, query, guildID)
+	if err != nil {
+		return fmt.Errorf("failed to remove welcome message: %w", err)
+	}
+	return nil
+}
