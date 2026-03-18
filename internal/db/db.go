@@ -5404,6 +5404,45 @@ func (db *DB) SetWelcomeMessage(ctx context.Context, guildID, channelID, message
 	return nil
 }
 
+// SetGoodbyeMessage sets or updates the goodbye channel and message for a guild.
+func (db *DB) SetGoodbyeMessage(ctx context.Context, guildID, channelID, message string) error {
+	query := `
+		INSERT INTO goodbye_messages (guild_id, channel_id, message)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id) DO UPDATE
+		SET channel_id = EXCLUDED.channel_id, message = EXCLUDED.message
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, message)
+	if err != nil {
+		return fmt.Errorf("failed to set goodbye message: %w", err)
+	}
+	return nil
+}
+
+// GetGoodbyeMessage retrieves the configured goodbye channel ID and message for a guild.
+func (db *DB) GetGoodbyeMessage(ctx context.Context, guildID string) (string, string, error) {
+	query := `SELECT channel_id, message FROM goodbye_messages WHERE guild_id = $1`
+	var channelID, message string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&channelID, &message)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", "", nil
+		}
+		return "", "", fmt.Errorf("failed to get goodbye message: %w", err)
+	}
+	return channelID, message, nil
+}
+
+// RemoveGoodbyeMessage removes the configured goodbye message for a guild.
+func (db *DB) RemoveGoodbyeMessage(ctx context.Context, guildID string) error {
+	query := `DELETE FROM goodbye_messages WHERE guild_id = $1`
+	_, err := db.Pool.Exec(ctx, query, guildID)
+	if err != nil {
+		return fmt.Errorf("failed to remove goodbye message: %w", err)
+	}
+	return nil
+}
+
 // GetWelcomeMessage retrieves the configured welcome channel ID and message for a guild.
 func (db *DB) GetWelcomeMessage(ctx context.Context, guildID string) (string, string, error) {
 	query := `SELECT channel_id, message FROM welcome_messages WHERE guild_id = $1`
