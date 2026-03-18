@@ -154,6 +154,8 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Slowmode(database))
 	registry.Add(commands.Cooldown(database))
 	registry.Add(commands.ReactionGroup(database))
+	registry.Add(commands.Role(database))
+	registry.Add(commands.StickyRole(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -1138,6 +1140,18 @@ func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemb
 	if err != nil {
 		slog.Error("Failed to get guild config for welcome message/auto-role", "error", err)
 		return
+	}
+
+	stickyRoles, err := b.DB.GetStickyRoles(context.Background(), m.GuildID, m.User.ID)
+	if err != nil {
+		slog.Error("Failed to get sticky roles", "error", err)
+	} else {
+		for _, roleID := range stickyRoles {
+			err = s.GuildMemberRoleAdd(m.GuildID, m.User.ID, roleID)
+			if err != nil {
+				slog.Error("Failed to restore sticky role", "role_id", roleID, "error", err)
+			}
+		}
 	}
 
 	if config.WelcomeChannelID != nil && *config.WelcomeChannelID != "" {

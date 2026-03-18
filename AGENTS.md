@@ -468,6 +468,18 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] `/dynamicvoice` command — `setup` subcommand
 - [x] Update `voiceStateUpdateHandler` to support multiple dynamic voice instances per user
 
+
+### Phase 94 — Role Commands
+- [x] DB operations — `AddRole`, `RemoveRole`, `HasRole` (Optional, as this mainly uses Discord API)
+- [x] `/role` command — `add`, `remove`, `info` subcommands
+- [x] Update `bot.go` to register the `role` command
+
+### Phase 95 — Sticky Roles System
+- [x] `migrations/080_sticky_roles.sql` — `sticky_roles` table (guild_id, user_id, role_id)
+- [x] DB operations — `SaveStickyRole`, `GetStickyRoles`, `RemoveStickyRole`
+- [x] `/stickyrole` command — `add`, `remove`, `list`
+- [x] Update `guildMemberAddHandler` to restore sticky roles when a user leaves and rejoins
+
 ## Notes for Next Iteration
 
 - Start Phase 1 completely: delete Node.js files, set up Go module, get bot connecting to Discord
@@ -1215,6 +1227,13 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `messageReactionRemoveHandler` in `internal/bot/bot.go` to log role removals if `advanced_log_config` enables role logging.
 
  — Dynamic Voice Channels
+
+
+- Implemented Phase 94 Role Commands: added `/role` command in `internal/bot/commands/role.go` with `add`, `remove`, and `info` subcommands to manage user roles directly using Discord API. Registered it in `internal/bot/bot.go`.
+- Implemented Phase 95 Sticky Roles System: added migrations `080_sticky_roles.up.sql` and `080_sticky_roles.down.sql` with table `sticky_roles`.
+- Added DB operations `SaveStickyRole`, `GetStickyRoles`, and `RemoveStickyRole` in `internal/db/db.go`.
+- Added `/stickyrole` command in `internal/bot/commands/stickyrole.go` with `add`, `remove`, and `list` subcommands.
+- Updated `guildMemberAddHandler` in `internal/bot/bot.go` to restore sticky roles when a user leaves and rejoins a server. Registered the `stickyrole` command.
 
 ### Phase 93 — Auto-Publish (Crosspost) Messages
 - [x] `migrations/079_auto_publish.sql` — `auto_publish_config` table (guild_id, channel_id)

@@ -5241,3 +5241,47 @@ func (db *DB) IsAutoPublishChannel(ctx context.Context, guildID, channelID strin
 	metrics.DBQueryLatency.WithLabelValues("IsAutoPublishChannel").Observe(time.Since(start).Seconds())
 	return exists, nil
 }
+
+// SaveStickyRole saves a sticky role for a user.
+func (db *DB) SaveStickyRole(ctx context.Context, guildID, userID, roleID string) error {
+	query := `
+		INSERT INTO sticky_roles (guild_id, user_id, role_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, user_id, role_id) DO NOTHING
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, roleID)
+	return err
+}
+
+// GetStickyRoles returns all sticky roles for a user.
+func (db *DB) GetStickyRoles(ctx context.Context, guildID, userID string) ([]string, error) {
+	query := `
+		SELECT role_id FROM sticky_roles
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var roles []string
+	for rows.Next() {
+		var roleID string
+		if err := rows.Scan(&roleID); err != nil {
+			return nil, err
+		}
+		roles = append(roles, roleID)
+	}
+	return roles, rows.Err()
+}
+
+// RemoveStickyRole removes a sticky role for a user.
+func (db *DB) RemoveStickyRole(ctx context.Context, guildID, userID, roleID string) error {
+	query := `
+		DELETE FROM sticky_roles
+		WHERE guild_id = $1 AND user_id = $2 AND role_id = $3
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, roleID)
+	return err
+}
