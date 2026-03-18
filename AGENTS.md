@@ -1235,8 +1235,20 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added `/stickyrole` command in `internal/bot/commands/stickyrole.go` with `add`, `remove`, and `list` subcommands.
 - Updated `guildMemberAddHandler` in `internal/bot/bot.go` to restore sticky roles when a user leaves and rejoins a server. Registered the `stickyrole` command.
 
+
+- Implemented Phase 96 Reaction Roles Menus features: added migrations `081_reaction_menus.up.sql` and `081_reaction_menus.down.sql` with tables `reaction_menus` and `reaction_menu_items`.
+- Added DB operations `CreateReactionMenu`, `AddReactionMenuItem`, and `GetReactionMenuItems` in `internal/db/db.go`.
+- Added `/reactionmenu` command with `create` and `add-role` subcommands in `internal/bot/commands/reactionmenu.go`. Registered it in `internal/bot/bot.go`.
+- Updated `messageReactionAddHandler` and `messageReactionRemoveHandler` in `internal/bot/bot.go` to assign and remove roles based on configured menus.
+
 ### Phase 93 — Auto-Publish (Crosspost) Messages
 - [x] `migrations/079_auto_publish.sql` — `auto_publish_config` table (guild_id, channel_id)
 - [x] DB operations — `SetAutoPublishChannel`, `GetAutoPublishChannel`, `RemoveAutoPublishChannel`
 - [x] `/autopublish` command with `add` and `remove` subcommands
 - [x] Update `messageCreateHandler` to automatically crosspost (`ChannelMessageCrosspost`) messages in configured announcement channels
+
+### Phase 96 — Reaction Roles Menus
+- [x] `migrations/081_reaction_menus.sql` — `reaction_menus` table (message_id, guild_id, channel_id) and `reaction_menu_items` (message_id, emoji, role_id)
+- [x] DB operations — `CreateReactionMenu`, `AddReactionMenuItem`, `GetReactionMenuItems`
+- [x] `/reactionmenu` command — `create` and `add-role` subcommands
+- [x] Update `messageReactionAddHandler` and `messageReactionRemoveHandler` to assign/remove roles based on `reaction_menu_items`
