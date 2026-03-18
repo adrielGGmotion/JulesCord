@@ -1082,3 +1082,16 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Add `/unlock` command in `internal/bot/commands/unlock.go` to remove the SendMessages deny overwrite for the `@everyone` role in the current channel.
 - [x] Add `/slowmode` command in `internal/bot/commands/slowmode.go` to set the channel slowmode duration.
 - [x] Update `internal/bot/bot.go` to register the `lock`, `unlock`, and `slowmode` commands.
+
+### Phase 82 — Command Cooldowns
+- [x] `migrations/070_command_cooldowns.sql` — `command_cooldowns` table (user_id, command, expires_at)
+- [x] DB operations — `SetCommandCooldown`, `GetCommandCooldown`
+- [x] Update `bot.go` interaction handler to enforce command cooldowns based on database state
+- [x] Add `/cooldown` command to manage custom command cooldowns
+
+
+- Implemented Phase 82 Command Cooldowns features: added migrations `070_command_cooldowns.up.sql` and `070_command_cooldowns.down.sql` with table `command_cooldowns`.
+- Added DB operations `SetCommandCooldown` and `GetCommandCooldown` in `internal/db/db.go`.
+- Updated `interactionCreateHandler` in `internal/bot/bot.go` to enforce command cooldowns.
+- Added `/cooldown` command in `internal/bot/commands/cooldown.go` to manage custom command cooldowns.
+- Updated `internal/bot/bot.go` to register the `cooldown` command.
