@@ -144,6 +144,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.ClearWarnings(database))
 	registry.Add(commands.Lock(database))
 	registry.Add(commands.AntiSpam(database))
+	registry.Add(commands.AdvancedLog(database))
 	registry.Add(commands.Unlock(database))
 	registry.Add(commands.Slowmode(database))
 	registry.Add(commands.Cooldown(database))
@@ -195,6 +196,10 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 
 	// Register member remove handler
 	bot.Session.AddHandler(bot.guildMemberRemoveHandler)
+	bot.Session.AddHandler(bot.channelCreateHandler)
+	bot.Session.AddHandler(bot.channelDeleteHandler)
+	bot.Session.AddHandler(bot.guildRoleCreateHandler)
+	bot.Session.AddHandler(bot.guildRoleDeleteHandler)
 
 	// Set intentions
 	bot.Session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMembers | discordgo.IntentsGuildMessageReactions | discordgo.IntentsMessageContent | discordgo.IntentsGuildVoiceStates
@@ -1882,4 +1887,73 @@ func (b *Bot) checkTempBans() {
 			}
 		}
 	}
+}
+
+// handleAdvancedLog checks if the event should be logged and sends it to the configured channel
+func (b *Bot) handleAdvancedLog(s *discordgo.Session, guildID string, eventType string, embed *discordgo.MessageEmbed) {
+	if b.DB == nil {
+		return
+	}
+
+	config, err := b.DB.GetAdvancedLogConfig(context.Background(), guildID)
+	if err != nil || config == nil {
+		return
+	}
+
+	events := strings.Split(config.Events, ",")
+	shouldLog := false
+	for _, e := range events {
+		e = strings.TrimSpace(e)
+		if e == "all" || e == eventType {
+			shouldLog = true
+			break
+		}
+	}
+
+	if shouldLog {
+		_, err := s.ChannelMessageSendEmbed(config.ChannelID, embed)
+		if err != nil {
+			slog.Error("Failed to send advanced log", "guild_id", guildID, "channel_id", config.ChannelID, "error", err)
+		}
+	}
+}
+
+// channelCreateHandler logs when a new channel is created
+func (b *Bot) channelCreateHandler(s *discordgo.Session, c *discordgo.ChannelCreate) {
+	embed := &discordgo.MessageEmbed{
+		Title:       "Channel Created",
+		Description: fmt.Sprintf("Channel **%s** (<#%s>) was created.", c.Name, c.ID),
+		Color:       0x2ECC71, // Green
+	}
+	b.handleAdvancedLog(s, c.GuildID, "channel_create", embed)
+}
+
+// channelDeleteHandler logs when a channel is deleted
+func (b *Bot) channelDeleteHandler(s *discordgo.Session, c *discordgo.ChannelDelete) {
+	embed := &discordgo.MessageEmbed{
+		Title:       "Channel Deleted",
+		Description: fmt.Sprintf("Channel **%s** (%s) was deleted.", c.Name, c.ID),
+		Color:       0xE74C3C, // Red
+	}
+	b.handleAdvancedLog(s, c.GuildID, "channel_delete", embed)
+}
+
+// guildRoleCreateHandler logs when a new role is created
+func (b *Bot) guildRoleCreateHandler(s *discordgo.Session, r *discordgo.GuildRoleCreate) {
+	embed := &discordgo.MessageEmbed{
+		Title:       "Role Created",
+		Description: fmt.Sprintf("Role **%s** (<@&%s>) was created.", r.Role.Name, r.Role.ID),
+		Color:       0x2ECC71, // Green
+	}
+	b.handleAdvancedLog(s, r.GuildID, "role_create", embed)
+}
+
+// guildRoleDeleteHandler logs when a role is deleted
+func (b *Bot) guildRoleDeleteHandler(s *discordgo.Session, r *discordgo.GuildRoleDelete) {
+	embed := &discordgo.MessageEmbed{
+		Title:       "Role Deleted",
+		Description: fmt.Sprintf("Role with ID **%s** was deleted.", r.RoleID),
+		Color:       0xE74C3C, // Red
+	}
+	b.handleAdvancedLog(s, r.GuildID, "role_delete", embed)
 }

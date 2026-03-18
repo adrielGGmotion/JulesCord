@@ -4917,3 +4917,36 @@ func (db *DB) GetAntiSpamConfig(ctx context.Context, guildID string) (*AntiSpamC
 	}
 	return c, nil
 }
+
+// AdvancedLogConfig represents the configuration for advanced event logging in a guild.
+type AdvancedLogConfig struct {
+	GuildID   string
+	Events    string
+	ChannelID string
+}
+
+// SetAdvancedLogConfig sets or updates the advanced logging configuration for a guild.
+func (db *DB) SetAdvancedLogConfig(ctx context.Context, guildID, events, channelID string) error {
+	query := `
+		INSERT INTO advanced_log_config (guild_id, events, channel_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id)
+		DO UPDATE SET events = EXCLUDED.events, channel_id = EXCLUDED.channel_id
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, events, channelID)
+	return err
+}
+
+// GetAdvancedLogConfig retrieves the advanced logging configuration for a guild.
+func (db *DB) GetAdvancedLogConfig(ctx context.Context, guildID string) (*AdvancedLogConfig, error) {
+	query := `SELECT guild_id, events, channel_id FROM advanced_log_config WHERE guild_id = $1`
+	var config AdvancedLogConfig
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&config.GuildID, &config.Events, &config.ChannelID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &config, nil
+}
