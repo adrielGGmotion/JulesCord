@@ -928,6 +928,38 @@ func (db *DB) GetGuildConfig(ctx context.Context, guildID string) (*GuildConfig,
 	return &config, nil
 }
 
+// VoiceGeneratorConfig represents the configuration for voice generator.
+type VoiceGeneratorConfig struct {
+	GuildID       string `json:"guild_id"`
+	BaseChannelID string `json:"base_channel_id"`
+	MaxChannels   int    `json:"max_channels"`
+}
+
+// SetVoiceGeneratorConfig updates the voice generator config for a guild.
+func (db *DB) SetVoiceGeneratorConfig(ctx context.Context, guildID, baseChannelID string, maxChannels int) error {
+	query := `
+		INSERT INTO voice_generator_config (guild_id, base_channel_id, max_channels)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id) DO UPDATE SET base_channel_id = EXCLUDED.base_channel_id, max_channels = EXCLUDED.max_channels
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, baseChannelID, maxChannels)
+	return err
+}
+
+// GetVoiceGeneratorConfig gets the voice generator config for a guild.
+func (db *DB) GetVoiceGeneratorConfig(ctx context.Context, guildID string) (*VoiceGeneratorConfig, error) {
+	query := `SELECT guild_id, base_channel_id, max_channels FROM voice_generator_config WHERE guild_id = $1`
+	var config VoiceGeneratorConfig
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&config.GuildID, &config.BaseChannelID, &config.MaxChannels)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No config set
+		}
+		return nil, err
+	}
+	return &config, nil
+}
+
 // SetGuildWelcomeChannel updates or inserts the welcome channel ID for a guild.
 func (db *DB) SetGuildWelcomeChannel(ctx context.Context, guildID, welcomeChannelID string) error {
 	query := `
