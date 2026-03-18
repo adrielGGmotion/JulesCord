@@ -76,6 +76,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 86 Advanced Logging System features: added migrations `073_advanced_logging.up.sql` and `073_advanced_logging.down.sql` with table `advanced_log_config`.
+- Added DB operations `SetAdvancedLogConfig` and `GetAdvancedLogConfig` in `internal/db/db.go`.
+- Added `/advancedlog` command in `internal/bot/commands/advancedlog.go` to configure detailed event logging per channel.
+- Updated `internal/bot/bot.go` to register the `advancedlog` command and implemented enhanced event tracking and routing for channel and role events.
+
 - Implemented Phase 85 Advanced Anti-Spam features: added migrations `072_anti_spam.up.sql` and `072_anti_spam.down.sql` with table `anti_spam_config`.
 - Added DB operations `SetAntiSpamConfig` and `GetAntiSpamConfig` in `internal/db/db.go`.
 - Added `/antispam` command in `internal/bot/commands/antispam.go` to configure message limits and mute durations.
@@ -1124,3 +1129,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetAntiSpamConfig`, `GetAntiSpamConfig`
 - [x] `/antispam` command — `setup` to configure limit, time window, and mute duration
 - [x] Update message handler to track message rate per user and auto-mute if exceeded
+
+### Phase 86 — Advanced Logging System
+- [x] `migrations/073_advanced_logging.sql` — `advanced_log_config` table (guild_id, events, channel_id)
+- [x] DB operations — `SetAdvancedLogConfig`, `GetAdvancedLogConfig`
+- [x] `/advancedlog` command — configure detailed event logging per channel
+- [x] Implement enhanced event tracking and routing

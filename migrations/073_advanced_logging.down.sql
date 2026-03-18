@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS advanced_log_config;
