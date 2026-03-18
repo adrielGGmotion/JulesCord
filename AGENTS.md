@@ -1094,7 +1094,18 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `bot.go` interaction handler to enforce command cooldowns based on database state
 - [x] Add `/cooldown` command to manage custom command cooldowns
 
+### Phase 84 — Auto-Responder Enhancement
+- [x] `migrations/071_auto_responder_update.sql` — add `is_regex` boolean to `auto_responders` table
+- [x] DB operations — update `AddAutoResponder` and `ListAutoResponders` to support `is_regex`
+- [x] `/autoresponder` command — enhance `add` to accept an `is_regex` flag
+- [x] Update message handler to evaluate regex auto-responders using `regexp` package
 
+
+
+- Implemented Phase 84 Auto-Responder Enhancement features: added migrations `071_auto_responder_update.up.sql` and `071_auto_responder_update.down.sql` with `is_regex` column to `auto_responders` table.
+- Added DB operations `AddAutoResponder`, `ListAllAutoResponders`, and `ListAutoResponders` in `internal/db/db.go` to support `is_regex` and pre-compile regular expressions.
+- Enhanced `/autoresponder add` command in `internal/bot/commands/autoresponder.go` to parse the `is_regex` flag.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to safely evaluate auto-responders using regular expressions if configured.
 - Implemented Phase 82 Command Cooldowns features: added migrations `070_command_cooldowns.up.sql` and `070_command_cooldowns.down.sql` with table `command_cooldowns`.
 - Added DB operations `SetCommandCooldown` and `GetCommandCooldown` in `internal/db/db.go`.
 - Updated `interactionCreateHandler` in `internal/bot/bot.go` to enforce command cooldowns.
