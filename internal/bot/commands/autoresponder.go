@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"regexp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -34,6 +35,12 @@ func AutoResponder(database *db.DB, botInstance interface{}) *Command {
 							Name:        "response",
 							Description: "The text to respond with",
 							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionBoolean,
+							Name:        "is_regex",
+							Description: "Whether the trigger is a regular expression (default: false)",
+							Required:    false,
 						},
 					},
 				},
@@ -96,10 +103,20 @@ func AutoResponder(database *db.DB, botInstance interface{}) *Command {
 
 func handleAddAutoResponder(s *discordgo.Session, i *discordgo.InteractionCreate, database *db.DB, options []*discordgo.ApplicationCommandInteractionDataOption, botInstance interface{}) {
 	var trigger, response string
+	var isRegex bool
+
+	for _, opt := range options {
+		if opt.Name == "is_regex" {
+			isRegex = opt.BoolValue()
+		}
+	}
 
 	for _, opt := range options {
 		if opt.Name == "trigger" {
-			trigger = strings.ToLower(strings.TrimSpace(opt.StringValue()))
+			trigger = strings.TrimSpace(opt.StringValue())
+			if !isRegex {
+				trigger = strings.ToLower(trigger)
+			}
 		} else if opt.Name == "response" {
 			response = opt.StringValue()
 		}
@@ -110,7 +127,15 @@ func handleAddAutoResponder(s *discordgo.Session, i *discordgo.InteractionCreate
 		return
 	}
 
-	err := database.AddAutoResponder(context.Background(), i.GuildID, trigger, response)
+	if isRegex {
+		_, err := regexp.Compile(trigger)
+		if err != nil {
+			SendError(s, i, fmt.Sprintf("Invalid regular expression: `%s`", err.Error()))
+			return
+		}
+	}
+
+	err := database.AddAutoResponder(context.Background(), i.GuildID, trigger, response, isRegex)
 	if err != nil {
 		slog.Error("Failed to add auto-responder", "error", err)
 		SendError(s, i, "Failed to save the auto-responder.")
@@ -120,6 +145,11 @@ func handleAddAutoResponder(s *discordgo.Session, i *discordgo.InteractionCreate
 	// Update cache
 	updateCache(botInstance, i.GuildID, database)
 
+	regexText := "No"
+	if isRegex {
+		regexText = "Yes"
+	}
+
 	SendEmbed(s, i, &discordgo.MessageEmbed{
 		Title:       "Auto-Responder Added",
 		Description: fmt.Sprintf("Successfully added auto-responder for **%s**", trigger),
@@ -128,6 +158,10 @@ func handleAddAutoResponder(s *discordgo.Session, i *discordgo.InteractionCreate
 			{
 				Name:  "Response",
 				Value: response,
+			},
+			{
+				Name:  "Is Regex",
+				Value: regexText,
 			},
 		},
 	})
@@ -183,7 +217,11 @@ func handleListAutoResponders(s *discordgo.Session, i *discordgo.InteractionCrea
 
 	var description strings.Builder
 	for _, r := range responders {
-		description.WriteString(fmt.Sprintf("**Trigger:** %s\n**Response:** %s\n\n", r.TriggerWord, r.Response))
+		regexText := ""
+		if r.IsRegex {
+			regexText = " *(Regex)*"
+		}
+		description.WriteString(fmt.Sprintf("**Trigger:** %s%s\n**Response:** %s\n\n", r.TriggerWord, regexText, r.Response))
 	}
 
 	// Discord embed description limit is 4096 characters, truncate if necessary

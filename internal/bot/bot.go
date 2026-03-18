@@ -763,7 +763,14 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 			responders := respondersAny.([]*db.AutoResponder)
 			contentLower := strings.ToLower(strings.TrimSpace(m.Content))
 			for _, r := range responders {
-				if strings.Contains(contentLower, r.TriggerWord) {
+				matched := false
+				if r.IsRegex && r.CompiledReg != nil {
+					matched = r.CompiledReg.MatchString(m.Content)
+				} else if !r.IsRegex {
+					matched = strings.Contains(contentLower, r.TriggerWord)
+				}
+
+				if matched {
 					_, err := s.ChannelMessageSend(m.ChannelID, r.Response)
 					if err != nil {
 						slog.Error("Failed to send auto-responder message", "error", err)
