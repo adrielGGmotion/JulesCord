@@ -1289,3 +1289,14 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetMemberCountChannel`, `GetMemberCountChannel`, `RemoveMemberCountChannel`
 - [x] `/membercount` command with `setup` and `remove` subcommands
 - [x] Update `guildMemberAddHandler` and `guildMemberRemoveHandler` to update the channel name (e.g. `Members: 123`)
+
+### Phase 100 — Temporary Roles
+- [x] `migrations/085_temp_roles.sql` — `temp_roles` table (id, guild_id, user_id, role_id, expires_at)
+- [x] DB operations — `AddTempRole`, `GetExpiredTempRoles`, `RemoveTempRole`
+- [x] `/temprole` command with `add` and `remove` subcommands
+- [x] Background goroutine to periodically remove expired temporary roles
+
+- Implemented Phase 100 Temporary Roles System: added migrations `085_temp_roles.up.sql` and `085_temp_roles.down.sql` with table `temp_roles`.
+- Added DB operations `AddTempRole`, `GetExpiredTempRoles`, `RemoveTempRole`, and `RemoveTempRoleByGuildUserRole` in `internal/db/db.go`.
+- Added `/temprole` command in `internal/bot/commands/temprole.go` with `add` and `remove` subcommands.
+- Added a background goroutine `checkTempRoles` in `internal/bot/bot.go` to periodically remove expired temporary roles. Registered the `temprole` command.

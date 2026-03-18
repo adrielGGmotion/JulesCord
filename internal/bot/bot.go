@@ -159,6 +159,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Role(database))
 	registry.Add(commands.ReactionMenu(database))
 	registry.Add(commands.StickyRole(database))
+	registry.Add(commands.TempRole(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -282,6 +283,7 @@ func (b *Bot) readyHandler(s *discordgo.Session, event *discordgo.Ready) {
 	go b.checkGiveaways()
 	go b.checkBirthdays()
 	go b.checkTempBans()
+	go b.checkTempRoles()
 
 	// Start mute expiration checker
 	go b.checkExpiredMutes()
@@ -2296,4 +2298,48 @@ func (b *Bot) guildRoleDeleteHandler(s *discordgo.Session, r *discordgo.GuildRol
 		Color:       0xE74C3C, // Red
 	}
 	b.handleAdvancedLog(s, r.GuildID, "role_delete", embed)
+}
+
+func (b *Bot) checkTempRoles() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-context.Background().Done():
+			return
+		case <-ticker.C:
+			if b.DB == nil {
+				continue
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			roles, err := b.DB.GetExpiredTempRoles(ctx)
+			if err != nil {
+				slog.Error("Failed to fetch expired temp roles", "error", err)
+				cancel()
+				continue
+			}
+
+			for _, role := range roles {
+				// Remove role via Discord API
+				err := b.Session.GuildMemberRoleRemove(role.GuildID, role.UserID, role.RoleID)
+				if err != nil {
+					// Check if error is due to missing permissions (50013) or unknown role (10011) or member missing (10007).
+					// Usually we should just proceed to clean up the DB regardless of discord error unless it's a temp API issue,
+					// but removing from DB is safest to avoid endless looping on error.
+					slog.Warn("Failed to remove expired temp role in Discord", "guild_id", role.GuildID, "user_id", role.UserID, "role_id", role.RoleID, "error", err)
+				}
+
+				// Clean up DB row
+				err = b.DB.RemoveTempRole(ctx, role.ID)
+				if err != nil {
+					slog.Error("Failed to remove expired temp role from DB", "id", role.ID, "error", err)
+				} else {
+					slog.Info("Removed expired temp role", "guild_id", role.GuildID, "user_id", role.UserID, "role_id", role.RoleID)
+				}
+			}
+			cancel()
+		}
+	}
 }

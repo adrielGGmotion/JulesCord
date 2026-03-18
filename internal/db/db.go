@@ -5524,3 +5524,63 @@ func (db *DB) GetAllMemberCountChannels(ctx context.Context) ([]MemberCountConfi
 	}
 	return configs, nil
 }
+
+// TempRole represents a temporary role assigned to a user.
+type TempRole struct {
+	ID        int
+	GuildID   string
+	UserID    string
+	RoleID    string
+	ExpiresAt time.Time
+}
+
+// AddTempRole adds a new temporary role assignment or updates an existing one.
+func (db *DB) AddTempRole(ctx context.Context, guildID, userID, roleID string, expiresAt time.Time) error {
+	query := `
+		INSERT INTO temp_roles (guild_id, user_id, role_id, expires_at)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (guild_id, user_id, role_id) DO UPDATE
+		SET expires_at = EXCLUDED.expires_at
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, roleID, expiresAt)
+	return err
+}
+
+// GetExpiredTempRoles retrieves temporary roles that have expired.
+func (db *DB) GetExpiredTempRoles(ctx context.Context) ([]TempRole, error) {
+	query := `
+		SELECT id, guild_id, user_id, role_id, expires_at
+		FROM temp_roles
+		WHERE expires_at <= NOW()
+	`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var roles []TempRole
+	for rows.Next() {
+		var r TempRole
+		if err := rows.Scan(&r.ID, &r.GuildID, &r.UserID, &r.RoleID, &r.ExpiresAt); err != nil {
+			return nil, err
+		}
+		roles = append(roles, r)
+	}
+
+	return roles, rows.Err()
+}
+
+// RemoveTempRole removes a temporary role by its ID.
+func (db *DB) RemoveTempRole(ctx context.Context, id int) error {
+	query := `DELETE FROM temp_roles WHERE id = $1`
+	_, err := db.Pool.Exec(ctx, query, id)
+	return err
+}
+
+// RemoveTempRoleByGuildUserRole removes a temporary role matching the guild, user, and role.
+func (db *DB) RemoveTempRoleByGuildUserRole(ctx context.Context, guildID, userID, roleID string) error {
+	query := `DELETE FROM temp_roles WHERE guild_id = $1 AND user_id = $2 AND role_id = $3`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, roleID)
+	return err
+}
