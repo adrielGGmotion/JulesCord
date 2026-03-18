@@ -988,6 +988,13 @@ func (b *Bot) messageReactionAddHandler(s *discordgo.Session, r *discordgo.Messa
 		err = s.GuildMemberRoleAdd(r.GuildID, r.UserID, rr.RoleID)
 		if err != nil {
 			slog.Error("Failed to add role %s to user %s via reaction", "arg1", rr.RoleID, "arg2", r.UserID, "error", err)
+		} else {
+			embed := &discordgo.MessageEmbed{
+				Title:       "Role Assigned via Reaction",
+				Description: fmt.Sprintf("User <@%s> was assigned the role <@&%s> via reaction.", r.UserID, rr.RoleID),
+				Color:       0x2ECC71, // Green
+			}
+			b.handleAdvancedLog(s, r.GuildID, "role_update", embed)
 		}
 	}
 }
@@ -1015,6 +1022,13 @@ func (b *Bot) messageReactionRemoveHandler(s *discordgo.Session, r *discordgo.Me
 		err = s.GuildMemberRoleRemove(r.GuildID, r.UserID, rr.RoleID)
 		if err != nil {
 			slog.Error("Failed to remove role %s from user %s via reaction", "arg1", rr.RoleID, "arg2", r.UserID, "error", err)
+		} else {
+			embed := &discordgo.MessageEmbed{
+				Title:       "Role Removed via Reaction",
+				Description: fmt.Sprintf("User <@%s> was removed from the role <@&%s> via reaction.", r.UserID, rr.RoleID),
+				Color:       0xE74C3C, // Red
+			}
+			b.handleAdvancedLog(s, r.GuildID, "role_update", embed)
 		}
 	}
 }
