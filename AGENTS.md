@@ -76,6 +76,13 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 91 Thread Management features: added migrations `077_thread_management.up.sql` and `077_thread_management.down.sql` with table `thread_config`.
+- Added DB operations `SetThreadConfig` and `GetThreadConfig` in `internal/db/db.go`.
+- Added `/thread` command with `setup`, `lock`, and `unlock` subcommands in `internal/bot/commands/thread.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to enforce configured auto-archive durations for threads.
+- Updated `internal/bot/bot.go` to register the `thread` command.
+
+
 - Implemented Phase 90 Ticket Transcripts features: added migrations `076_ticket_transcripts.up.sql` and `076_ticket_transcripts.down.sql` with table `ticket_transcripts`.
 - Added DB operations `SaveTicketTranscript` and `GetTicketTranscripts` in `internal/db/db.go`.
 - Enhanced `/ticket close` command in `internal/bot/commands/ticket.go` to generate and DM channel transcripts to the user before deleting the channel.
@@ -431,6 +438,18 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] DB operations — `CreateReactionRoleGroup`, `GetReactionRoleGroups`, `AssignRoleToGroup`
 - [x] `/reactiongroup` command — `create`, `list`, and `addrole` subcommands
 - [x] Update `messageReactionAddHandler` to enforce exclusivity (remove other roles in group when one is selected)
+
+### Phase 91 — Thread Management
+- [x] `migrations/077_thread_management.sql` — `thread_config` table (guild_id, auto_archive_duration)
+- [x] DB operations — `SetThreadConfig`, `GetThreadConfig`
+- [x] `/thread` command — `setup` to configure auto-archive duration, `lock`, `unlock`
+- [x] Update `messageCreateHandler` to enforce thread auto-archive durations
+
+### Phase 92 — Voice Channel Generator
+- [ ] `migrations/078_voice_generator.sql` — `voice_generator_config` table (guild_id, base_channel_id, max_channels)
+- [ ] DB operations — `SetVoiceGeneratorConfig`, `GetVoiceGeneratorConfig`
+- [ ] `/voicegen` command — `setup`
+- [ ] Update `voiceStateUpdateHandler` to generate voice channels when base channel joined
 
 ### Phase 88 — Dynamic Voice Channels
 - [x] `migrations/074_dynamic_voice.sql` — `dynamic_voice_config` table (guild_id, category_id, trigger_channel_id)

@@ -5128,3 +5128,32 @@ func (db *DB) GetTicketTranscripts(ctx context.Context, guildID, userID string) 
 	}
 	return transcripts, nil
 }
+
+type ThreadConfig struct {
+	GuildID             string
+	AutoArchiveDuration int
+}
+
+func (db *DB) SetThreadConfig(ctx context.Context, guildID string, duration int) error {
+	query := `
+		INSERT INTO thread_config (guild_id, auto_archive_duration)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE
+		SET auto_archive_duration = EXCLUDED.auto_archive_duration;
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, duration)
+	return err
+}
+
+func (db *DB) GetThreadConfig(ctx context.Context, guildID string) (*ThreadConfig, error) {
+	query := `SELECT guild_id, auto_archive_duration FROM thread_config WHERE guild_id = $1`
+	var config ThreadConfig
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&config.GuildID, &config.AutoArchiveDuration)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &config, nil
+}

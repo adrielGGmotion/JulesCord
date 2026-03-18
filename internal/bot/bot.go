@@ -74,6 +74,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.BookmarkContext(database))
 	registry.Add(commands.BookmarksSlash(database))
 	registry.Add(commands.Timezone(database))
+	registry.Add(commands.Thread(database))
 
 	bot := &Bot{
 		Session:  session,
@@ -617,6 +618,29 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	// Auto-Moderation System
 	if b.checkAutomod(s, m.GuildID, m.ChannelID, m.ID, m.Content, m.Author.ID, m.Author.String(), m.Author.AvatarURL("")) {
 		return
+	}
+
+	// Thread Auto-Archive Duration Enforcement
+	if b.DB != nil && m.GuildID != "" && m.ChannelID != "" {
+		channel, err := s.State.Channel(m.ChannelID)
+		if err != nil {
+			channel, err = s.Channel(m.ChannelID)
+		}
+
+		if err == nil && (channel.Type == discordgo.ChannelTypeGuildPublicThread || channel.Type == discordgo.ChannelTypeGuildPrivateThread || channel.Type == discordgo.ChannelTypeGuildNewsThread) {
+			cfg, cfgErr := b.DB.GetThreadConfig(context.Background(), m.GuildID)
+			if cfgErr == nil && cfg != nil {
+				if channel.ThreadMetadata != nil && channel.ThreadMetadata.AutoArchiveDuration != cfg.AutoArchiveDuration {
+					_, editErr := s.ChannelEdit(m.ChannelID, &discordgo.ChannelEdit{
+						AutoArchiveDuration: cfg.AutoArchiveDuration,
+					})
+					if editErr == nil {
+						// Update state cache to prevent repeated API calls
+						channel.ThreadMetadata.AutoArchiveDuration = cfg.AutoArchiveDuration
+					}
+				}
+			}
+		}
 	}
 
 	// Advanced Anti-Spam System
