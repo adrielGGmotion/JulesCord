@@ -106,6 +106,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.NewCountingCommand(database))
 	registry.Add(commands.NewTriviaCommand(database))
 	registry.Add(commands.CustomCommand(database))
+	registry.Add(commands.NewMemberCountCommand(database))
 	registry.Add(commands.Snipe(database))
 	registry.Add(commands.EditSnipe(database))
 	registry.Add(commands.Gamble(database))
@@ -268,6 +269,8 @@ func (b *Bot) readyHandler(s *discordgo.Session, event *discordgo.Ready) {
 
 	// Start bot status rotation
 	go b.rotateStatus()
+
+	go b.memberCountLoop()
 
 	// Start scheduled announcements checker
 	go b.checkScheduledAnnouncements()
@@ -1137,6 +1140,49 @@ func (b *Bot) messageReactionRemoveHandler(s *discordgo.Session, r *discordgo.Me
 }
 
 // guildMemberRemoveHandler is called every time a member leaves a guild
+func (b *Bot) memberCountLoop() {
+	ticker := time.NewTicker(15 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		<-ticker.C
+		if b.DB == nil {
+			continue
+		}
+
+		configs, err := b.DB.GetAllMemberCountChannels(context.Background())
+		if err != nil {
+			slog.Error("Failed to fetch member count configs", "error", err)
+			continue
+		}
+
+		for _, cfg := range configs {
+			guild, err := b.Session.State.Guild(cfg.GuildID)
+			if err != nil || guild == nil {
+				guild, err = b.Session.Guild(cfg.GuildID)
+				if err != nil {
+					slog.Error("Failed to fetch guild for member count loop", "guild_id", cfg.GuildID, "error", err)
+					continue
+				}
+			}
+
+			if guild != nil {
+				memberCount := guild.MemberCount
+				if memberCount == 0 {
+					memberCount = len(guild.Members)
+				}
+				if memberCount > 0 {
+					newName := fmt.Sprintf("Members: %d", memberCount)
+					_, err = b.Session.ChannelEdit(cfg.ChannelID, &discordgo.ChannelEdit{Name: newName})
+					if err != nil {
+						slog.Error("Failed to update channel name in member count loop", "channel_id", cfg.ChannelID, "error", err)
+					}
+				}
+			}
+		}
+	}
+}
+
 func (b *Bot) guildMemberRemoveHandler(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 	if b.DB == nil || m.User == nil {
 		return
