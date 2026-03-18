@@ -60,6 +60,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Settings(database))
 	registry.Add(commands.VoiceGen(database))
 	registry.Add(commands.VoiceLog(database))
+	registry.Add(commands.AutoPublish(database))
 	registry.Add(commands.ReactionRole(database))
 	registry.Add(commands.Schedule(database))
 	registry.Add(commands.Changelog())
@@ -615,6 +616,21 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	// Ignore all messages created by the bot itself or other bots
 	if m.Author.ID == s.State.User.ID || m.Author.Bot {
 		return
+	}
+
+	// Auto-Publish System
+	if b.DB != nil && m.GuildID != "" {
+		isAutoPublish, err := b.DB.IsAutoPublishChannel(context.Background(), m.GuildID, m.ChannelID)
+		if err == nil && isAutoPublish {
+			go func() {
+				_, err := s.ChannelMessageCrosspost(m.ChannelID, m.ID)
+				if err != nil {
+					slog.Error("Failed to auto-publish message", "channel_id", m.ChannelID, "message_id", m.ID, "error", err)
+				} else {
+					slog.Info("Auto-published message", "channel_id", m.ChannelID, "message_id", m.ID)
+				}
+			}()
+		}
 	}
 
 	// Auto-Moderation System

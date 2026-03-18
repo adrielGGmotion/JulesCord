@@ -5189,3 +5189,55 @@ func (db *DB) GetThreadConfig(ctx context.Context, guildID string) (*ThreadConfi
 	}
 	return &config, nil
 }
+
+// AddAutoPublishChannel adds a channel to the auto-publish configuration for a guild.
+func (db *DB) AddAutoPublishChannel(ctx context.Context, guildID, channelID string) error {
+	start := time.Now()
+	query := `
+		INSERT INTO auto_publish_config (guild_id, channel_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id, channel_id) DO NOTHING
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return err
+	}
+	metrics.DBQueryLatency.WithLabelValues("AddAutoPublishChannel").Observe(time.Since(start).Seconds())
+	return nil
+}
+
+// RemoveAutoPublishChannel removes a channel from the auto-publish configuration for a guild.
+func (db *DB) RemoveAutoPublishChannel(ctx context.Context, guildID, channelID string) error {
+	start := time.Now()
+	query := `
+		DELETE FROM auto_publish_config
+		WHERE guild_id = $1 AND channel_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return err
+	}
+	metrics.DBQueryLatency.WithLabelValues("RemoveAutoPublishChannel").Observe(time.Since(start).Seconds())
+	return nil
+}
+
+// IsAutoPublishChannel checks if a channel is configured for auto-publishing.
+func (db *DB) IsAutoPublishChannel(ctx context.Context, guildID, channelID string) (bool, error) {
+	start := time.Now()
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM auto_publish_config
+			WHERE guild_id = $1 AND channel_id = $2
+		)
+	`
+	var exists bool
+	err := db.Pool.QueryRow(ctx, query, guildID, channelID).Scan(&exists)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return false, err
+	}
+	metrics.DBQueryLatency.WithLabelValues("IsAutoPublishChannel").Observe(time.Since(start).Seconds())
+	return exists, nil
+}
