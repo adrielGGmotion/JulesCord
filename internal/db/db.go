@@ -91,6 +91,17 @@ func (db *DB) UpsertGuild(ctx context.Context, id string) error {
 }
 
 // Ticket represents a support ticket in a guild.
+
+type TicketTranscript struct {
+	ID            int       `json:"id"`
+	TicketID      int       `json:"ticket_id"`
+	ChannelID     string    `json:"channel_id"`
+	GuildID       string    `json:"guild_id"`
+	UserID        string    `json:"user_id"`
+	TranscriptURL string    `json:"transcript_url"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
 type Ticket struct {
 	ID        int        `json:"id"`
 	GuildID   string     `json:"guild_id"`
@@ -5082,4 +5093,38 @@ func (db *DB) GetReactionRoleGroup(ctx context.Context, id int) (*ReactionRoleGr
 		return nil, err
 	}
 	return &g, nil
+}
+
+
+func (db *DB) SaveTicketTranscript(ctx context.Context, ticketID int, channelID, guildID, userID, transcriptURL string) error {
+	query := `
+		INSERT INTO ticket_transcripts (ticket_id, channel_id, guild_id, user_id, transcript_url)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+	_, err := db.Pool.Exec(ctx, query, ticketID, channelID, guildID, userID, transcriptURL)
+	return err
+}
+
+func (db *DB) GetTicketTranscripts(ctx context.Context, guildID, userID string) ([]TicketTranscript, error) {
+	query := `
+		SELECT id, ticket_id, channel_id, guild_id, user_id, transcript_url, created_at
+		FROM ticket_transcripts
+		WHERE guild_id = $1 AND user_id = $2
+		ORDER BY created_at DESC
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var transcripts []TicketTranscript
+	for rows.Next() {
+		var t TicketTranscript
+		if err := rows.Scan(&t.ID, &t.TicketID, &t.ChannelID, &t.GuildID, &t.UserID, &t.TranscriptURL, &t.CreatedAt); err != nil {
+			return nil, err
+		}
+		transcripts = append(transcripts, t)
+	}
+	return transcripts, nil
 }
