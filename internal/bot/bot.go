@@ -67,6 +67,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.AFKCommand(database))
 	registry.Add(commands.Quote(database))
 	registry.Add(commands.Userinfo(database))
+	registry.Add(commands.Roleinfo(database))
 	registry.Add(commands.Serverinfo(database))
 	registry.Add(commands.Avatar(database))
 	registry.Add(commands.BookmarkContext(database))
