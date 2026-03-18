@@ -445,11 +445,16 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] `/thread` command — `setup` to configure auto-archive duration, `lock`, `unlock`
 - [x] Update `messageCreateHandler` to enforce thread auto-archive durations
 
+- Implemented Phase 92 Voice Channel Generator features: added migrations `078_voice_generator.up.sql` and `078_voice_generator.down.sql` with table `voice_generator_config`.
+- Added DB operations `SetVoiceGeneratorConfig` and `GetVoiceGeneratorConfig` in `internal/db/db.go`.
+- Added `/voicegen` command in `internal/bot/commands/voicegen.go` with a `setup` subcommand.
+- Updated `internal/bot/bot.go` to register the `voicegen` command and implemented dynamic voice channel generation logic in `voiceStateUpdateHandler` alongside automatic empty channel deletion.
+
 ### Phase 92 — Voice Channel Generator
-- [ ] `migrations/078_voice_generator.sql` — `voice_generator_config` table (guild_id, base_channel_id, max_channels)
-- [ ] DB operations — `SetVoiceGeneratorConfig`, `GetVoiceGeneratorConfig`
-- [ ] `/voicegen` command — `setup`
-- [ ] Update `voiceStateUpdateHandler` to generate voice channels when base channel joined
+- [x] `migrations/078_voice_generator.sql` — `voice_generator_config` table (guild_id, base_channel_id, max_channels)
+- [x] DB operations — `SetVoiceGeneratorConfig`, `GetVoiceGeneratorConfig`
+- [x] `/voicegen` command — `setup`
+- [x] Update `voiceStateUpdateHandler` to generate voice channels when base channel joined
 
 ### Phase 88 — Dynamic Voice Channels
 - [x] `migrations/074_dynamic_voice.sql` — `dynamic_voice_config` table (guild_id, category_id, trigger_channel_id)

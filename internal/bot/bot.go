@@ -20,13 +20,14 @@ import (
 
 // Bot manages the Discord connection.
 type Bot struct {
-	Session          *discordgo.Session
-	Config           *config.Config
-	Registry         *commands.Registry
-	DB               *db.DB
-	xpCooldown       sync.Map // map[string]time.Time (key: guildID_channelID_userID)
-	AutoResponders   sync.Map // map[string][]*db.AutoResponder (key: guildID)
-	antiSpamTracking sync.Map // map[string][]time.Time (key: guildID_userID)
+	Session                *discordgo.Session
+	Config                 *config.Config
+	Registry               *commands.Registry
+	DB                     *db.DB
+	xpCooldown             sync.Map // map[string]time.Time (key: guildID_channelID_userID)
+	AutoResponders         sync.Map // map[string][]*db.AutoResponder (key: guildID)
+	antiSpamTracking       sync.Map // map[string][]time.Time (key: guildID_userID)
+	generatedVoiceChannels sync.Map // map[string]bool (key: channelID)
 }
 
 // New initializes a new bot instance.
@@ -57,6 +58,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Coins(database))
 	registry.Add(commands.Config(database))
 	registry.Add(commands.Settings(database))
+	registry.Add(commands.VoiceGen(database))
 	registry.Add(commands.VoiceLog(database))
 	registry.Add(commands.ReactionRole(database))
 	registry.Add(commands.Schedule(database))
@@ -1684,6 +1686,58 @@ func (b *Bot) voiceStateUpdateHandler(s *discordgo.Session, v *discordgo.VoiceSt
 		}
 	}
 
+	// Voice Generator Logic
+	if newChannelID != "" {
+		generatorConfig, err := b.DB.GetVoiceGeneratorConfig(context.Background(), v.GuildID)
+		if err == nil && generatorConfig != nil && generatorConfig.BaseChannelID == newChannelID {
+			_, err := s.State.Guild(v.GuildID)
+			baseChannel, err2 := s.State.Channel(generatorConfig.BaseChannelID)
+
+			if err == nil && err2 == nil {
+				currentGenerated := 0
+				b.generatedVoiceChannels.Range(func(key, value interface{}) bool {
+					channelID := key.(string)
+					// Verify channel still exists and is in the correct category
+					if channel, err := s.State.Channel(channelID); err == nil && channel.GuildID == v.GuildID && channel.ParentID == baseChannel.ParentID {
+						currentGenerated++
+					} else {
+						b.generatedVoiceChannels.Delete(key)
+					}
+					return true
+				})
+
+				if currentGenerated < generatorConfig.MaxChannels {
+					var name string
+					if user != nil {
+						name = user.Username + "'s Channel"
+					} else {
+						name = "Generated Channel"
+					}
+
+					channelData := discordgo.GuildChannelCreateData{
+						Name:     name,
+						Type:     discordgo.ChannelTypeGuildVoice,
+						ParentID: baseChannel.ParentID,
+					}
+
+					createdChannel, err := s.GuildChannelCreateComplex(v.GuildID, channelData)
+					if err != nil {
+						slog.Error("Failed to create generated voice channel", "error", err)
+					} else {
+						// Track the generated channel
+						b.generatedVoiceChannels.Store(createdChannel.ID, true)
+						err = s.GuildMemberMove(v.GuildID, v.UserID, &createdChannel.ID)
+						if err != nil {
+							slog.Error("Failed to move user to generated voice channel", "error", err)
+							_, _ = s.ChannelDelete(createdChannel.ID)
+							b.generatedVoiceChannels.Delete(createdChannel.ID)
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// Dynamic Voice Channels Logic
 	if newChannelID != "" {
 		dynamicConfig, err := b.DB.GetDynamicVoiceConfig(context.Background(), v.GuildID)
@@ -1758,6 +1812,36 @@ func (b *Bot) voiceStateUpdateHandler(s *discordgo.Session, v *discordgo.VoiceSt
 	}
 
 	if oldChannelID != "" {
+		// Voice Generator Cleanup Logic
+		if _, ok := b.generatedVoiceChannels.Load(oldChannelID); ok {
+			generatorConfig, err := b.DB.GetVoiceGeneratorConfig(context.Background(), v.GuildID)
+			if err == nil && generatorConfig != nil {
+				channel, err := s.State.Channel(oldChannelID)
+				baseChannel, err2 := s.State.Channel(generatorConfig.BaseChannelID)
+
+				if err == nil && err2 == nil && channel.ParentID == baseChannel.ParentID && oldChannelID != generatorConfig.BaseChannelID {
+					guild, err := s.State.Guild(v.GuildID)
+					if err == nil {
+						isEmpty := true
+						for _, vs := range guild.VoiceStates {
+							if vs.ChannelID == oldChannelID {
+								isEmpty = false
+								break
+							}
+						}
+
+						if isEmpty {
+							_, err := s.ChannelDelete(oldChannelID)
+							if err != nil {
+								slog.Error("Failed to delete empty generated voice channel", "error", err)
+							}
+							b.generatedVoiceChannels.Delete(oldChannelID)
+						}
+					}
+				}
+			}
+		}
+
 		// Dynamic Voice Cleanup Logic
 		dynamicConfig, err := b.DB.GetDynamicVoiceConfig(context.Background(), v.GuildID)
 		if err == nil && dynamicConfig != nil {
