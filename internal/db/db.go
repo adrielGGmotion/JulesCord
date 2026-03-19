@@ -6227,3 +6227,77 @@ func (db *DB) GetReactionTriggers(ctx context.Context, guildID string) ([]Reacti
 	}
 	return triggers, nil
 }
+
+// TempNickname represents a temporary nickname assigned to a user.
+type TempNickname struct {
+	ID               int
+	GuildID          string
+	UserID           string
+	OriginalNickname string
+	ExpiresAt        time.Time
+}
+
+// SetTempNickname sets a temporary nickname for a user, or updates an existing one.
+func (db *DB) SetTempNickname(ctx context.Context, guildID, userID, originalNickname string, expiresAt time.Time) error {
+	query := `
+		INSERT INTO temp_nicknames (guild_id, user_id, original_nickname, expires_at)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (guild_id, user_id)
+		DO UPDATE SET expires_at = EXCLUDED.expires_at
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, originalNickname, expiresAt)
+	return err
+}
+
+// GetExpiredTempNicknames retrieves temporary nicknames that have expired.
+func (db *DB) GetExpiredTempNicknames(ctx context.Context) ([]TempNickname, error) {
+	query := `
+		SELECT id, guild_id, user_id, original_nickname, expires_at
+		FROM temp_nicknames
+		WHERE expires_at <= NOW()
+	`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var expired []TempNickname
+	for rows.Next() {
+		var tn TempNickname
+		if err := rows.Scan(&tn.ID, &tn.GuildID, &tn.UserID, &tn.OriginalNickname, &tn.ExpiresAt); err != nil {
+			return nil, err
+		}
+		expired = append(expired, tn)
+	}
+	return expired, rows.Err()
+}
+
+// RemoveTempNickname removes a temporary nickname record.
+func (db *DB) RemoveTempNickname(ctx context.Context, id int) error {
+	query := `DELETE FROM temp_nicknames WHERE id = $1`
+	_, err := db.Pool.Exec(ctx, query, id)
+	return err
+}
+
+// RemoveTempNicknameByGuildUser removes a temporary nickname record by guild and user ID.
+func (db *DB) RemoveTempNicknameByGuildUser(ctx context.Context, guildID, userID string) error {
+	query := `DELETE FROM temp_nicknames WHERE guild_id = $1 AND user_id = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID)
+	return err
+}
+
+// GetTempNicknameByGuildUser retrieves a temporary nickname record by guild and user ID.
+func (db *DB) GetTempNicknameByGuildUser(ctx context.Context, guildID, userID string) (*TempNickname, error) {
+	query := `
+		SELECT id, guild_id, user_id, original_nickname, expires_at
+		FROM temp_nicknames
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	var tn TempNickname
+	err := db.Pool.QueryRow(ctx, query, guildID, userID).Scan(&tn.ID, &tn.GuildID, &tn.UserID, &tn.OriginalNickname, &tn.ExpiresAt)
+	if err != nil {
+		return nil, err
+	}
+	return &tn, nil
+}

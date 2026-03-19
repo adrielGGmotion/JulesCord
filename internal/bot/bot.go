@@ -169,6 +169,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.ThreadAuto(database))
 	registry.Add(commands.Keyword(database))
 	registry.Add(commands.ReactionTrigger(database))
+	registry.Add(commands.TempNick(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -314,6 +315,7 @@ func (b *Bot) readyHandler(s *discordgo.Session, event *discordgo.Ready) {
 	go b.checkBirthdays()
 	go b.checkTempBans()
 	go b.checkTempRoles()
+	go b.checkTempNicknames()
 
 	// Start mute expiration checker
 	go b.checkExpiredMutes()
@@ -2525,6 +2527,44 @@ func (b *Bot) checkTempRoles() {
 					slog.Error("Failed to remove expired temp role from DB", "id", role.ID, "error", err)
 				} else {
 					slog.Info("Removed expired temp role", "guild_id", role.GuildID, "user_id", role.UserID, "role_id", role.RoleID)
+				}
+			}
+			cancel()
+		}
+	}
+}
+
+func (b *Bot) checkTempNicknames() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-context.Background().Done():
+			return
+		case <-ticker.C:
+			if b.DB == nil {
+				continue
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			nicks, err := b.DB.GetExpiredTempNicknames(ctx)
+			if err != nil {
+				slog.Error("Failed to fetch expired temp nicknames", "error", err)
+				cancel()
+				continue
+			}
+
+			for _, nick := range nicks {
+				err := b.Session.GuildMemberNickname(nick.GuildID, nick.UserID, nick.OriginalNickname)
+				if err != nil {
+					slog.Warn("Failed to revert expired temp nickname in Discord", "guild_id", nick.GuildID, "user_id", nick.UserID, "error", err)
+				}
+
+				// Clean up DB row
+				err = b.DB.RemoveTempNickname(ctx, nick.ID)
+				if err != nil {
+					slog.Error("Failed to remove expired temp nickname from DB", "id", nick.ID, "error", err)
 				}
 			}
 			cancel()
