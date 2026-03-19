@@ -168,6 +168,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Translate(database))
 	registry.Add(commands.ThreadAuto(database))
 	registry.Add(commands.Keyword(database))
+	registry.Add(commands.ReactionTrigger(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -694,6 +695,28 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 						slog.Error("Failed to forward message", "target", tID, "error", err)
 					}
 				}(targetID, embed)
+			}
+		}
+	}
+
+	// Reaction Triggers System
+	if b.DB != nil && m.GuildID != "" {
+		triggers, err := b.DB.GetReactionTriggers(context.Background(), m.GuildID)
+		if err == nil && len(triggers) > 0 {
+			msgContentLower := strings.ToLower(m.Content)
+			for _, t := range triggers {
+				if strings.Contains(msgContentLower, strings.ToLower(t.Keyword)) {
+					emoji := t.Emoji
+					// Handle custom emojis strictly as name:id or a:name:id
+					if strings.HasPrefix(emoji, "<:") && strings.HasSuffix(emoji, ">") {
+						emoji = strings.TrimPrefix(emoji, "<:")
+						emoji = strings.TrimSuffix(emoji, ">")
+					} else if strings.HasPrefix(emoji, "<a:") && strings.HasSuffix(emoji, ">") {
+						emoji = strings.TrimPrefix(emoji, "<a:")
+						emoji = strings.TrimSuffix(emoji, ">")
+					}
+					s.MessageReactionAdd(m.ChannelID, m.ID, emoji)
+				}
 			}
 		}
 	}
