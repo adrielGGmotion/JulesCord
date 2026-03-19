@@ -188,6 +188,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Keyword(database))
 	registry.Add(commands.ReactionTrigger(database))
 	registry.Add(commands.TempNick(database))
+	registry.Add(commands.Multiplier(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -1232,7 +1233,9 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 						}
 					}
 				}
-				amount = int(math.Round(float64(amount) * multiplier))
+				globalMultiplier, _ := b.DB.GetActiveMultiplier(context.Background(), m.GuildID)
+				finalMultiplier := multiplier * globalMultiplier
+				amount = int(math.Round(float64(amount) * finalMultiplier))
 
 				// Ensure user exists first
 				err = b.DB.UpsertUser(context.Background(), m.Author.ID, m.Author.Username, m.Author.GlobalName, m.Author.AvatarURL(""))
@@ -2568,9 +2571,11 @@ func (b *Bot) voiceStateUpdateHandler(s *discordgo.Session, v *discordgo.VoiceSt
 			}
 
 			if minutes > 0 {
-				// Award 1 XP and 1 Coin per minute
-				_, _ = b.DB.AddXP(context.Background(), v.GuildID, v.UserID, minutes)
-				_ = b.DB.AddCoins(context.Background(), v.GuildID, v.UserID, minutes)
+				// Award 1 XP and 1 Coin per minute (with global multiplier)
+				globalMultiplier, _ := b.DB.GetActiveMultiplier(context.Background(), v.GuildID)
+				amount := int(math.Round(float64(minutes) * globalMultiplier))
+				_, _ = b.DB.AddXP(context.Background(), v.GuildID, v.UserID, amount)
+				_ = b.DB.AddCoins(context.Background(), v.GuildID, v.UserID, amount)
 			}
 			_ = b.DB.RemoveVoiceJoinTime(context.Background(), v.GuildID, v.UserID)
 		}

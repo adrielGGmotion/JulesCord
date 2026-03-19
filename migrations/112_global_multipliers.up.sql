@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS global_multipliers (
+    guild_id VARCHAR(50) PRIMARY KEY,
+    factor DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+);

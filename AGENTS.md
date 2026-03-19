@@ -349,6 +349,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Updated `messageReactionAddHandler` in `internal/bot/bot.go` to enforce exclusivity by removing other roles in the group when a role is assigned.
 - Updated `internal/bot/bot.go` to register the `reactiongroup` command.
 
+
+- Implemented Phase 127 Global Economy Multipliers: added migrations `112_global_multipliers.up.sql` and `112_global_multipliers.down.sql` with table `global_multipliers`.
+- Added DB operations `SetGlobalMultiplier` and `GetActiveMultiplier` in `internal/db/db.go`.
+- Added `/multiplier` command with `set` and `view` subcommands in `internal/bot/commands/multiplier.go`.
+- Updated economy logic in `bot.go`, `work.go`, `crime.go`, and `daily.go` to factor in the active global multiplier, and registered the `multiplier` command.
 ## Task Checklist
 
 #
@@ -1612,7 +1617,7 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `voiceStateUpdateHandler` to add total seconds to user stats upon leaving
 
 ### Phase 127 — Global Economy Multipliers
-- [ ] `migrations/112_global_multipliers.up.sql` — `global_multipliers` table for weekend events (guild_id, factor, expires_at)
-- [ ] DB operations — `SetGlobalMultiplier`, `GetActiveMultipliers`
-- [ ] `/multiplier` command allowing admins to trigger global XP/Coin boosts
-- [ ] Update economy logic to factor in active global multipliers
+- [x] `migrations/112_global_multipliers.up.sql` — `global_multipliers` table for weekend events (guild_id, factor, expires_at)
+- [x] DB operations — `SetGlobalMultiplier`, `GetActiveMultiplier`
+- [x] `/multiplier` command allowing admins to trigger global XP/Coin boosts
+- [x] Update economy logic to factor in active global multipliers
