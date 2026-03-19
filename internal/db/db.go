@@ -5584,3 +5584,63 @@ func (db *DB) RemoveTempRoleByGuildUserRole(ctx context.Context, guildID, userID
 	_, err := db.Pool.Exec(ctx, query, guildID, userID, roleID)
 	return err
 }
+
+// SetWelcomeDM inserts or updates the welcome DM message for a guild and enables it.
+func (db *DB) SetWelcomeDM(ctx context.Context, guildID, message string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("SetWelcomeDM").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		INSERT INTO welcome_dm_config (guild_id, message, is_enabled)
+		VALUES ($1, $2, true)
+		ON CONFLICT (guild_id) DO UPDATE SET message = EXCLUDED.message, is_enabled = true
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, message)
+	if err != nil {
+		slog.Error("Failed to set welcome DM message", "error", err, "guild_id", guildID)
+		return err
+	}
+	return nil
+}
+
+// GetWelcomeDM retrieves the welcome DM message and enabled status for a guild.
+func (db *DB) GetWelcomeDM(ctx context.Context, guildID string) (string, bool, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetWelcomeDM").Observe(time.Since(start).Seconds())
+	}()
+
+	var message string
+	var isEnabled bool
+	query := `SELECT message, is_enabled FROM welcome_dm_config WHERE guild_id = $1`
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&message, &isEnabled)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", false, nil
+		}
+		slog.Error("Failed to get welcome DM message", "error", err, "guild_id", guildID)
+		return "", false, err
+	}
+	return message, isEnabled, nil
+}
+
+// ToggleWelcomeDM enables or disables the welcome DM for a guild.
+func (db *DB) ToggleWelcomeDM(ctx context.Context, guildID string, enabled bool) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("ToggleWelcomeDM").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		UPDATE welcome_dm_config SET is_enabled = $2
+		WHERE guild_id = $1
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, enabled)
+	if err != nil {
+		slog.Error("Failed to toggle welcome DM", "error", err, "guild_id", guildID, "enabled", enabled)
+		return err
+	}
+	return nil
+}

@@ -123,6 +123,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.RPS())
 	registry.Add(commands.Report(database))
 	registry.Add(commands.Welcome(database))
+	registry.Add(commands.WelcomeDM(database))
 	registry.Add(commands.Goodbye(database))
 	registry.Add(commands.Autorole(database))
 	registry.Add(commands.MediaChannel(database))
@@ -1233,6 +1234,22 @@ func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemb
 		_, err = s.ChannelMessageSend(channelID, message)
 		if err != nil {
 			slog.Error("Failed to send welcome message", "channel_id", channelID, "error", err)
+		}
+	}
+
+	dmMessage, isEnabled, err := b.DB.GetWelcomeDM(context.Background(), m.GuildID)
+	if err != nil {
+		slog.Error("Failed to get welcome DM config", "error", err, "guild_id", m.GuildID)
+	} else if isEnabled && dmMessage != "" {
+		dmMessage = strings.ReplaceAll(dmMessage, "{user}", m.User.Mention())
+		channel, err := s.UserChannelCreate(m.User.ID)
+		if err == nil {
+			_, err = s.ChannelMessageSend(channel.ID, dmMessage)
+			if err != nil {
+				slog.Error("Failed to send welcome DM", "user_id", m.User.ID, "error", err)
+			}
+		} else {
+			slog.Error("Failed to create DM channel for welcome DM", "user_id", m.User.ID, "error", err)
 		}
 	}
 
