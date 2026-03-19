@@ -6185,3 +6185,45 @@ func (db *DB) GetKeywordNotifications(ctx context.Context, guildID string) ([]Ke
 	}
 	return notifs, nil
 }
+
+type ReactionTrigger struct {
+	ID      int
+	GuildID string
+	Keyword string
+	Emoji   string
+}
+
+func (db *DB) AddReactionTrigger(ctx context.Context, guildID, keyword, emoji string) error {
+	_, err := db.Pool.Exec(ctx,
+		`INSERT INTO reaction_triggers (guild_id, keyword, emoji) VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, keyword) DO UPDATE SET emoji = EXCLUDED.emoji`,
+		guildID, keyword, emoji)
+	return err
+}
+
+func (db *DB) RemoveReactionTrigger(ctx context.Context, guildID, keyword string) error {
+	_, err := db.Pool.Exec(ctx,
+		`DELETE FROM reaction_triggers WHERE guild_id = $1 AND keyword = $2`,
+		guildID, keyword)
+	return err
+}
+
+func (db *DB) GetReactionTriggers(ctx context.Context, guildID string) ([]ReactionTrigger, error) {
+	rows, err := db.Pool.Query(ctx,
+		`SELECT id, guild_id, keyword, emoji FROM reaction_triggers WHERE guild_id = $1`,
+		guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var triggers []ReactionTrigger
+	for rows.Next() {
+		var t ReactionTrigger
+		if err := rows.Scan(&t.ID, &t.GuildID, &t.Keyword, &t.Emoji); err != nil {
+			return nil, err
+		}
+		triggers = append(triggers, t)
+	}
+	return triggers, nil
+}

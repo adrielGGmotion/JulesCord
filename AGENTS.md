@@ -76,6 +76,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 112 Reaction Triggers: added migrations `097_reaction_triggers.up.sql` and `097_reaction_triggers.down.sql` with table `reaction_triggers`.
+- Added DB operations `AddReactionTrigger`, `RemoveReactionTrigger`, and `GetReactionTriggers` in `internal/db/db.go`.
+- Added `/reactiontrigger` command in `internal/bot/commands/reactiontrigger.go` with `add`, `remove`, and `list` subcommands. Registered it in `internal/bot/bot.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to automatically add the configured emoji reaction to messages containing the keyword.
+
+
 - Implemented Phase 109 Leveling Multipliers: added migrations `094_leveling_multipliers.up.sql` and `094_leveling_multipliers.down.sql` with table `leveling_multipliers`.
 - Added DB operations `AddLevelMultiplier`, `RemoveLevelMultiplier`, and `GetLevelMultipliers` in `internal/db/db.go`.
 - Added `/levelmultiplier` command in `internal/bot/commands/levelmultiplier.go` with `add`, `remove`, and `list` subcommands. Registered it in `internal/bot/bot.go`.
@@ -549,6 +555,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] DB operations — `SaveStickyRole`, `GetStickyRoles`, `RemoveStickyRole`
 - [x] `/stickyrole` command — `add`, `remove`, `list`
 - [x] Update `guildMemberAddHandler` to restore sticky roles when a user leaves and rejoins
+
+### Phase 112 — Reaction Triggers
+- [x] `migrations/097_reaction_triggers.up.sql` — `reaction_triggers` table (id, guild_id, keyword, emoji)
+- [x] DB operations — `AddReactionTrigger`, `RemoveReactionTrigger`, `GetReactionTriggers`
+- [x] `/reactiontrigger` command with `add`, `remove`, and `list` subcommands
+- [x] Update `messageCreateHandler` to automatically add the configured emoji reaction to messages containing the keyword.
 
 ## Notes for Next Iteration
 
@@ -1343,6 +1355,12 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `messageCreateHandler` to DM users when their keyword is mentioned in the guild
 
 ### Completed Work
+
+- Implemented Phase 112 Reaction Triggers: added migrations `097_reaction_triggers.up.sql` and `097_reaction_triggers.down.sql` with table `reaction_triggers`.
+- Added DB operations `AddReactionTrigger`, `RemoveReactionTrigger`, and `GetReactionTriggers` in `internal/db/db.go`.
+- Added `/reactiontrigger` command in `internal/bot/commands/reactiontrigger.go` with `add`, `remove`, and `list` subcommands. Registered it in `internal/bot/bot.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to automatically add the configured emoji reaction to messages containing the keyword.
+
 
 - Implemented Phase 111 Keyword Notifications: added migrations `096_keyword_notifications.up.sql` and `096_keyword_notifications.down.sql` with table `keyword_notifications`.
 - Added DB operations `AddKeywordNotification`, `RemoveKeywordNotification`, and `GetKeywordNotifications` in `internal/db/db.go`.
