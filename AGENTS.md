@@ -1270,7 +1270,19 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `/goodbye` command with `set` and `remove` subcommands
 - [x] Update `guildMemberRemoveHandler` to send the goodbye message when a user leaves
 
+
+### Phase 102 — Leveling Roles Blacklist System
+- [x] `migrations/087_leveling_blacklist.sql` — `leveling_blacklist` table (id, guild_id, role_id)
+- [x] DB operations — `AddLevelingBlacklist`, `RemoveLevelingBlacklist`, `IsRoleBlacklisted`
+- [x] `/levelblacklist` command with `add`, `remove`, and `list` subcommands
+- [x] Update `messageCreateHandler` to skip awarding XP if the user has a blacklisted role
+
 ### Completed Work
+
+- Implemented Phase 102 Leveling Roles Blacklist System: added migrations `087_leveling_blacklist.up.sql` and `087_leveling_blacklist.down.sql` with table `leveling_blacklist`.
+- Added DB operations `AddLevelingBlacklist`, `RemoveLevelingBlacklist`, `IsRoleBlacklisted`, and `GetLevelingBlacklists` in `internal/db/db.go`.
+- Added `/levelblacklist` command in `internal/bot/commands/levelblacklist.go` with `add`, `remove`, and `list` subcommands. Registered it in `internal/bot/bot.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to skip awarding XP if the user has a blacklisted role.
 
 - Implemented Phase 101 Welcome DMs System: added migrations `086_welcome_dms.up.sql` and `086_welcome_dms.down.sql` with table `welcome_dm_config`.
 - Added DB operations `SetWelcomeDM`, `GetWelcomeDM`, and `ToggleWelcomeDM` in `internal/db/db.go`.

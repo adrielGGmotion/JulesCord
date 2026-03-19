@@ -150,6 +150,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.NickTemplate(database))
 	registry.Add(commands.Unban(database))
 	registry.Add(commands.ClearWarnings(database))
+	registry.Add(commands.LevelBlacklist(database))
 	registry.Add(commands.Lock(database))
 	registry.Add(commands.AntiSpam(database))
 	registry.Add(commands.AdvancedLog(database))
@@ -904,6 +905,28 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 		}
 
 		if !onCooldown {
+			// Check if user has a blacklisted role
+			hasBlacklistedRole := false
+			if m.Member != nil {
+				blacklistedRoles, err := b.DB.GetLevelingBlacklists(context.Background(), m.GuildID)
+				if err == nil && len(blacklistedRoles) > 0 {
+					blacklistMap := make(map[string]bool)
+					for _, br := range blacklistedRoles {
+						blacklistMap[br] = true
+					}
+					for _, roleID := range m.Member.Roles {
+						if blacklistMap[roleID] {
+							hasBlacklistedRole = true
+							break
+						}
+					}
+				}
+			}
+
+			if hasBlacklistedRole {
+				return
+			}
+
 			// Award XP (e.g., random 15-25 XP)
 			amount := rand.Intn(11) + 15
 

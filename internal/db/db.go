@@ -1323,6 +1323,98 @@ func (db *DB) CreateTag(ctx context.Context, guildID, name, content, authorID st
 	return nil
 }
 
+// AddLevelingBlacklist adds a role to the leveling blacklist for a guild.
+func (db *DB) AddLevelingBlacklist(ctx context.Context, guildID, roleID string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("AddLevelingBlacklist").Observe(time.Since(start).Seconds())
+	}()
+
+	_, err := db.Pool.Exec(ctx, `
+		INSERT INTO leveling_blacklist (guild_id, role_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id, role_id) DO NOTHING
+	`, guildID, roleID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return fmt.Errorf("failed to add leveling blacklist: %w", err)
+	}
+	return nil
+}
+
+// RemoveLevelingBlacklist removes a role from the leveling blacklist for a guild.
+func (db *DB) RemoveLevelingBlacklist(ctx context.Context, guildID, roleID string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("RemoveLevelingBlacklist").Observe(time.Since(start).Seconds())
+	}()
+
+	_, err := db.Pool.Exec(ctx, `
+		DELETE FROM leveling_blacklist
+		WHERE guild_id = $1 AND role_id = $2
+	`, guildID, roleID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return fmt.Errorf("failed to remove leveling blacklist: %w", err)
+	}
+	return nil
+}
+
+// IsRoleBlacklisted checks if a specific role is in the leveling blacklist for a guild.
+func (db *DB) IsRoleBlacklisted(ctx context.Context, guildID, roleID string) (bool, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("IsRoleBlacklisted").Observe(time.Since(start).Seconds())
+	}()
+
+	var count int
+	err := db.Pool.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM leveling_blacklist
+		WHERE guild_id = $1 AND role_id = $2
+	`, guildID, roleID).Scan(&count)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return false, fmt.Errorf("failed to check leveling blacklist: %w", err)
+	}
+
+	return count > 0, nil
+}
+
+// GetLevelingBlacklists retrieves all blacklisted roles for a guild.
+func (db *DB) GetLevelingBlacklists(ctx context.Context, guildID string) ([]string, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetLevelingBlacklists").Observe(time.Since(start).Seconds())
+	}()
+
+	rows, err := db.Pool.Query(ctx, `
+		SELECT role_id
+		FROM leveling_blacklist
+		WHERE guild_id = $1
+	`, guildID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return nil, fmt.Errorf("failed to get leveling blacklists: %w", err)
+	}
+	defer rows.Close()
+
+	var roleIDs []string
+	for rows.Next() {
+		var roleID string
+		if err := rows.Scan(&roleID); err != nil {
+			return nil, fmt.Errorf("failed to scan leveling blacklist row: %w", err)
+		}
+		roleIDs = append(roleIDs, roleID)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over leveling blacklist rows: %w", err)
+	}
+
+	return roleIDs, nil
+}
+
 // GetTag retrieves a tag by name in a specific guild.
 func (db *DB) GetTag(ctx context.Context, guildID, name string) (*Tag, error) {
 	start := time.Now()
