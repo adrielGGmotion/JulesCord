@@ -1449,6 +1449,15 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `messageCreateHandler` to DM users when their keyword is mentioned in the guild
 
 ### Completed Work
+- Implemented Phase 130 Economy Coinflip Bet: added migrations `115_economy_coinflip.up.sql` and `115_economy_coinflip.down.sql` with table `coinflip_bets`.
+- Added DB operations `CreateCoinflipBet`, `AcceptCoinflipBet`, and `CancelCoinflipBet` in `internal/db/db.go`.
+- Added `/coinflipbet` command in `internal/bot/commands/coinflipbet.go` with `host` and `accept` subcommands. Registered it in `internal/bot/bot.go`.
+
+- Implemented Phase 129 Economy Bounties: added migrations `114_economy_bounties.up.sql` and `114_economy_bounties.down.sql` with table `bounties`.
+- Added DB operations `PlaceBounty`, `GetBounty`, `RemoveBounty`, and `GetActiveBounties` in `internal/db/db.go`.
+- Added `/bounty` command in `internal/bot/commands/bounty.go` with `place`, `list`, and `remove` subcommands. Registered it in `internal/bot/bot.go`.
+- Updated `/rob` command in `internal/bot/commands/rob.go` to evaluate and award the bounty to a successful attacker.
+
 - Implemented Phase 128 Economy Lotteries: added migrations `113_economy_lotteries.up.sql` and `113_economy_lotteries.down.sql` with tables `lotteries` and `lottery_tickets`.
 - Added DB operations `CreateLottery`, `BuyLotteryTicket`, `GetActiveLotteries`, and `ResolveLottery` in `internal/db/db.go`.
 - Added `/lottery` command in `internal/bot/commands/lottery.go` with `create`, `buy`, and `list` subcommands.
@@ -1639,13 +1648,24 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Add a background goroutine `lotteryLoop` in `internal/bot/bot.go` to resolve ended lotteries and award coins to a random ticket holder
 
 ### Phase 129 — Economy Bounties
-- [ ] `migrations/114_economy_bounties.up.sql` — `bounties` table (id, guild_id, target_user_id, bounty_amount, created_by)
-- [ ] DB operations — `PlaceBounty`, `GetBounty`, `RemoveBounty`
-- [ ] `/bounty` command with `place`, `list`, and `remove` subcommands
-- [ ] Update `messageCreateHandler` or `/rob` command logic to check if a user is killed/robbed and award the bounty to the attacker
+- [x] `migrations/114_economy_bounties.up.sql` — `bounties` table (id, guild_id, target_user_id, bounty_amount, created_by)
+- [x] DB operations — `PlaceBounty`, `GetBounty`, `RemoveBounty`
+- [x] `/bounty` command with `place`, `list`, and `remove` subcommands
+- [x] Update `messageCreateHandler` or `/rob` command logic to check if a user is killed/robbed and award the bounty to the attacker
 
 ### Phase 130 — Economy Coinflip Bet
-- [ ] `migrations/115_economy_coinflip.up.sql` — `coinflip_bets` table (id, guild_id, host_id, opponent_id, amount, side)
-- [ ] DB operations — `CreateCoinflipBet`, `AcceptCoinflipBet`, `CancelCoinflipBet`, `GetActiveCoinflipBets`
-- [ ] `/coinflipbet` command with `host` and `accept` subcommands
-- [ ] Implement flip logic upon acceptance and transfer coins from loser to winner
+- [x] `migrations/115_economy_coinflip.up.sql` — `coinflip_bets` table (id, guild_id, host_id, opponent_id, amount, side)
+- [x] DB operations — `CreateCoinflipBet`, `AcceptCoinflipBet`, `CancelCoinflipBet`, `GetActiveCoinflipBets`
+- [x] `/coinflipbet` command with `host` and `accept` subcommands
+- [x] Implement flip logic upon acceptance and transfer coins from loser to winner
+
+### Phase 131 — Advanced Warnings
+- [ ] `migrations/116_advanced_warnings.up.sql` — `advanced_warnings` table (id, guild_id, user_id, moderator_id, reason, active, created_at, expires_at)
+- [ ] DB operations — `AddAdvancedWarning`, `GetAdvancedWarnings`, `RemoveAdvancedWarning`, `ClearAdvancedWarnings`
+- [ ] `/advwarn` command with `issue`, `list`, and `remove` subcommands
+- [ ] Background goroutine to check for and expire advanced warnings based on `expires_at`
+
+### Phase 132 — Custom Emoji Manager
+- [ ] DB operations — (No new tables needed, just Discord API interactions)
+- [ ] `/emojimanager` command with `add` (url), `remove` (name/id), and `list` subcommands
+- [ ] Update `internal/bot/bot.go` to register the `emojimanager` command

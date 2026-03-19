@@ -142,6 +142,15 @@ func Rob(database *db.DB) *Command {
 					Description: fmt.Sprintf("You successfully stole **%d** coins from <@%s>!", amountToSteal, targetUser.ID),
 					Color:       0x00FF00,
 				}
+
+				// Check for bounty
+				bounty, err := database.GetBounty(ctx, guildID, targetUser.ID)
+				if err == nil && bounty != nil {
+					_ = database.AddCoins(ctx, guildID, userID, int(bounty.BountyAmount))
+					_ = database.RemoveBounty(ctx, guildID, targetUser.ID)
+					embed.Description += fmt.Sprintf("\n\n🎯 **Bounty Claimed!** You collected a bounty of **%d** coins placed by <@%s>!", bounty.BountyAmount, bounty.CreatedBy)
+				}
+
 				_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 					Embeds: &[]*discordgo.MessageEmbed{embed},
 				})
