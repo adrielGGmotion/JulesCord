@@ -283,6 +283,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Task Checklist
 
+### Phase 103 — Leveling Channel Blacklist System
+- [x] `migrations/088_leveling_channel_blacklist.sql` — `leveling_channel_blacklist` table (id, guild_id, channel_id)
+- [x] DB operations — `AddLevelingChannelBlacklist`, `RemoveLevelingChannelBlacklist`, `GetLevelingChannelBlacklists`
+- [x] `/levelchannelblacklist` command with `add`, `remove`, and `list` subcommands
+- [x] Update `messageCreateHandler` to skip awarding XP if the channel is blacklisted
+
 - Implemented Phase 65 Reputation Leaderboard features:
 - Added DB operation `GetTopReputationUsers` in `internal/db/db.go`.
 - Added `/replb` command in `internal/bot/commands/replb.go`.
@@ -1278,6 +1284,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `messageCreateHandler` to skip awarding XP if the user has a blacklisted role
 
 ### Completed Work
+
+- Implemented Phase 103 Leveling Channel Blacklist System: added migrations `088_leveling_channel_blacklist.up.sql` and `088_leveling_channel_blacklist.down.sql` with table `leveling_channel_blacklist`.
+- Added DB operations `AddLevelingChannelBlacklist`, `RemoveLevelingChannelBlacklist`, and `GetLevelingChannelBlacklists` in `internal/db/db.go`.
+- Added `/levelchannelblacklist` command in `internal/bot/commands/levelchannelblacklist.go` with `add`, `remove`, and `list` subcommands. Registered it in `internal/bot/bot.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to skip awarding XP if the message was sent in a blacklisted channel.
 
 - Implemented Phase 102 Leveling Roles Blacklist System: added migrations `087_leveling_blacklist.up.sql` and `087_leveling_blacklist.down.sql` with table `leveling_blacklist`.
 - Added DB operations `AddLevelingBlacklist`, `RemoveLevelingBlacklist`, `IsRoleBlacklisted`, and `GetLevelingBlacklists` in `internal/db/db.go`.
