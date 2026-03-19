@@ -75,6 +75,14 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 ---
 
 ## Completed Work
+
+- Implemented Phase 132 Custom Emoji Manager: added `/emojimanager` command in `internal/bot/commands/emojimanager.go` with `add`, `remove`, and `list` subcommands using Discord API interactions. Added chunking for `list` subcommand to prevent exceeding embed description limits, and base64 parsing for `add` subcommand. Registered the `emojimanager` command in `internal/bot/bot.go`.
+
+- Implemented Phase 132 Custom Emoji Manager:
+- Added `/emojimanager` command in `internal/bot/commands/emojimanager.go` with `add`, `remove`, and `list` subcommands using Discord API interactions.
+- Added chunking for `list` subcommand to prevent exceeding embed description limits, and base64 parsing for `add` subcommand.
+- Registered the `emojimanager` command in `internal/bot/bot.go`.
+
 - Implemented Phase 128 Economy Lotteries: added migrations `113_economy_lotteries.up.sql` and `113_economy_lotteries.down.sql` with tables `lotteries` and `lottery_tickets`.
 - Added DB operations `CreateLottery`, `BuyLotteryTicket`, `GetActiveLotteries`, and `ResolveLottery` in `internal/db/db.go`.
 - Added `/lottery` command in `internal/bot/commands/lottery.go` with `create`, `buy`, and `list` subcommands.
@@ -1671,6 +1679,6 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Background goroutine to check for and expire advanced warnings based on `expires_at`
 
 ### Phase 132 — Custom Emoji Manager
-- [ ] DB operations — (No new tables needed, just Discord API interactions)
-- [ ] `/emojimanager` command with `add` (url), `remove` (name/id), and `list` subcommands
-- [ ] Update `internal/bot/bot.go` to register the `emojimanager` command
+- [x] DB operations — (No new tables needed, just Discord API interactions)
+- [x] `/emojimanager` command with `add` (url), `remove` (name/id), and `list` subcommands
+- [x] Update `internal/bot/bot.go` to register the `emojimanager` command
