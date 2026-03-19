@@ -168,6 +168,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Snippet(database))
 	registry.Add(commands.Translate(database))
 	registry.Add(commands.ThreadAuto(database))
+	registry.Add(commands.Autodelete(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -654,6 +655,17 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	// Ignore all messages created by the bot itself or other bots
 	if m.Author.ID == s.State.User.ID || m.Author.Bot {
 		return
+	}
+
+	// Auto-Delete System
+	if b.DB != nil && m.GuildID != "" {
+		deleteAfter, err := b.DB.GetAutoDelete(context.Background(), m.GuildID, m.ChannelID)
+		if err == nil && deleteAfter > 0 {
+			go func(cID, mID string, wait int) {
+				time.Sleep(time.Duration(wait) * time.Second)
+				s.ChannelMessageDelete(cID, mID)
+			}(m.ChannelID, m.ID, deleteAfter)
+		}
 	}
 
 	// Message Forwarding System

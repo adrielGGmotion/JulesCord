@@ -6107,3 +6107,42 @@ func (db *DB) GetForwardingRules(ctx context.Context, guildID, sourceChannelID s
 	metrics.DBQueryLatency.WithLabelValues("GetForwardingRules").Observe(time.Since(start).Seconds())
 	return targets, nil
 }
+
+func (db *DB) SetAutoDelete(ctx context.Context, guildID, channelID string, deleteAfter int) error {
+	query := `
+		INSERT INTO auto_delete_config (guild_id, channel_id, delete_after)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, channel_id) DO UPDATE
+		SET delete_after = EXCLUDED.delete_after
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, deleteAfter)
+	if err != nil {
+		return fmt.Errorf("error setting auto_delete config: %w", err)
+	}
+	return nil
+}
+
+func (db *DB) GetAutoDelete(ctx context.Context, guildID, channelID string) (int, error) {
+	query := `
+		SELECT delete_after FROM auto_delete_config
+		WHERE guild_id = $1 AND channel_id = $2
+	`
+	var deleteAfter int
+	err := db.Pool.QueryRow(ctx, query, guildID, channelID).Scan(&deleteAfter)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("error getting auto_delete config: %w", err)
+	}
+	return deleteAfter, nil
+}
+
+func (db *DB) RemoveAutoDelete(ctx context.Context, guildID, channelID string) error {
+	query := `DELETE FROM auto_delete_config WHERE guild_id = $1 AND channel_id = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	if err != nil {
+		return fmt.Errorf("error removing auto_delete config: %w", err)
+	}
+	return nil
+}
