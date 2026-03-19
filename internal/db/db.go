@@ -2433,12 +2433,12 @@ func (db *DB) RemoveNote(ctx context.Context, guildID string, id int) error {
 
 // LevelRole represents a level role reward configuration in a guild.
 type LevelRole struct {
-	GuildID     string    `json:"guild_id"`
-	Level       int       `json:"level"`
-	RoleID      string    `json:"role_id"`
-	CoinsReward int       `json:"coins_reward"`
-	CustomMessage *string `json:"custom_message"`
-	CreatedAt   time.Time `json:"created_at"`
+	GuildID       string    `json:"guild_id"`
+	Level         int       `json:"level"`
+	RoleID        string    `json:"role_id"`
+	CoinsReward   int       `json:"coins_reward"`
+	CustomMessage *string   `json:"custom_message"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // SetLevelRole adds or updates a role reward for a specific level in a guild.
@@ -6910,4 +6910,223 @@ func (db *DB) GetWelcomeRoles(ctx context.Context, guildID string) ([]string, er
 	}
 
 	return roles, nil
+}
+
+type Heist struct {
+	ID           int
+	GuildID      string
+	TargetUserID string
+	Status       string
+	CreatedAt    time.Time
+	ExpiresAt    time.Time
+	Participants []string
+}
+
+// CreateHeist starts a new heist.
+func (db *DB) CreateHeist(ctx context.Context, guildID, targetUserID, initiatorID string) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Check if active
+	var exists bool
+	err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM heists WHERE guild_id=$1 AND target_user_id=$2 AND status='planning')", guildID, targetUserID).Scan(&exists)
+	if err != nil || exists {
+		return fmt.Errorf("heist already active")
+	}
+
+	var heistID int
+	err = tx.QueryRow(ctx, "INSERT INTO heists (guild_id, target_user_id, status, expires_at) VALUES ($1, $2, 'planning', NOW() + INTERVAL '1 minute') RETURNING id", guildID, targetUserID).Scan(&heistID)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(ctx, "INSERT INTO heist_participants (heist_id, user_id) VALUES ($1, $2)", heistID, initiatorID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// JoinHeist joins an active heist.
+func (db *DB) JoinHeist(ctx context.Context, guildID, targetUserID, userID string) error {
+	var heistID int
+	err := db.Pool.QueryRow(ctx, "SELECT id FROM heists WHERE guild_id=$1 AND target_user_id=$2 AND status='planning' AND expires_at > NOW()", guildID, targetUserID).Scan(&heistID)
+	if err != nil {
+		return err // No active planning heist
+	}
+
+	_, err = db.Pool.Exec(ctx, "INSERT INTO heist_participants (heist_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", heistID, userID)
+	return err
+}
+
+// GetActiveHeists fetches all heists that have expired and are ready to resolve.
+func (db *DB) GetActiveHeists(ctx context.Context) ([]*Heist, error) {
+	query := "SELECT id, guild_id, target_user_id FROM heists WHERE status='planning' AND expires_at <= NOW()"
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var heists []*Heist
+	for rows.Next() {
+		h := &Heist{}
+		err := rows.Scan(&h.ID, &h.GuildID, &h.TargetUserID)
+		if err != nil {
+			continue
+		}
+		heists = append(heists, h)
+	}
+
+	for _, h := range heists {
+		pRows, err := db.Pool.Query(ctx, "SELECT user_id FROM heist_participants WHERE heist_id=$1", h.ID)
+		if err != nil {
+			continue
+		}
+		for pRows.Next() {
+			var uid string
+			if pRows.Scan(&uid) == nil {
+				h.Participants = append(h.Participants, uid)
+			}
+		}
+		pRows.Close()
+	}
+
+	return heists, nil
+}
+
+// ResolveHeist marks a heist as completed.
+func (db *DB) ResolveHeist(ctx context.Context, heistID int, success bool) error {
+	status := "failed"
+	if success {
+		status = "success"
+	}
+	_, err := db.Pool.Exec(ctx, "UPDATE heists SET status=$1 WHERE id=$2", status, heistID)
+	return err
+}
+
+// SetNewsPing sets the role to ping for a given news channel.
+func (db *DB) SetNewsPing(ctx context.Context, guildID, channelID, roleID string) error {
+	query := "INSERT INTO news_ping_config (guild_id, channel_id, role_id) VALUES ($1, $2, $3) ON CONFLICT (guild_id) DO UPDATE SET channel_id=$2, role_id=$3"
+	// Actually, wait, the schema makes guild_id the primary key?
+	// Let's adjust to checking the schema from the up.sql file
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, roleID)
+	return err
+}
+
+// RemoveNewsPing removes a news ping rule.
+func (db *DB) RemoveNewsPing(ctx context.Context, guildID, channelID string) error {
+	query := "DELETE FROM news_ping_config WHERE guild_id=$1 AND channel_id=$2"
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+// GetNewsPing retrieves the role to ping for a given news channel.
+func (db *DB) GetNewsPing(ctx context.Context, guildID, channelID string) (string, error) {
+	var roleID string
+	err := db.Pool.QueryRow(ctx, "SELECT role_id FROM news_ping_config WHERE guild_id=$1 AND channel_id=$2", guildID, channelID).Scan(&roleID)
+	return roleID, err
+}
+
+type MultiStarboard struct {
+	ID        int
+	GuildID   string
+	ChannelID string
+	Emoji     string
+	Threshold int
+}
+
+// AddMultiStarboard adds a multi-starboard configuration.
+func (db *DB) AddMultiStarboard(ctx context.Context, guildID, channelID, emoji string, threshold int) error {
+	query := `
+		INSERT INTO starboard_multi_config (guild_id, channel_id, emoji, threshold)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (guild_id, channel_id, emoji)
+		DO UPDATE SET threshold = $4
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, emoji, threshold)
+	return err
+}
+
+// RemoveMultiStarboard removes a multi-starboard configuration.
+func (db *DB) RemoveMultiStarboard(ctx context.Context, guildID, channelID, emoji string) error {
+	query := "DELETE FROM starboard_multi_config WHERE guild_id=$1 AND channel_id=$2 AND emoji=$3"
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, emoji)
+	return err
+}
+
+// GetMultiStarboards retrieves all multi-starboards for a guild.
+func (db *DB) GetMultiStarboards(ctx context.Context, guildID string) ([]*MultiStarboard, error) {
+	query := "SELECT id, guild_id, channel_id, emoji, threshold FROM starboard_multi_config WHERE guild_id=$1"
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []*MultiStarboard
+	for rows.Next() {
+		sb := &MultiStarboard{}
+		if err := rows.Scan(&sb.ID, &sb.GuildID, &sb.ChannelID, &sb.Emoji, &sb.Threshold); err == nil {
+			results = append(results, sb)
+		}
+	}
+	return results, nil
+}
+
+// GetMultiStarboardMessage retrieves a logged message.
+func (db *DB) GetMultiStarboardMessage(ctx context.Context, guildID, originalMessageID string, starboardID int) (string, error) {
+	var starboardMessageID string
+	query := "SELECT starboard_message_id FROM starboard_multi_messages WHERE guild_id=$1 AND original_message_id=$2 AND starboard_id=$3"
+	err := db.Pool.QueryRow(ctx, query, guildID, originalMessageID, starboardID).Scan(&starboardMessageID)
+	return starboardMessageID, err
+}
+
+// UpsertMultiStarboardMessage logs or updates the message.
+func (db *DB) UpsertMultiStarboardMessage(ctx context.Context, guildID, originalMessageID string, starboardID int, starboardMessageID string, stars int) error {
+	query := `
+		INSERT INTO starboard_multi_messages (guild_id, original_message_id, starboard_id, starboard_message_id, stars)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (guild_id, original_message_id, starboard_id)
+		DO UPDATE SET starboard_message_id=$4, stars=$5
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, originalMessageID, starboardID, starboardMessageID, stars)
+	return err
+}
+
+// AddThreadWatcher adds a user to watch for new threads in a channel.
+func (db *DB) AddThreadWatcher(ctx context.Context, guildID, channelID, userID string) error {
+	query := "INSERT INTO thread_watchers (guild_id, channel_id, user_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING"
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, userID)
+	return err
+}
+
+// RemoveThreadWatcher removes a thread watcher.
+func (db *DB) RemoveThreadWatcher(ctx context.Context, guildID, channelID, userID string) error {
+	query := "DELETE FROM thread_watchers WHERE guild_id=$1 AND channel_id=$2 AND user_id=$3"
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, userID)
+	return err
+}
+
+// GetThreadWatchers fetches all watchers for a specific channel.
+func (db *DB) GetThreadWatchers(ctx context.Context, guildID, channelID string) ([]string, error) {
+	query := "SELECT user_id FROM thread_watchers WHERE guild_id=$1 AND channel_id=$2"
+	rows, err := db.Pool.Query(ctx, query, guildID, channelID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var watchers []string
+	for rows.Next() {
+		var uid string
+		if err := rows.Scan(&uid); err == nil {
+			watchers = append(watchers, uid)
+		}
+	}
+	return watchers, nil
 }

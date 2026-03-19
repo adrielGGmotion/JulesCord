@@ -12,8 +12,8 @@ import (
 func Keyword(database *db.DB) *Command {
 	return &Command{
 		Definition: &discordgo.ApplicationCommand{
-			Name:        "keyword",
-			Description: "Manage keyword notifications",
+			Name:         "keyword",
+			Description:  "Manage keyword notifications",
 			DMPermission: func(b bool) *bool { return &b }(false),
 			Options: []*discordgo.ApplicationCommandOption{
 				{
