@@ -7766,3 +7766,98 @@ func (db *DB) CancelCoinflipBet(ctx context.Context, id int) error {
 	_, err := db.Pool.Exec(ctx, "DELETE FROM coinflip_bets WHERE id = $1", id)
 	return err
 }
+
+// AdvancedWarning represents a single advanced warning for a user.
+type AdvancedWarning struct {
+	ID          int
+	GuildID     string
+	UserID      string
+	ModeratorID string
+	Reason      string
+	Active      bool
+	CreatedAt   time.Time
+	ExpiresAt   *time.Time
+}
+
+// AddAdvancedWarning creates a new advanced warning for a user.
+func (db *DB) AddAdvancedWarning(ctx context.Context, guildID, userID, moderatorID, reason string, expiresAt *time.Time) error {
+	query := `
+		INSERT INTO advanced_warnings (guild_id, user_id, moderator_id, reason, expires_at, active)
+		VALUES ($1, $2, $3, $4, $5, true)
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, moderatorID, reason, expiresAt)
+	return err
+}
+
+// GetAdvancedWarnings retrieves all active advanced warnings for a user in a guild.
+func (db *DB) GetAdvancedWarnings(ctx context.Context, guildID, userID string) ([]AdvancedWarning, error) {
+	query := `
+		SELECT id, guild_id, user_id, moderator_id, reason, active, created_at, expires_at
+		FROM advanced_warnings
+		WHERE guild_id = $1 AND user_id = $2 AND active = true
+		ORDER BY created_at DESC
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var warnings []AdvancedWarning
+	for rows.Next() {
+		var w AdvancedWarning
+		err := rows.Scan(&w.ID, &w.GuildID, &w.UserID, &w.ModeratorID, &w.Reason, &w.Active, &w.CreatedAt, &w.ExpiresAt)
+		if err != nil {
+			return nil, err
+		}
+		warnings = append(warnings, w)
+	}
+	return warnings, rows.Err()
+}
+
+// RemoveAdvancedWarning marks a specific advanced warning as inactive.
+func (db *DB) RemoveAdvancedWarning(ctx context.Context, id int, guildID string) error {
+	query := `
+		UPDATE advanced_warnings
+		SET active = false
+		WHERE id = $1 AND guild_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, id, guildID)
+	return err
+}
+
+// ClearAdvancedWarnings marks all active advanced warnings as inactive for a user in a guild.
+func (db *DB) ClearAdvancedWarnings(ctx context.Context, guildID, userID string) error {
+	query := `
+		UPDATE advanced_warnings
+		SET active = false
+		WHERE guild_id = $1 AND user_id = $2 AND active = true
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID)
+	return err
+}
+
+// GetExpiredAdvancedWarnings retrieves active advanced warnings that have expired.
+func (db *DB) GetExpiredAdvancedWarnings(ctx context.Context) ([]AdvancedWarning, error) {
+	query := `
+		SELECT id, guild_id, user_id, moderator_id, reason, active, created_at, expires_at
+		FROM advanced_warnings
+		WHERE active = true AND expires_at <= NOW()
+	`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var warnings []AdvancedWarning
+	for rows.Next() {
+		var w AdvancedWarning
+		err := rows.Scan(&w.ID, &w.GuildID, &w.UserID, &w.ModeratorID, &w.Reason, &w.Active, &w.CreatedAt, &w.ExpiresAt)
+		if err != nil {
+			return nil, err
+		}
+		warnings = append(warnings, w)
+	}
+	return warnings, rows.Err()
+}
