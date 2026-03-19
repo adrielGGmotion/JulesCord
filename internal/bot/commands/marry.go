@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"julescord/internal/db"
 	"log/slog"
+	"strconv"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -47,6 +48,45 @@ func NewMarryCommand(database *db.DB) *Command {
 					Description: "Divorce your current partner or cancel a pending proposal",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 				},
+				{
+					Name:        "joint-bank",
+					Description: "Enable or disable your joint bank account",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionBoolean,
+							Name:        "enable",
+							Description: "True to enable, False to disable",
+							Required:    true,
+						},
+					},
+				},
+				{
+					Name:        "deposit",
+					Description: "Deposit coins into your joint bank",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "amount",
+							Description: "Amount to deposit (or 'all')",
+							Required:    true,
+						},
+					},
+				},
+				{
+					Name:        "withdraw",
+					Description: "Withdraw coins from your joint bank",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "amount",
+							Description: "Amount to withdraw (or 'all')",
+							Required:    true,
+						},
+					},
+				},
 			},
 		},
 		Handler: func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -74,6 +114,12 @@ func NewMarryCommand(database *db.DB) *Command {
 				handleMarryAccept(s, i, database, subcommand.Options)
 			case "divorce":
 				handleMarryDivorce(s, i, database)
+			case "joint-bank":
+				handleMarryJointBank(s, i, database, subcommand.Options)
+			case "deposit":
+				handleMarryDeposit(s, i, database, subcommand.Options)
+			case "withdraw":
+				handleMarryWithdraw(s, i, database, subcommand.Options)
 			}
 		},
 	}
@@ -161,5 +207,110 @@ func handleMarryDivorce(s *discordgo.Session, i *discordgo.InteractionCreate, da
 		Title:       "Divorced",
 		Description: fmt.Sprintf("<@%s> is no longer married and has cancelled any pending proposals. 💔", userID),
 		Color:       0x000000, // Black
+	})
+}
+
+func handleMarryJointBank(s *discordgo.Session, i *discordgo.InteractionCreate, database *db.DB, options []*discordgo.ApplicationCommandInteractionDataOption) {
+	userID := i.Member.User.ID
+	enable := options[0].BoolValue()
+
+	err := database.SetJointBank(context.Background(), i.GuildID, userID, enable)
+	if err != nil {
+		slog.Error("Failed to set joint bank", "err", err)
+		SendError(s, i, err.Error())
+		return
+	}
+
+	status := "disabled"
+	if enable {
+		status = "enabled"
+	}
+
+	SendEmbed(s, i, &discordgo.MessageEmbed{
+		Title:       "Joint Bank Updated",
+		Description: fmt.Sprintf("Your joint bank account has been **%s**.", status),
+		Color:       0x2ecc71, // Green
+	})
+}
+
+func handleMarryDeposit(s *discordgo.Session, i *discordgo.InteractionCreate, database *db.DB, options []*discordgo.ApplicationCommandInteractionDataOption) {
+	userID := i.Member.User.ID
+	amountStr := options[0].StringValue()
+
+	econ, err := database.GetUserEconomy(context.Background(), i.GuildID, userID)
+	if err != nil || econ == nil {
+		SendError(s, i, "Failed to get your economy data.")
+		return
+	}
+
+	var depositAmount int64
+	if amountStr == "all" {
+		depositAmount = econ.Coins
+	} else {
+		parsed, err := strconv.ParseInt(amountStr, 10, 64)
+		if err != nil || parsed <= 0 {
+			SendError(s, i, "Please provide a valid positive number or 'all'.")
+			return
+		}
+		depositAmount = parsed
+	}
+
+	if depositAmount <= 0 {
+		SendError(s, i, "You don't have any coins to deposit!")
+		return
+	}
+
+	err = database.DepositJoint(context.Background(), i.GuildID, userID, depositAmount)
+	if err != nil {
+		slog.Error("Failed to deposit to joint bank", "err", err)
+		SendError(s, i, err.Error())
+		return
+	}
+
+	SendEmbed(s, i, &discordgo.MessageEmbed{
+		Title:       "Joint Bank Deposit",
+		Description: fmt.Sprintf("Successfully deposited **%d** coins into your joint bank.", depositAmount),
+		Color:       0x2ecc71,
+	})
+}
+
+func handleMarryWithdraw(s *discordgo.Session, i *discordgo.InteractionCreate, database *db.DB, options []*discordgo.ApplicationCommandInteractionDataOption) {
+	userID := i.Member.User.ID
+	amountStr := options[0].StringValue()
+
+	jointBalance, err := database.GetJointBalance(context.Background(), i.GuildID, userID)
+	if err != nil {
+		SendError(s, i, "Failed to get joint balance. Are you married with a joint bank enabled?")
+		return
+	}
+
+	var withdrawAmount int64
+	if amountStr == "all" {
+		withdrawAmount = jointBalance
+	} else {
+		parsed, err := strconv.ParseInt(amountStr, 10, 64)
+		if err != nil || parsed <= 0 {
+			SendError(s, i, "Please provide a valid positive number or 'all'.")
+			return
+		}
+		withdrawAmount = parsed
+	}
+
+	if withdrawAmount <= 0 {
+		SendError(s, i, "There are no coins to withdraw!")
+		return
+	}
+
+	err = database.WithdrawJoint(context.Background(), i.GuildID, userID, withdrawAmount)
+	if err != nil {
+		slog.Error("Failed to withdraw from joint bank", "err", err)
+		SendError(s, i, err.Error())
+		return
+	}
+
+	SendEmbed(s, i, &discordgo.MessageEmbed{
+		Title:       "Joint Bank Withdrawal",
+		Description: fmt.Sprintf("Successfully withdrew **%d** coins from your joint bank.", withdrawAmount),
+		Color:       0x2ecc71,
 	})
 }
