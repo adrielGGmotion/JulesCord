@@ -5912,3 +5912,34 @@ func (db *DB) ListSnippets(ctx context.Context, guildID string) ([]string, error
 
 	return snippets, nil
 }
+
+// SetTranslationConfig sets the default translation language for a guild.
+func (db *DB) SetTranslationConfig(ctx context.Context, guildID, language string) error {
+	query := `
+		INSERT INTO translation_config (guild_id, default_language)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id) DO UPDATE
+		SET default_language = EXCLUDED.default_language
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, language)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return fmt.Errorf("error setting translation config: %w", err)
+	}
+	return nil
+}
+
+// GetTranslationConfig gets the default translation language for a guild.
+func (db *DB) GetTranslationConfig(ctx context.Context, guildID string) (string, error) {
+	query := `SELECT default_language FROM translation_config WHERE guild_id = $1`
+	var language string
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&language)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return "", fmt.Errorf("error getting translation config: %w", err)
+	}
+	return language, nil
+}
