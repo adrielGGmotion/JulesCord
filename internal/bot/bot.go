@@ -43,6 +43,8 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 
 	registry := commands.NewRegistry()
 	registry.Add(commands.Ping())
+	registry.Add(commands.NewReactionTriggerCommand(database))
+
 	registry.Add(commands.About())
 	registry.Add(commands.Stats(database))
 	registry.Add(commands.Rep(database))
@@ -620,6 +622,38 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	// Ignore all messages created by the bot itself or other bots
 	if m.Author.ID == s.State.User.ID || m.Author.Bot {
 		return
+	}
+
+
+
+	// Reaction Triggers System
+	if b.DB != nil && m.GuildID != "" {
+		// Attempt to load from cache
+		var triggers []db.ReactionTrigger
+		if cachedTriggers, ok := b.DB.ReactionTriggersCache.Load(m.GuildID); ok {
+			triggers = cachedTriggers.([]db.ReactionTrigger)
+		} else {
+			// Fetch from DB and cache
+			fetched, err := b.DB.GetReactionTriggers(context.Background(), m.GuildID)
+			if err == nil {
+				triggers = fetched
+				b.DB.ReactionTriggersCache.Store(m.GuildID, triggers)
+			}
+		}
+
+		if len(triggers) > 0 {
+			msgContentLower := strings.ToLower(m.Content)
+			for _, trigger := range triggers {
+				if strings.Contains(msgContentLower, trigger.TriggerWord) {
+					go func(emoji string) {
+						err := s.MessageReactionAdd(m.ChannelID, m.ID, emoji)
+						if err != nil {
+							slog.Error("Failed to add reaction for trigger", "channel_id", m.ChannelID, "message_id", m.ID, "emoji", emoji, "error", err)
+						}
+					}(trigger.Emoji)
+				}
+			}
+		}
 	}
 
 	// Auto-Publish System

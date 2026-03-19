@@ -1,6 +1,7 @@
 package db
 
 import (
+	"sync"
 	"context"
 	"errors"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 // DB wraps the pgxpool connection pool.
 type DB struct {
 	Pool *pgxpool.Pool
+	ReactionTriggersCache sync.Map
 }
 
 // New establishes a connection pool to the database.
@@ -5464,5 +5466,80 @@ func (db *DB) RemoveWelcomeMessage(ctx context.Context, guildID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to remove welcome message: %w", err)
 	}
+	return nil
+}
+
+// ReactionTrigger represents a single reaction trigger configuration.
+type ReactionTrigger struct {
+	ID          int
+	GuildID     string
+	TriggerWord string
+	Emoji       string
+}
+
+// AddReactionTrigger adds a new reaction trigger for a guild.
+func (db *DB) AddReactionTrigger(ctx context.Context, guildID, triggerWord, emoji string) error {
+	query := `
+		INSERT INTO reaction_triggers (guild_id, trigger_word, emoji)
+		VALUES ($1, $2, $3)
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, triggerWord, emoji)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return fmt.Errorf("failed to add reaction trigger: %w", err)
+	}
+
+	db.ReactionTriggersCache.Delete(guildID)
+
+	return nil
+}
+
+// GetReactionTriggers retrieves all reaction triggers for a guild.
+func (db *DB) GetReactionTriggers(ctx context.Context, guildID string) ([]ReactionTrigger, error) {
+	query := `
+		SELECT id, guild_id, trigger_word, emoji
+		FROM reaction_triggers
+		WHERE guild_id = $1
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return nil, fmt.Errorf("failed to get reaction triggers: %w", err)
+	}
+	defer rows.Close()
+
+	var triggers []ReactionTrigger
+	for rows.Next() {
+		var trigger ReactionTrigger
+		if err := rows.Scan(&trigger.ID, &trigger.GuildID, &trigger.TriggerWord, &trigger.Emoji); err != nil {
+			return nil, fmt.Errorf("failed to scan reaction trigger: %w", err)
+		}
+		triggers = append(triggers, trigger)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating reaction triggers: %w", err)
+	}
+	return triggers, nil
+}
+
+// RemoveReactionTrigger removes a reaction trigger by its ID.
+func (db *DB) RemoveReactionTrigger(ctx context.Context, guildID string, id int) error {
+	query := `
+		DELETE FROM reaction_triggers
+		WHERE guild_id = $1 AND id = $2
+	`
+	res, err := db.Pool.Exec(ctx, query, guildID, id)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return fmt.Errorf("failed to remove reaction trigger: %w", err)
+	}
+
+	if res.RowsAffected() == 0 {
+		return fmt.Errorf("reaction trigger not found")
+	}
+
+	db.ReactionTriggersCache.Delete(guildID)
+
 	return nil
 }

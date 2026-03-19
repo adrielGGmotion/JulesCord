@@ -1265,7 +1265,19 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `/goodbye` command with `set` and `remove` subcommands
 - [x] Update `guildMemberRemoveHandler` to send the goodbye message when a user leaves
 
+
+### Phase 99 — Reaction Triggers System
+- [x] `migrations/084_reaction_triggers.sql` — `reaction_triggers` table (guild_id, trigger_word, emoji)
+- [x] DB operations — `AddReactionTrigger`, `GetReactionTriggers`, `RemoveReactionTrigger`
+- [x] `/reactiontrigger` command with `add` and `remove` subcommands
+- [x] Update `messageCreateHandler` to add the configured emoji reaction when a message contains the trigger word
+
 ### Completed Work
+
+- Implemented Phase 99 Reaction Triggers System: added migrations `084_reaction_triggers.up.sql` and `084_reaction_triggers.down.sql` with table `reaction_triggers`.
+- Added DB operations `AddReactionTrigger`, `GetReactionTriggers`, and `RemoveReactionTrigger` in `internal/db/db.go`.
+- Added `/reactiontrigger` command in `internal/bot/commands/reactiontrigger.go` with `add`, `remove`, and `list` subcommands.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to add configured emoji reactions when a message contains trigger words. Registered the `reactiontrigger` command.
 
 - Implemented Phase 98 Goodbye Messages System: added migrations `083_goodbye_messages.up.sql` and `083_goodbye_messages.down.sql` with table `goodbye_messages`.
 - Added DB operations `SetGoodbyeMessage`, `GetGoodbyeMessage`, and `RemoveGoodbyeMessage` in `internal/db/db.go`.
