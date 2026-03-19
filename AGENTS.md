@@ -75,6 +75,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 ---
 
 ## Completed Work
+- Implemented Phase 114 Economy Marriage Perks: added migrations `099_marriage_perks.up.sql` and `099_marriage_perks.down.sql` with `joint_bank` and `joint_balance` to `marriages` table.
+- Added DB operations `SetJointBank`, `DepositJoint`, `WithdrawJoint`, and `GetJointBalance` in `internal/db/db.go`.
+- Added `/marry` subcommands `joint-bank`, `deposit`, and `withdraw` in `internal/bot/commands/marry.go`.
+- Updated `/bank balance` command to show joint balance if `joint_bank` is enabled in `internal/bot/commands/bank.go`.
+
 
 
 - Implemented Phase 113 Temp Nicknames: added migrations `098_temp_nicknames.up.sql` and `098_temp_nicknames.down.sql` with table `temp_nicknames`.
@@ -316,7 +321,32 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Task Checklist
 
-### Phase 113 — Temp Nicknames
+#
+### Phase 114 — Economy Marriage Perks
+- [x] `migrations/099_marriage_perks.up.sql` — add `joint_bank` boolean and `joint_balance` to `marriages` table
+- [x] DB operations — `SetJointBank`, `DepositJoint`, `WithdrawJoint`, `GetJointBalance`
+- [x] Update `/marry` command with `joint-bank`, `deposit`, and `withdraw` subcommands
+- [x] Update `/bank balance` to show joint balance if `joint_bank` is true
+
+### Phase 115 — Economy Stocks/Investments
+- [ ] `migrations/100_economy_stocks.up.sql` — `stocks` table (symbol, current_price, history) and `user_stocks` table (user_id, symbol, quantity, average_buy_price)
+- [ ] DB operations — `BuyStock`, `SellStock`, `GetUserStocks`, `UpdateStockPrices`
+- [ ] `/stock` command with `buy`, `sell`, `portfolio`, and `market` subcommands
+- [ ] Update `internal/bot/bot.go` to add a background goroutine that simulates stock market fluctuations every hour
+
+### Phase 116 — Custom Voice Channel Names (Voice Generator)
+- [ ] `migrations/101_voice_generator_custom.up.sql` — add `allow_custom_names` and `default_name_template` to `voice_generator_config`
+- [ ] DB operations — `SetVoiceGeneratorNaming` and update `GetVoiceGeneratorConfig`
+- [ ] `/voicegen name` command to allow the owner of a generated voice channel to rename it
+- [ ] Update `voiceStateUpdateHandler` to use the `default_name_template` (e.g., `{user}'s Channel`) when creating the channel
+
+### Phase 117 — Server Join/Leave Logs (Detailed)
+- [ ] `migrations/102_join_leave_logs.up.sql` — `join_leave_log_config` table (guild_id, channel_id, log_joins, log_leaves)
+- [ ] DB operations — `SetJoinLeaveLog`, `GetJoinLeaveLog`
+- [ ] `/joinleavelog` command with `setup` and `remove` subcommands
+- [ ] Update `guildMemberAddHandler` and `guildMemberRemoveHandler` to post detailed embeds (account age, role counts, etc.) to the configured channel
+
+## Phase 113 — Temp Nicknames
 - [x] `migrations/098_temp_nicknames.up.sql` — `temp_nicknames` table (id, guild_id, user_id, original_nickname, expires_at)
 - [x] DB operations — `SetTempNickname`, `GetExpiredTempNicknames`, `RemoveTempNickname`
 - [x] `/tempnick` command with `set` and `remove` subcommands

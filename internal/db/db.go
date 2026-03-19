@@ -3110,13 +3110,15 @@ func (db *DB) DeleteTempVoiceChannel(ctx context.Context, channelID string) erro
 
 // Marriage represents a marriage proposal or active marriage.
 type Marriage struct {
-	ID        int       `json:"id"`
-	GuildID   string    `json:"guild_id"`
-	User1ID   string    `json:"user1_id"`
-	User2ID   string    `json:"user2_id"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID           int       `json:"id"`
+	GuildID      string    `json:"guild_id"`
+	User1ID      string    `json:"user1_id"`
+	User2ID      string    `json:"user2_id"`
+	Status       string    `json:"status"`
+	JointBank    bool      `json:"joint_bank"`
+	JointBalance int64     `json:"joint_balance"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // ProposeMarriage creates a new marriage proposal.
@@ -3199,15 +3201,143 @@ func (db *DB) GetMarriage(ctx context.Context, guildID, userID string) (*Marriag
 
 	var m Marriage
 	err := db.Pool.QueryRow(ctx, `
-		SELECT id, guild_id, user1_id, user2_id, status, created_at, updated_at
+		SELECT id, guild_id, user1_id, user2_id, status, joint_bank, joint_balance, created_at, updated_at
 		FROM marriages
 		WHERE guild_id = $1 AND (user1_id = $2 OR user2_id = $2)
-	`, guildID, userID).Scan(&m.ID, &m.GuildID, &m.User1ID, &m.User2ID, &m.Status, &m.CreatedAt, &m.UpdatedAt)
+	`, guildID, userID).Scan(&m.ID, &m.GuildID, &m.User1ID, &m.User2ID, &m.Status, &m.JointBank, &m.JointBalance, &m.CreatedAt, &m.UpdatedAt)
 
 	if err != nil {
 		return nil, err
 	}
 	return &m, nil
+}
+
+// SetJointBank enables or disables the joint bank for a marriage.
+func (db *DB) SetJointBank(ctx context.Context, guildID, userID string, enable bool) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("SetJointBank").Observe(time.Since(start).Seconds())
+	}()
+
+	cmd, err := db.Pool.Exec(ctx, `
+		UPDATE marriages
+		SET joint_bank = $1, updated_at = NOW()
+		WHERE guild_id = $2 AND (user1_id = $3 OR user2_id = $3) AND status = 'married'
+	`, enable, guildID, userID)
+
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return fmt.Errorf("no active marriage found")
+	}
+	return nil
+}
+
+// DepositJoint transfers coins from a user's wallet to their joint bank.
+func (db *DB) DepositJoint(ctx context.Context, guildID, userID string, amount int64) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("DepositJoint").Observe(time.Since(start).Seconds())
+	}()
+
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Deduct from user
+	deductQuery := `
+		UPDATE user_economy
+		SET coins = coins - $3
+		WHERE guild_id = $1 AND user_id = $2 AND coins >= $3
+	`
+	cmd, err := tx.Exec(ctx, deductQuery, guildID, userID, amount)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return fmt.Errorf("insufficient funds")
+	}
+
+	// Add to joint bank
+	addQuery := `
+		UPDATE marriages
+		SET joint_balance = joint_balance + $3, updated_at = NOW()
+		WHERE guild_id = $1 AND (user1_id = $2 OR user2_id = $2) AND status = 'married' AND joint_bank = true
+	`
+	cmd, err = tx.Exec(ctx, addQuery, guildID, userID, amount)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return fmt.Errorf("no active marriage with joint bank enabled found")
+	}
+
+	return tx.Commit(ctx)
+}
+
+// WithdrawJoint transfers coins from a joint bank to a user's wallet.
+func (db *DB) WithdrawJoint(ctx context.Context, guildID, userID string, amount int64) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("WithdrawJoint").Observe(time.Since(start).Seconds())
+	}()
+
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Deduct from joint bank
+	deductQuery := `
+		UPDATE marriages
+		SET joint_balance = joint_balance - $3, updated_at = NOW()
+		WHERE guild_id = $1 AND (user1_id = $2 OR user2_id = $2) AND status = 'married' AND joint_bank = true AND joint_balance >= $3
+	`
+	cmd, err := tx.Exec(ctx, deductQuery, guildID, userID, amount)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return fmt.Errorf("insufficient funds in joint bank or no active marriage with joint bank enabled found")
+	}
+
+	// Add to user
+	addQuery := `
+		INSERT INTO user_economy (guild_id, user_id, coins)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, user_id) DO UPDATE SET
+			coins = user_economy.coins + EXCLUDED.coins
+	`
+	_, err = tx.Exec(ctx, addQuery, guildID, userID, amount)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// GetJointBalance retrieves the current joint bank balance for a marriage.
+func (db *DB) GetJointBalance(ctx context.Context, guildID, userID string) (int64, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetJointBalance").Observe(time.Since(start).Seconds())
+	}()
+
+	var balance int64
+	err := db.Pool.QueryRow(ctx, `
+		SELECT joint_balance
+		FROM marriages
+		WHERE guild_id = $1 AND (user1_id = $2 OR user2_id = $2) AND status = 'married'
+	`, guildID, userID).Scan(&balance)
+
+	if err != nil {
+		return 0, err
+	}
+	return balance, nil
 }
 
 // CountingConfig represents the configuration and state of a counting channel for a guild.

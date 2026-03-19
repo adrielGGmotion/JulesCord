@@ -89,13 +89,21 @@ func Bank(database *db.DB) *Command {
 
 			switch subcommand {
 			case "balance":
+				desc := fmt.Sprintf(
+					"**Wallet:** %d coins\n**Bank:** %d coins\n**Total:** %d coins",
+					econ.Coins, econ.Bank, econ.Coins+econ.Bank,
+				)
+
+				// Check for joint bank
+				marriage, err := database.GetMarriage(ctx, i.GuildID, userID)
+				if err == nil && marriage != nil && marriage.JointBank {
+					desc += fmt.Sprintf("\n\n**Joint Bank Balance:** %d coins", marriage.JointBalance)
+				}
+
 				embed := &discordgo.MessageEmbed{
 					Title: "🏦 Bank Balance",
 					Color: 0x2ecc71,
-					Description: fmt.Sprintf(
-						"**Wallet:** %d coins\n**Bank:** %d coins\n**Total:** %d coins",
-						econ.Coins, econ.Bank, econ.Coins+econ.Bank,
-					),
+					Description: desc,
 				}
 				s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 					Embeds: &[]*discordgo.MessageEmbed{embed},

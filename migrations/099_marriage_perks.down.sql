@@ -1,0 +1,7 @@
+BEGIN;
+
+ALTER TABLE marriages
+DROP COLUMN IF EXISTS joint_bank,
+DROP COLUMN IF EXISTS joint_balance;
+
+COMMIT;
