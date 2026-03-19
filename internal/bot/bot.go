@@ -154,6 +154,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.NewsPing(database))
 	registry.Add(commands.Use(database))
 	registry.Add(commands.ThreadWatch(database))
+	registry.Add(commands.Trade(database))
 	registry.Add(commands.Bank(database))
 	registry.Add(commands.Pet(database))
 	registry.Add(commands.Job(database))
@@ -438,6 +439,7 @@ func (b *Bot) readyHandler(s *discordgo.Session, event *discordgo.Ready) {
 	go b.checkTempBans()
 	go b.checkTempRoles()
 	go b.checkTempNicknames()
+	go b.cancelTradesLoop()
 
 	// Start mute expiration checker
 	go b.checkExpiredMutes()
@@ -2973,6 +2975,19 @@ func (b *Bot) handleMultiStarboardReaction(s *discordgo.Session, guildID, channe
 					b.DB.UpsertMultiStarboardMessage(ctx, guildID, messageID, config.ID, starboardMessageID, count)
 				}
 			}
+		}
+	}
+}
+
+// cancelTradesLoop periodically cancels expired pending trades.
+func (b *Bot) cancelTradesLoop() {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		err := b.DB.AutoCancelTrades(context.Background())
+		if err != nil {
+			slog.Error("Failed to auto-cancel trades", "error", err)
 		}
 	}
 }
