@@ -137,6 +137,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Report(database))
 	registry.Add(commands.Welcome(database))
 	registry.Add(commands.WelcomeDM(database))
+	registry.Add(commands.WelcomeRole(database))
 	registry.Add(commands.Goodbye(database))
 	registry.Add(commands.Autorole(database))
 	registry.Add(commands.MediaChannel(database))
@@ -1654,6 +1655,33 @@ func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemb
 		err := s.GuildMemberNickname(m.GuildID, m.User.ID, newNickname)
 		if err != nil {
 			slog.Error("Failed to apply nickname template", "guild_id", m.GuildID, "user_id", m.User.ID, "nickname", newNickname, "error", err)
+		}
+	}
+
+	welcomeRoles, err := b.DB.GetWelcomeRoles(context.Background(), m.GuildID)
+	if err != nil {
+		slog.Error("Failed to get welcome roles", "guild_id", m.GuildID, "error", err)
+	} else if len(welcomeRoles) > 0 {
+		for _, wRoleID := range welcomeRoles {
+			// Skip if it's already added (e.g. by auto-role or restored roles)
+			alreadyHas := false
+			if wRoleID == roleID {
+				alreadyHas = true
+			} else {
+				for _, r := range savedRoles {
+					if r == wRoleID {
+						alreadyHas = true
+						break
+					}
+				}
+			}
+
+			if !alreadyHas {
+				err := s.GuildMemberRoleAdd(m.GuildID, m.User.ID, wRoleID)
+				if err != nil {
+					slog.Error("Failed to add welcome role", "role_id", wRoleID, "user_id", m.User.ID, "guild_id", m.GuildID, "error", err)
+				}
+			}
 		}
 	}
 }

@@ -75,6 +75,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 ---
 
 ## Completed Work
+- Implemented Phase 120 Welcome Roles System: added migrations `105_welcome_roles.up.sql` and `105_welcome_roles.down.sql` with table `welcome_roles`.
+- Added DB operations `AddWelcomeRole`, `RemoveWelcomeRole`, and `GetWelcomeRoles` in `internal/db/db.go`.
+- Added `/welcomerole` command with `add`, `remove`, and `list` subcommands in `internal/bot/commands/welcomerole.go`. Registered it in `internal/bot/bot.go`.
+- Updated `guildMemberAddHandler` in `internal/bot/bot.go` to assign the configured welcome roles when a user joins the server.
+
 - Implemented Phase 119 Auto-React Channels: added migrations `104_auto_react.up.sql` and `104_auto_react.down.sql` with table `auto_react_config`.
 - Added DB operations `AddAutoReact`, `RemoveAutoReact`, and `GetAutoReactChannels` in `internal/db/db.go`.
 - Added `/autoreact` command with `add`, `remove`, and `list` subcommands in `internal/bot/commands/autoreact.go`. Registered it in `internal/bot/bot.go`.
@@ -1555,7 +1560,7 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `messageCreateHandler` to offload a goroutine that waits `delete_after` seconds and deletes the message in configured channels
 
 ### Phase 120 — Welcome Roles System
-- [ ] `migrations/105_welcome_roles.up.sql` — `welcome_roles` table (guild_id, role_id)
-- [ ] DB operations — `AddWelcomeRole`, `RemoveWelcomeRole`, `GetWelcomeRoles`
-- [ ] `/welcomerole` command with `add`, `remove`, and `list` subcommands
-- [ ] Update `guildMemberAddHandler` to assign the configured welcome roles when a user joins
+- [x] `migrations/105_welcome_roles.up.sql` — `welcome_roles` table (guild_id, role_id)
+- [x] DB operations — `AddWelcomeRole`, `RemoveWelcomeRole`, `GetWelcomeRoles`
+- [x] `/welcomerole` command with `add`, `remove`, and `list` subcommands
+- [x] Update `guildMemberAddHandler` to assign the configured welcome roles when a user joins
