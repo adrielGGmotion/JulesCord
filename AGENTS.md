@@ -76,6 +76,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+
+- Implemented Phase 113 Temp Nicknames: added migrations `098_temp_nicknames.up.sql` and `098_temp_nicknames.down.sql` with table `temp_nicknames`.
+- Added DB operations `SetTempNickname`, `GetExpiredTempNicknames`, `RemoveTempNickname`, and `RemoveTempNicknameByGuildUser` in `internal/db/db.go`.
+- Added `/tempnick` command with `set` and `remove` subcommands in `internal/bot/commands/tempnick.go`. Registered it in `internal/bot/bot.go`.
+- Added a background goroutine `checkTempNicknames` in `internal/bot/bot.go` to automatically revert temporary nicknames upon expiration.
+
 - Implemented Phase 112 Reaction Triggers: added migrations `097_reaction_triggers.up.sql` and `097_reaction_triggers.down.sql` with table `reaction_triggers`.
 - Added DB operations `AddReactionTrigger`, `RemoveReactionTrigger`, and `GetReactionTriggers` in `internal/db/db.go`.
 - Added `/reactiontrigger` command in `internal/bot/commands/reactiontrigger.go` with `add`, `remove`, and `list` subcommands. Registered it in `internal/bot/bot.go`.
@@ -309,6 +315,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Updated `internal/bot/bot.go` to register the `reactiongroup` command.
 
 ## Task Checklist
+
+### Phase 113 — Temp Nicknames
+- [x] `migrations/098_temp_nicknames.up.sql` — `temp_nicknames` table (id, guild_id, user_id, original_nickname, expires_at)
+- [x] DB operations — `SetTempNickname`, `GetExpiredTempNicknames`, `RemoveTempNickname`
+- [x] `/tempnick` command with `set` and `remove` subcommands
+- [x] Update `internal/bot/bot.go` to register command and add a background goroutine to revert expired nicknames
 
 ### Phase 109 — Leveling Multipliers
 - [x] `migrations/094_leveling_multipliers.up.sql` — `leveling_multipliers` table (guild_id, role_id, multiplier)
@@ -1355,6 +1367,12 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `messageCreateHandler` to DM users when their keyword is mentioned in the guild
 
 ### Completed Work
+
+
+- Implemented Phase 113 Temp Nicknames: added migrations `098_temp_nicknames.up.sql` and `098_temp_nicknames.down.sql` with table `temp_nicknames`.
+- Added DB operations `SetTempNickname`, `GetExpiredTempNicknames`, `RemoveTempNickname`, and `RemoveTempNicknameByGuildUser` in `internal/db/db.go`.
+- Added `/tempnick` command with `set` and `remove` subcommands in `internal/bot/commands/tempnick.go`. Registered it in `internal/bot/bot.go`.
+- Added a background goroutine `checkTempNicknames` in `internal/bot/bot.go` to automatically revert temporary nicknames upon expiration.
 
 - Implemented Phase 112 Reaction Triggers: added migrations `097_reaction_triggers.up.sql` and `097_reaction_triggers.down.sql` with table `reaction_triggers`.
 - Added DB operations `AddReactionTrigger`, `RemoveReactionTrigger`, and `GetReactionTriggers` in `internal/db/db.go`.
