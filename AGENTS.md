@@ -287,6 +287,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Task Checklist
 
+### Phase 106 — Message Translation
+- [x] `migrations/091_translation_config.sql` — `translation_config` table (guild_id, default_language)
+- [x] DB operations — `SetTranslationConfig`, `GetTranslationConfig`
+- [x] `/translate` command with `text` subcommand (source, target, text options)
+- [x] Update `bot.go` to register the `translate` command
+
 ### Phase 105 — Message Snippets / Macros
 - [x] `migrations/090_message_snippets.up.sql` — `message_snippets` table (id, guild_id, name, content)
 - [x] DB operations — `AddSnippet`, `RemoveSnippet`, `GetSnippet`, `ListSnippets`
@@ -1301,6 +1307,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `messageCreateHandler` to skip awarding XP if the user has a blacklisted role
 
 ### Completed Work
+
+- Implemented Phase 106 Message Translation features: added migrations `091_translation_config.up.sql` and `091_translation_config.down.sql` with table `translation_config`.
+- Added DB operations `SetTranslationConfig` and `GetTranslationConfig` in `internal/db/db.go`.
+- Added `/translate` command with `text` and `set-default` subcommands in `internal/bot/commands/translate.go`.
+- Updated `internal/bot/bot.go` to register the `translate` command.
 
 - Implemented Phase 104 User Warn Level Automation: added migrations `089_warn_automation.up.sql` and `089_warn_automation.down.sql` with table `warn_automation_config`.
 - Added DB operations `AddWarnAutomationRule`, `RemoveWarnAutomationRule`, and `GetWarnAutomationRules` in `internal/db/db.go`.
