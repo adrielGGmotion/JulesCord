@@ -2906,6 +2906,15 @@ type BirthdayConfig struct {
 	ChannelID string
 }
 
+// WarnAutomationRule represents a rule for automated punishments based on warning counts
+type WarnAutomationRule struct {
+	ID               int
+	GuildID          string
+	WarningThreshold int
+	Action           string
+	Duration         *string
+}
+
 // Birthday represents a user's birthday.
 type Birthday struct {
 	GuildID           string
@@ -5808,4 +5817,44 @@ func (db *DB) GetLevelingChannelBlacklists(ctx context.Context, guildID string) 
 	}
 
 	return blacklists, nil
+}
+
+// AddWarnAutomationRule adds or updates an automated warning punishment rule for a guild
+func (db *DB) AddWarnAutomationRule(ctx context.Context, guildID string, threshold int, action string, duration *string) error {
+	query := `
+		INSERT INTO warn_automation_config (guild_id, warning_threshold, action, duration)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (guild_id, warning_threshold)
+		DO UPDATE SET action = EXCLUDED.action, duration = EXCLUDED.duration
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, threshold, action, duration)
+	return err
+}
+
+// RemoveWarnAutomationRule removes an automated warning punishment rule
+func (db *DB) RemoveWarnAutomationRule(ctx context.Context, guildID string, threshold int) error {
+	query := `DELETE FROM warn_automation_config WHERE guild_id = $1 AND warning_threshold = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, threshold)
+	return err
+}
+
+// GetWarnAutomationRules retrieves all automated warning rules for a given guild
+func (db *DB) GetWarnAutomationRules(ctx context.Context, guildID string) ([]WarnAutomationRule, error) {
+	query := `SELECT id, guild_id, warning_threshold, action, duration FROM warn_automation_config WHERE guild_id = $1 ORDER BY warning_threshold ASC`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var rules []WarnAutomationRule
+	for rows.Next() {
+		var rule WarnAutomationRule
+		if err := rows.Scan(&rule.ID, &rule.GuildID, &rule.WarningThreshold, &rule.Action, &rule.Duration); err != nil {
+			return nil, err
+		}
+		rules = append(rules, rule)
+	}
+
+	return rules, nil
 }

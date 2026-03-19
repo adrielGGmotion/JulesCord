@@ -48,6 +48,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Rep(database))
 	registry.Add(commands.Help(registry))
 	registry.Add(commands.Warn(database))
+	registry.Add(commands.WarnAutoMod(database))
 	registry.Add(commands.Warnings(database))
 	registry.Add(commands.Kick(database))
 	registry.Add(commands.Ban(database))

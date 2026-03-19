@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
+	"time"
 
 	"julescord/internal/db"
 
@@ -153,6 +155,101 @@ func Warn(database *db.DB) *Command {
 			})
 
 			SendModLog(s, database, i.GuildID, embed)
+
+			// Automated Punishments
+			warnings, err := database.GetWarnings(context.Background(), i.GuildID, targetUser.ID)
+			if err == nil {
+				warningCount := len(warnings)
+				rules, err := database.GetWarnAutomationRules(context.Background(), i.GuildID)
+				if err == nil {
+					for _, rule := range rules {
+						if warningCount == rule.WarningThreshold {
+							autoReason := fmt.Sprintf("Automated punishment: Reached %d warnings", rule.WarningThreshold)
+
+							switch rule.Action {
+							case "mute":
+								if rule.Duration != nil {
+									parsedDurationStr := *rule.Duration
+									if strings.HasSuffix(parsedDurationStr, "d") {
+										var days int
+										fmt.Sscanf(parsedDurationStr, "%dd", &days)
+										parsedDurationStr = fmt.Sprintf("%dh", days*24)
+									}
+
+									duration, err := time.ParseDuration(parsedDurationStr)
+									if err == nil {
+										expiresAt := time.Now().Add(duration)
+										err = s.GuildMemberTimeout(i.GuildID, targetUser.ID, &expiresAt, discordgo.WithAuditLogReason(autoReason))
+										if err == nil {
+											_ = database.AddMute(context.Background(), i.GuildID, targetUser.ID, s.State.User.ID, autoReason, expiresAt)
+											_ = database.LogModActionComplex(context.Background(), i.GuildID, targetUser.ID, s.State.User.ID, "mute", autoReason, rule.Duration, nil)
+
+											muteEmbed := &discordgo.MessageEmbed{
+												Title:       "User Muted (Automated)",
+												Description: fmt.Sprintf("<@%s> has been muted automatically.", targetUser.ID),
+												Color:       0xFFA500, // Orange
+												Fields: []*discordgo.MessageEmbedField{
+													{Name: "Reason", Value: autoReason, Inline: false},
+													{Name: "Duration", Value: *rule.Duration, Inline: true},
+												},
+											}
+											SendModLog(s, database, i.GuildID, muteEmbed)
+										}
+									}
+								}
+							case "kick":
+								err = s.GuildMemberDeleteWithReason(i.GuildID, targetUser.ID, autoReason)
+								if err == nil {
+									_ = database.LogModActionComplex(context.Background(), i.GuildID, targetUser.ID, s.State.User.ID, "kick", autoReason, nil, nil)
+
+									kickEmbed := &discordgo.MessageEmbed{
+										Title:       "User Kicked (Automated)",
+										Description: fmt.Sprintf("<@%s> has been kicked automatically.", targetUser.ID),
+										Color:       0xFF0000, // Red
+										Fields: []*discordgo.MessageEmbedField{
+											{Name: "Reason", Value: autoReason, Inline: false},
+										},
+									}
+									SendModLog(s, database, i.GuildID, kickEmbed)
+								}
+							case "ban":
+								err = s.GuildBanCreateWithReason(i.GuildID, targetUser.ID, autoReason, 0)
+								if err == nil {
+									if rule.Duration != nil {
+										parsedDurationStr := *rule.Duration
+										if strings.HasSuffix(parsedDurationStr, "d") {
+											var days int
+											fmt.Sscanf(parsedDurationStr, "%dd", &days)
+											parsedDurationStr = fmt.Sprintf("%dh", days*24)
+										}
+
+										duration, err := time.ParseDuration(parsedDurationStr)
+										if err == nil {
+											unbanAt := time.Now().Add(duration)
+											_ = database.AddTempBan(targetUser.ID, i.GuildID, unbanAt)
+										}
+									}
+
+									_ = database.LogModActionComplex(context.Background(), i.GuildID, targetUser.ID, s.State.User.ID, "ban", autoReason, rule.Duration, nil)
+
+									banEmbed := &discordgo.MessageEmbed{
+										Title:       "User Banned (Automated)",
+										Description: fmt.Sprintf("<@%s> has been banned automatically.", targetUser.ID),
+										Color:       0xFF0000, // Red
+										Fields: []*discordgo.MessageEmbedField{
+											{Name: "Reason", Value: autoReason, Inline: false},
+										},
+									}
+									if rule.Duration != nil {
+										banEmbed.Fields = append(banEmbed.Fields, &discordgo.MessageEmbedField{Name: "Duration", Value: *rule.Duration, Inline: true})
+									}
+									SendModLog(s, database, i.GuildID, banEmbed)
+								}
+							}
+						}
+					}
+				}
+			}
 		},
 	}
 }
