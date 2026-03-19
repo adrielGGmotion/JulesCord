@@ -5943,3 +5943,36 @@ func (db *DB) GetTranslationConfig(ctx context.Context, guildID string) (string,
 	}
 	return language, nil
 }
+
+// SetThreadAutomation sets the thread automation config for a specific channel
+func (db *DB) SetThreadAutomation(ctx context.Context, guildID, channelID string, autoJoin bool) error {
+	query := `
+		INSERT INTO thread_automation_config (guild_id, channel_id, auto_join)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, channel_id) DO UPDATE
+		SET auto_join = EXCLUDED.auto_join
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, autoJoin)
+	return err
+}
+
+// GetThreadAutomation retrieves the thread automation config for a specific channel
+func (db *DB) GetThreadAutomation(ctx context.Context, guildID, channelID string) (bool, error) {
+	query := `SELECT auto_join FROM thread_automation_config WHERE guild_id = $1 AND channel_id = $2`
+	var autoJoin bool
+	err := db.Pool.QueryRow(ctx, query, guildID, channelID).Scan(&autoJoin)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return autoJoin, nil
+}
+
+// RemoveThreadAutomation removes the thread automation config for a specific channel
+func (db *DB) RemoveThreadAutomation(ctx context.Context, guildID, channelID string) error {
+	query := `DELETE FROM thread_automation_config WHERE guild_id = $1 AND channel_id = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}

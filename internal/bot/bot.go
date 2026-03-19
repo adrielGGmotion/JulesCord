@@ -166,6 +166,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.TempRole(database))
 	registry.Add(commands.Snippet(database))
 	registry.Add(commands.Translate(database))
+	registry.Add(commands.ThreadAuto(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -218,6 +219,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	bot.Session.AddHandler(bot.channelDeleteHandler)
 	bot.Session.AddHandler(bot.guildRoleCreateHandler)
 	bot.Session.AddHandler(bot.guildRoleDeleteHandler)
+	bot.Session.AddHandler(bot.threadCreateHandler)
 
 	// Set intentions
 	bot.Session.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildMembers | discordgo.IntentsGuildMessageReactions | discordgo.IntentsMessageContent | discordgo.IntentsGuildVoiceStates
@@ -238,6 +240,26 @@ func (b *Bot) UpdateAutoResponderCache(guildID string) {
 	}
 
 	b.AutoResponders.Store(guildID, responders)
+}
+
+func (b *Bot) threadCreateHandler(s *discordgo.Session, t *discordgo.ThreadCreate) {
+	if b.DB == nil {
+		return
+	}
+
+	// We only want to join automatically when the thread is newly created
+	if t.NewlyCreated {
+		ctx := context.Background()
+		autoJoin, err := b.DB.GetThreadAutomation(ctx, t.GuildID, t.ParentID)
+		if err == nil && autoJoin {
+			err = s.ThreadJoin(t.ID)
+			if err != nil {
+				slog.Error("Failed to auto-join thread", "thread_id", t.ID, "guild_id", t.GuildID, "error", err)
+			} else {
+				slog.Info("Automatically joined thread", "thread_id", t.ID, "guild_id", t.GuildID)
+			}
+		}
+	}
 }
 
 // Start opens the connection to Discord.
