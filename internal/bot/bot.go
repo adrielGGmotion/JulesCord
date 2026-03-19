@@ -121,6 +121,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.CustomCommand(database))
 	registry.Add(commands.NewVoiceTimeCommand(database))
 	registry.Add(commands.NewMemberCountCommand(database))
+	registry.Add(commands.NewEmojiManagerCommand())
 	registry.Add(commands.Snipe(database))
 	registry.Add(commands.EditSnipe(database))
 	registry.Add(commands.Gamble(database))
