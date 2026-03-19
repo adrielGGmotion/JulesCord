@@ -75,6 +75,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 ---
 
 ## Completed Work
+- Implemented Phase 128 Economy Lotteries: added migrations `113_economy_lotteries.up.sql` and `113_economy_lotteries.down.sql` with tables `lotteries` and `lottery_tickets`.
+- Added DB operations `CreateLottery`, `BuyLotteryTicket`, `GetActiveLotteries`, and `ResolveLottery` in `internal/db/db.go`.
+- Added `/lottery` command in `internal/bot/commands/lottery.go` with `create`, `buy`, and `list` subcommands.
+- Added a background goroutine `lotteryLoop` in `internal/bot/bot.go` to resolve ended lotteries and award coins to a random ticket holder, and registered the `lottery` command.
+
 - Implemented Phase 120 Welcome Roles System: added migrations `105_welcome_roles.up.sql` and `105_welcome_roles.down.sql` with table `welcome_roles`.
 - Added DB operations `AddWelcomeRole`, `RemoveWelcomeRole`, and `GetWelcomeRoles` in `internal/db/db.go`.
 - Added `/welcomerole` command with `add`, `remove`, and `list` subcommands in `internal/bot/commands/welcomerole.go`. Registered it in `internal/bot/bot.go`.
@@ -1444,6 +1449,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `messageCreateHandler` to DM users when their keyword is mentioned in the guild
 
 ### Completed Work
+- Implemented Phase 128 Economy Lotteries: added migrations `113_economy_lotteries.up.sql` and `113_economy_lotteries.down.sql` with tables `lotteries` and `lottery_tickets`.
+- Added DB operations `CreateLottery`, `BuyLotteryTicket`, `GetActiveLotteries`, and `ResolveLottery` in `internal/db/db.go`.
+- Added `/lottery` command in `internal/bot/commands/lottery.go` with `create`, `buy`, and `list` subcommands.
+- Added a background goroutine `lotteryLoop` in `internal/bot/bot.go` to resolve ended lotteries and award coins to a random ticket holder, and registered the `lottery` command.
+
 - Implemented Phase 119 Auto-React Channels: added migrations `104_auto_react.up.sql` and `104_auto_react.down.sql` with table `auto_react_config`.
 - Added DB operations `AddAutoReact`, `RemoveAutoReact`, and `GetAutoReactChannels` in `internal/db/db.go`.
 - Added `/autoreact` command with `add`, `remove`, and `list` subcommands in `internal/bot/commands/autoreact.go`. Registered it in `internal/bot/bot.go`.
@@ -1621,3 +1631,21 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetGlobalMultiplier`, `GetActiveMultiplier`
 - [x] `/multiplier` command allowing admins to trigger global XP/Coin boosts
 - [x] Update economy logic to factor in active global multipliers
+
+### Phase 128 — Economy Lotteries
+- [x] `migrations/113_economy_lotteries.up.sql` — `lotteries` table (id, guild_id, prize, ticket_price, end_time) and `lottery_tickets` table (lottery_id, user_id, count)
+- [x] DB operations — `CreateLottery`, `BuyLotteryTicket`, `GetActiveLotteries`, `ResolveLottery`
+- [x] `/lottery` command with `create`, `buy`, and `list` subcommands
+- [x] Add a background goroutine `lotteryLoop` in `internal/bot/bot.go` to resolve ended lotteries and award coins to a random ticket holder
+
+### Phase 129 — Economy Bounties
+- [ ] `migrations/114_economy_bounties.up.sql` — `bounties` table (id, guild_id, target_user_id, bounty_amount, created_by)
+- [ ] DB operations — `PlaceBounty`, `GetBounty`, `RemoveBounty`
+- [ ] `/bounty` command with `place`, `list`, and `remove` subcommands
+- [ ] Update `messageCreateHandler` or `/rob` command logic to check if a user is killed/robbed and award the bounty to the attacker
+
+### Phase 130 — Economy Coinflip Bet
+- [ ] `migrations/115_economy_coinflip.up.sql` — `coinflip_bets` table (id, guild_id, host_id, opponent_id, amount, side)
+- [ ] DB operations — `CreateCoinflipBet`, `AcceptCoinflipBet`, `CancelCoinflipBet`, `GetActiveCoinflipBets`
+- [ ] `/coinflipbet` command with `host` and `accept` subcommands
+- [ ] Implement flip logic upon acceptance and transfer coins from loser to winner

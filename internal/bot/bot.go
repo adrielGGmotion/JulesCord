@@ -189,6 +189,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.ReactionTrigger(database))
 	registry.Add(commands.TempNick(database))
 	registry.Add(commands.Multiplier(database))
+	registry.Add(commands.Lottery(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -307,6 +308,7 @@ func (b *Bot) Start() error {
 
 	go b.stockMarketLoop()
 	go b.heistLoop()
+	go b.lotteryLoop()
 
 	slog.Info("Discord bot started successfully.")
 	return nil
@@ -3000,6 +3002,57 @@ func (b *Bot) cancelTradesLoop() {
 		err := b.DB.AutoCancelTrades(context.Background())
 		if err != nil {
 			slog.Error("Failed to auto-cancel trades", "error", err)
+		}
+	}
+}
+
+// lotteryLoop periodically checks for ended lotteries and resolves them.
+func (b *Bot) lotteryLoop() {
+	ticker := time.NewTicker(1 * time.Minute)
+	for range ticker.C {
+		if b.DB == nil {
+			continue
+		}
+
+		ctx := context.Background()
+
+		// To find ended lotteries we need a new query since GetActiveLotteries returns future ones.
+		// However, we can just query the db for lotteries where end_time <= NOW() directly.
+		rows, err := b.DB.Pool.Query(ctx, `SELECT id, guild_id, prize FROM lotteries WHERE end_time <= NOW()`)
+		if err != nil {
+			slog.Error("Failed to query ended lotteries", "error", err)
+			continue
+		}
+
+		type endedLottery struct {
+			id      int
+			guildID string
+			prize   int
+		}
+
+		var ended []endedLottery
+		for rows.Next() {
+			var l endedLottery
+			if err := rows.Scan(&l.id, &l.guildID, &l.prize); err != nil {
+				slog.Error("Error scanning ended lottery", "error", err)
+				continue
+			}
+			ended = append(ended, l)
+		}
+		rows.Close()
+
+		for _, l := range ended {
+			winnerID, err := b.DB.ResolveLottery(ctx, l.id, l.guildID, l.prize)
+			if err != nil {
+				slog.Error("Failed to resolve lottery", "error", err, "lottery_id", l.id)
+				continue
+			}
+
+			if winnerID != "" {
+				slog.Info("Lottery resolved", "lottery_id", l.id, "winner_id", winnerID, "prize", l.prize)
+			} else {
+				slog.Info("Lottery resolved with no tickets", "lottery_id", l.id)
+			}
 		}
 	}
 }
