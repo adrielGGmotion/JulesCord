@@ -164,6 +164,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.ReactionMenu(database))
 	registry.Add(commands.StickyRole(database))
 	registry.Add(commands.TempRole(database))
+	registry.Add(commands.Snippet(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {

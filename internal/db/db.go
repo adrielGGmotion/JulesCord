@@ -5858,3 +5858,57 @@ func (db *DB) GetWarnAutomationRules(ctx context.Context, guildID string) ([]War
 
 	return rules, nil
 }
+
+// AddSnippet saves a message snippet
+func (db *DB) AddSnippet(ctx context.Context, guildID, name, content string) error {
+	query := `
+		INSERT INTO message_snippets (guild_id, name, content)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, name) DO UPDATE SET content = EXCLUDED.content
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, name, content)
+	return err
+}
+
+// RemoveSnippet deletes a message snippet
+func (db *DB) RemoveSnippet(ctx context.Context, guildID, name string) error {
+	query := `DELETE FROM message_snippets WHERE guild_id = $1 AND name = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, name)
+	return err
+}
+
+// GetSnippet retrieves a message snippet by name
+func (db *DB) GetSnippet(ctx context.Context, guildID, name string) (string, error) {
+	query := `SELECT content FROM message_snippets WHERE guild_id = $1 AND name = $2`
+	var content string
+	err := db.Pool.QueryRow(ctx, query, guildID, name).Scan(&content)
+	if err == pgx.ErrNoRows {
+		return "", nil
+	}
+	return content, err
+}
+
+// ListSnippets retrieves all message snippets for a guild
+func (db *DB) ListSnippets(ctx context.Context, guildID string) ([]string, error) {
+	query := `SELECT name FROM message_snippets WHERE guild_id = $1 ORDER BY name`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var snippets []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		snippets = append(snippets, name)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return snippets, nil
+}
