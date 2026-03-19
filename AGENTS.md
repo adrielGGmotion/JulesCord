@@ -287,7 +287,14 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Task Checklist
 
-### Phase 106 — Message Translation
+#
+### Phase 107 — Thread Automation Config
+- [x] `migrations/092_thread_automation.up.sql` — `thread_automation_config` table (guild_id, channel_id, auto_join)
+- [x] DB operations — `SetThreadAutomation`, `GetThreadAutomation`, `RemoveThreadAutomation`
+- [x] `/threadauto` command with `setup` and `remove` subcommands
+- [x] Update `threadCreateHandler` in `internal/bot/bot.go` to automatically join threads in configured channels
+
+## Phase 106 — Message Translation
 - [x] `migrations/091_translation_config.sql` — `translation_config` table (guild_id, default_language)
 - [x] DB operations — `SetTranslationConfig`, `GetTranslationConfig`
 - [x] `/translate` command with `text` subcommand (source, target, text options)
@@ -1307,6 +1314,12 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `messageCreateHandler` to skip awarding XP if the user has a blacklisted role
 
 ### Completed Work
+
+- Implemented Phase 107 Thread Automation Config: added migrations `092_thread_automation.up.sql` and `092_thread_automation.down.sql` with table `thread_automation_config`.
+- Added DB operations `SetThreadAutomation`, `GetThreadAutomation`, and `RemoveThreadAutomation` in `internal/db/db.go`.
+- Added `/threadauto` command in `internal/bot/commands/threadauto.go` with `setup` and `remove` subcommands. Registered it in `internal/bot/bot.go`.
+- Updated `threadCreateHandler` in `internal/bot/bot.go` to automatically join newly created threads in configured channels.
+
 
 - Implemented Phase 106 Message Translation features: added migrations `091_translation_config.up.sql` and `091_translation_config.down.sql` with table `translation_config`.
 - Added DB operations `SetTranslationConfig` and `GetTranslationConfig` in `internal/db/db.go`.
