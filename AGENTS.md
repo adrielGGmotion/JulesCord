@@ -1583,6 +1583,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `/starboard multi` command with `add`, `remove`, and `list` subcommands
 - [x] Update `messageReactionAddHandler` in `internal/bot/bot.go` to evaluate and post to multiple starboards based on custom emojis
 
+- Implemented Phase 125 Economy Trade System: added migrations `110_economy_trades.up.sql` and `110_economy_trades.down.sql` with table `trades`.
+- Added DB operations `CreateTrade`, `AcceptTrade`, `CancelTrade`, and `AutoCancelTrades` in `internal/db/db.go`.
+- Added `/trade` command in `internal/bot/commands/trade.go` with `offer` and `accept` subcommands.
+- Updated `internal/bot/bot.go` to include a background loop `cancelTradesLoop` for auto-canceling trades, and registered the `trade` command.
+
 ### Phase 124 — Thread Watchers
 - [x] `migrations/109_thread_watchers.up.sql` — `thread_watchers` table (guild_id, channel_id, user_id)
 - [x] DB operations — `AddThreadWatcher`, `RemoveThreadWatcher`, `GetThreadWatchers`
@@ -1590,10 +1595,10 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `threadCreateHandler` in `internal/bot/bot.go` to automatically add watching users to newly created threads
 
 ### Phase 125 — Economy Trade System
-- [ ] `migrations/110_economy_trades.up.sql` — `trades` table for item/coin exchanges (id, guild_id, sender_id, receiver_id, status)
-- [ ] DB operations — `CreateTrade`, `AcceptTrade`, `CancelTrade`
-- [ ] `/trade` command with `offer` and `accept` subcommands
-- [ ] Update background tasks or interaction handlers to auto-cancel pending trades after 10 minutes
+- [x] `migrations/110_economy_trades.up.sql` — `trades` table for item/coin exchanges (id, guild_id, sender_id, receiver_id, status)
+- [x] DB operations — `CreateTrade`, `AcceptTrade`, `CancelTrade`
+- [x] `/trade` command with `offer` and `accept` subcommands
+- [x] Update background tasks or interaction handlers to auto-cancel pending trades after 10 minutes
 
 ### Phase 126 — Voice Time Tracking
 - [ ] `migrations/111_voice_time.up.sql` — `voice_time_stats` table to persist total time spent

@@ -7130,3 +7130,142 @@ func (db *DB) GetThreadWatchers(ctx context.Context, guildID, channelID string) 
 	}
 	return watchers, nil
 }
+
+// CreateTrade creates a new trade proposal between two users.
+func (db *DB) CreateTrade(ctx context.Context, guildID, senderID, receiverID string, senderAmount, receiverAmount int) (int, error) {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	// Check if sender has enough coins
+	if senderAmount > 0 {
+		var senderCoins int
+		err = tx.QueryRow(ctx, "SELECT coins FROM user_economy WHERE guild_id = $1 AND user_id = $2", guildID, senderID).Scan(&senderCoins)
+		if err != nil {
+			return 0, fmt.Errorf("sender economy not found")
+		}
+		if senderCoins < senderAmount {
+			return 0, fmt.Errorf("sender has insufficient coins")
+		}
+	}
+
+	// Insert trade
+	var tradeID int
+	query := `
+		INSERT INTO trades (guild_id, sender_id, receiver_id, sender_amount, receiver_amount, status)
+		VALUES ($1, $2, $3, $4, $5, 'pending')
+		RETURNING id
+	`
+	err = tx.QueryRow(ctx, query, guildID, senderID, receiverID, senderAmount, receiverAmount).Scan(&tradeID)
+	if err != nil {
+		return 0, err
+	}
+
+	return tradeID, tx.Commit(ctx)
+}
+
+// AcceptTrade completes a pending trade between two users.
+func (db *DB) AcceptTrade(ctx context.Context, tradeID int, guildID, receiverID string) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Verify trade
+	var senderID string
+	var senderAmount, receiverAmount int
+	query := `
+		SELECT sender_id, sender_amount, receiver_amount
+		FROM trades
+		WHERE id = $1 AND guild_id = $2 AND receiver_id = $3 AND status = 'pending'
+		FOR UPDATE
+	`
+	err = tx.QueryRow(ctx, query, tradeID, guildID, receiverID).Scan(&senderID, &senderAmount, &receiverAmount)
+	if err != nil {
+		return fmt.Errorf("trade not found or not pending")
+	}
+
+	// To avoid deadlocks, process users in a consistent order (alphabetical by ID)
+	firstID, secondID := senderID, receiverID
+	firstDeduct, secondDeduct := senderAmount, receiverAmount
+	firstAdd, secondAdd := receiverAmount, senderAmount
+
+	if firstID > secondID {
+		firstID, secondID = secondID, firstID
+		firstDeduct, secondDeduct = receiverAmount, senderAmount
+		firstAdd, secondAdd = senderAmount, receiverAmount
+	}
+
+	// Process first user
+	if firstDeduct > 0 {
+		tag, err := tx.Exec(ctx, "UPDATE user_economy SET coins = coins - $1 WHERE guild_id = $2 AND user_id = $3 AND coins >= $1", firstDeduct, guildID, firstID)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return fmt.Errorf("user %s no longer has enough coins", firstID)
+		}
+	}
+	if firstAdd > 0 {
+		_, err = tx.Exec(ctx, "INSERT INTO user_economy (guild_id, user_id, coins) VALUES ($1, $2, $3) ON CONFLICT (guild_id, user_id) DO UPDATE SET coins = user_economy.coins + $3", guildID, firstID, firstAdd)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Process second user
+	if secondDeduct > 0 {
+		tag, err := tx.Exec(ctx, "UPDATE user_economy SET coins = coins - $1 WHERE guild_id = $2 AND user_id = $3 AND coins >= $1", secondDeduct, guildID, secondID)
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return fmt.Errorf("user %s does not have enough coins", secondID)
+		}
+	}
+	if secondAdd > 0 {
+		_, err = tx.Exec(ctx, "INSERT INTO user_economy (guild_id, user_id, coins) VALUES ($1, $2, $3) ON CONFLICT (guild_id, user_id) DO UPDATE SET coins = user_economy.coins + $3", guildID, secondID, secondAdd)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Update status
+	_, err = tx.Exec(ctx, "UPDATE trades SET status = 'accepted' WHERE id = $1", tradeID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// CancelTrade cancels a pending trade.
+func (db *DB) CancelTrade(ctx context.Context, tradeID int, guildID, userID string) error {
+	query := `
+		UPDATE trades
+		SET status = 'cancelled'
+		WHERE id = $1 AND guild_id = $2 AND (sender_id = $3 OR receiver_id = $3) AND status = 'pending'
+	`
+	tag, err := db.Pool.Exec(ctx, query, tradeID, guildID, userID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("trade not found or already processed")
+	}
+	return nil
+}
+
+// AutoCancelTrades cancels all pending trades older than 10 minutes.
+func (db *DB) AutoCancelTrades(ctx context.Context) error {
+	query := `
+		UPDATE trades
+		SET status = 'expired'
+		WHERE status = 'pending' AND created_at < NOW() - INTERVAL '10 minutes'
+	`
+	_, err := db.Pool.Exec(ctx, query)
+	return err
+}
