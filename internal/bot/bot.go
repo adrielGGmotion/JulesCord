@@ -97,6 +97,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Timezone(database))
 	registry.Add(commands.Thread(database))
 	registry.Add(commands.Stock(database))
+	registry.Add(commands.AutoReact(database))
 
 	registry.Add(commands.AutoResponder(database, bot))
 	registry.Add(commands.Starboard(database))
@@ -905,6 +906,25 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 		}
 	}
 
+	// Auto-React Channels System
+	if b.DB != nil && m.GuildID != "" {
+		configs, err := b.DB.GetAutoReactChannels(context.Background(), m.GuildID)
+		if err == nil && len(configs) > 0 {
+			for _, c := range configs {
+				if c.ChannelID == m.ChannelID {
+					emojis := strings.Split(c.Emojis, ",")
+					for _, emoji := range emojis {
+						emoji = strings.TrimSpace(emoji)
+						if emoji != "" {
+							s.MessageReactionAdd(m.ChannelID, m.ID, emoji)
+						}
+					}
+					break
+				}
+			}
+		}
+	}
+
 	// Counting System
 	if b.DB != nil && m.GuildID != "" {
 		config, err := b.DB.GetCountingChannel(context.Background(), m.GuildID)
@@ -1123,7 +1143,7 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 								slog.Error("Failed to update level for user %s", "arg1", m.Author.ID, "error", err)
 							} else {
 								// Check for level role reward
-								roleID, coinsReward, roleErr := b.DB.GetLevelRole(context.Background(), m.GuildID, newLevel)
+								roleID, coinsReward, customMsg, roleErr := b.DB.GetLevelRole(context.Background(), m.GuildID, newLevel)
 								if roleErr != nil {
 									slog.Error("Failed to check for level role", "error", roleErr, "guild_id", m.GuildID, "level", newLevel)
 								} else {
@@ -1147,12 +1167,19 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 
 								// Announce level up
 								msg := fmt.Sprintf("🎉 Congratulations <@%s>, you just advanced to **Level %d**!", m.Author.ID, newLevel)
-								if roleID != nil && *roleID != "" {
-									msg += fmt.Sprintf(" You've been awarded the <@&%s> role!", *roleID)
+
+								// Use custom message if set, otherwise use default
+								if customMsg != nil && *customMsg != "" {
+									msg = strings.ReplaceAll(*customMsg, "{user}", m.Author.Mention())
+								} else {
+									if roleID != nil && *roleID != "" {
+										msg += fmt.Sprintf(" You've been awarded the <@&%s> role!", *roleID)
+									}
+									if coinsReward > 0 {
+										msg += fmt.Sprintf(" You've also been awarded **%d coins**!", coinsReward)
+									}
 								}
-								if coinsReward > 0 {
-									msg += fmt.Sprintf(" You've also been awarded **%d coins**!", coinsReward)
-								}
+
 								_, err = s.ChannelMessageSend(m.ChannelID, msg)
 								if err != nil {
 									slog.Error("Failed to send level up message", "error", err)
