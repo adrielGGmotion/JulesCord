@@ -76,6 +76,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 109 Leveling Multipliers: added migrations `094_leveling_multipliers.up.sql` and `094_leveling_multipliers.down.sql` with table `leveling_multipliers`.
+- Added DB operations `AddLevelMultiplier`, `RemoveLevelMultiplier`, and `GetLevelMultipliers` in `internal/db/db.go`.
+- Added `/levelmultiplier` command in `internal/bot/commands/levelmultiplier.go` with `add`, `remove`, and `list` subcommands. Registered it in `internal/bot/bot.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to calculate and apply the highest applicable role multiplier to earned XP.
+
 - Implemented Phase 108 Message Forwarding: added migrations `093_message_forwarding.up.sql` and `093_message_forwarding.down.sql` with table `forwarding_config`.
 - Added DB operations `AddForwardingRule`, `RemoveForwardingRule`, and `GetForwardingRules` in `internal/db/db.go`.
 - Added `/forward` command in `internal/bot/commands/forward.go` with `add`, `remove`, and `list` subcommands. Registered it in `internal/bot/bot.go`.
@@ -298,6 +303,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Updated `internal/bot/bot.go` to register the `reactiongroup` command.
 
 ## Task Checklist
+
+### Phase 109 — Leveling Multipliers
+- [x] `migrations/094_leveling_multipliers.up.sql` — `leveling_multipliers` table (guild_id, role_id, multiplier)
+- [x] DB operations — `AddLevelMultiplier`, `RemoveLevelMultiplier`, `GetLevelMultipliers`
+- [x] `/levelmultiplier` command with `add`, `remove`, and `list` subcommands
+- [x] Update `messageCreateHandler` to apply the highest multiplier to earned XP based on user's roles
 
 ### Phase 108 — Message Forwarding
 - [x] `migrations/093_message_forwarding.up.sql` — `forwarding_config` table (guild_id, source_channel_id, target_channel_id)
