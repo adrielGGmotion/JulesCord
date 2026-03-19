@@ -75,6 +75,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 ---
 
 ## Completed Work
+- Implemented Phase 116 Custom Voice Channel Names: added migrations `101_voice_generator_custom.up.sql` and `101_voice_generator_custom.down.sql` with `allow_custom_names` and `default_name_template` columns to `voice_generator_config` table.
+- Added DB operations `SetVoiceGeneratorNaming` and updated `GetVoiceGeneratorConfig` in `internal/db/db.go`.
+- Added `/voicegen name` command in `internal/bot/commands/voicegen.go` to allow the owner of a generated voice channel to rename it.
+- Updated `voiceStateUpdateHandler` in `internal/bot/bot.go` to track owners of generated voice channels and use the `default_name_template` when creating the channel.
+
 - Implemented Phase 115 Economy Stocks/Investments: added migrations `100_economy_stocks.up.sql` and `100_economy_stocks.down.sql` with `stocks` and `user_stocks` tables.
 - Added DB operations `BuyStock`, `SellStock`, `GetUserStocks`, and `UpdateStockPrices` in `internal/db/db.go`.
 - Added `/stock` command with `buy`, `sell`, `portfolio`, and `market` subcommands in `internal/bot/commands/stock.go`. Registered it in `internal/bot/bot.go`.
@@ -340,10 +345,10 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] Update `internal/bot/bot.go` to add a background goroutine that simulates stock market fluctuations every hour
 
 ### Phase 116 — Custom Voice Channel Names (Voice Generator)
-- [ ] `migrations/101_voice_generator_custom.up.sql` — add `allow_custom_names` and `default_name_template` to `voice_generator_config`
-- [ ] DB operations — `SetVoiceGeneratorNaming` and update `GetVoiceGeneratorConfig`
-- [ ] `/voicegen name` command to allow the owner of a generated voice channel to rename it
-- [ ] Update `voiceStateUpdateHandler` to use the `default_name_template` (e.g., `{user}'s Channel`) when creating the channel
+- [x] `migrations/101_voice_generator_custom.up.sql` — add `allow_custom_names` and `default_name_template` to `voice_generator_config`
+- [x] DB operations — `SetVoiceGeneratorNaming` and update `GetVoiceGeneratorConfig`
+- [x] `/voicegen name` command to allow the owner of a generated voice channel to rename it
+- [x] Update `voiceStateUpdateHandler` to use the `default_name_template` (e.g., `{user}'s Channel`) when creating the channel
 
 ### Phase 117 — Server Join/Leave Logs (Detailed)
 - [ ] `migrations/102_join_leave_logs.up.sql` — `join_leave_log_config` table (guild_id, channel_id, log_joins, log_leaves)
