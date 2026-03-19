@@ -6861,3 +6861,53 @@ func (db *DB) GetAutoReactChannels(ctx context.Context, guildID string) ([]AutoR
 	}
 	return configs, rows.Err()
 }
+
+// AddWelcomeRole adds a welcome role.
+func (db *DB) AddWelcomeRole(ctx context.Context, guildID, roleID string) error {
+	query := `
+		INSERT INTO welcome_roles (guild_id, role_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id, role_id) DO NOTHING
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, roleID)
+	return err
+}
+
+// RemoveWelcomeRole removes a welcome role.
+func (db *DB) RemoveWelcomeRole(ctx context.Context, guildID, roleID string) error {
+	query := `
+		DELETE FROM welcome_roles
+		WHERE guild_id = $1 AND role_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, roleID)
+	return err
+}
+
+// GetWelcomeRoles returns all welcome roles for a guild.
+func (db *DB) GetWelcomeRoles(ctx context.Context, guildID string) ([]string, error) {
+	query := `
+		SELECT role_id
+		FROM welcome_roles
+		WHERE guild_id = $1
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var roles []string
+	for rows.Next() {
+		var roleID string
+		if err := rows.Scan(&roleID); err != nil {
+			return nil, err
+		}
+		roles = append(roles, roleID)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return roles, nil
+}
