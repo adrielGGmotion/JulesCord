@@ -76,6 +76,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 101 Welcome DMs System: added migrations `086_welcome_dms.up.sql` and `086_welcome_dms.down.sql` with table `welcome_dm_config`.
+- Added DB operations `SetWelcomeDM`, `GetWelcomeDM`, and `ToggleWelcomeDM` in `internal/db/db.go`.
+- Added `/welcomedm` command in `internal/bot/commands/welcomedm.go` with `set`, `enable`, and `disable` subcommands.
+- Updated `guildMemberAddHandler` in `internal/bot/bot.go` to send the configured welcome DM when a user joins the server. Registered the `welcomedm` command.
+
 - Implemented Phase 93 Auto-Publish (Crosspost) Messages features: added migrations `079_auto_publish.up.sql` and `079_auto_publish.down.sql` with table `auto_publish_config`.
 - Added DB operations `AddAutoPublishChannel`, `IsAutoPublishChannel`, and `RemoveAutoPublishChannel` in `internal/db/db.go`.
 - Added `/autopublish` command in `internal/bot/commands/autopublish.go` with `add` and `remove` subcommands.
@@ -1267,6 +1272,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 
 ### Completed Work
 
+- Implemented Phase 101 Welcome DMs System: added migrations `086_welcome_dms.up.sql` and `086_welcome_dms.down.sql` with table `welcome_dm_config`.
+- Added DB operations `SetWelcomeDM`, `GetWelcomeDM`, and `ToggleWelcomeDM` in `internal/db/db.go`.
+- Added `/welcomedm` command in `internal/bot/commands/welcomedm.go` with `set`, `enable`, and `disable` subcommands.
+- Updated `guildMemberAddHandler` in `internal/bot/bot.go` to send the configured welcome DM when a user joins the server. Registered the `welcomedm` command.
+
 - Implemented Phase 99 Member Count Channel System: added migrations `084_member_count.up.sql` and `084_member_count.down.sql` with table `member_count_config`.
 - Added DB operations `SetMemberCountChannel`, `GetMemberCountChannel`, `RemoveMemberCountChannel`, and `GetAllMemberCountChannels` in `internal/db/db.go`.
 - Added `/membercount` command with `setup` and `remove` subcommands in `internal/bot/commands/membercount.go`.
@@ -1300,3 +1310,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Added DB operations `AddTempRole`, `GetExpiredTempRoles`, `RemoveTempRole`, and `RemoveTempRoleByGuildUserRole` in `internal/db/db.go`.
 - Added `/temprole` command in `internal/bot/commands/temprole.go` with `add` and `remove` subcommands.
 - Added a background goroutine `checkTempRoles` in `internal/bot/bot.go` to periodically remove expired temporary roles. Registered the `temprole` command.
+
+### Phase 101 — Welcome DMs System
+- [x] `migrations/086_welcome_dms.sql` — `welcome_dm_config` table (guild_id, message, is_enabled)
+- [x] DB operations — `SetWelcomeDM`, `GetWelcomeDM`, `ToggleWelcomeDM`
+- [x] `/welcomedm` command with `set`, `enable`, and `disable` subcommands
+- [x] Update `guildMemberAddHandler` to send the configured DM to new users
