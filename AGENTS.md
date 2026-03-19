@@ -1338,6 +1338,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 
 ### Completed Work
 
+- Implemented Phase 110 Auto-Delete Channels: added migrations `095_auto_delete.up.sql` and `095_auto_delete.down.sql` with table `auto_delete_config`.
+- Added DB operations `SetAutoDelete`, `GetAutoDelete`, and `RemoveAutoDelete` in `internal/db/db.go`.
+- Added `/autodelete` command with `setup` and `remove` subcommands in `internal/bot/commands/autodelete.go`. Registered it in `internal/bot/bot.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to automatically delete messages in configured channels after the specified delay.
+
 
 
 
@@ -1417,3 +1422,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetWelcomeDM`, `GetWelcomeDM`, `ToggleWelcomeDM`
 - [x] `/welcomedm` command with `set`, `enable`, and `disable` subcommands
 - [x] Update `guildMemberAddHandler` to send the configured DM to new users
+
+### Phase 110 — Auto-Delete Channels
+- [x] `migrations/095_auto_delete.up.sql` — `auto_delete_config` table (guild_id, channel_id, delete_after)
+- [x] DB operations — `SetAutoDelete`, `GetAutoDelete`, `RemoveAutoDelete`
+- [x] `/autodelete` command with `setup` and `remove` subcommands
+- [x] Update `messageCreateHandler` to offload a goroutine that waits `delete_after` seconds and deletes the message in configured channels
