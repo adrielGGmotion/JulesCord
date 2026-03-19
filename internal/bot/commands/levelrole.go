@@ -60,6 +60,26 @@ func LevelRole(database *db.DB) *Command {
 					},
 				},
 				{
+					Name:        "message",
+					Description: "Set a custom congratulatory message for a specific level",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionInteger,
+							Name:        "level",
+							Description: "The level to set the message for",
+							Required:    true,
+							MinValue:    func(v float64) *float64 { return &v }(1),
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "message",
+							Description: "The custom message (use {user} for user mention). Leave empty to remove.",
+							Required:    false,
+						},
+					},
+				},
+				{
 					Name:        "list",
 					Description: "List all level role rewards",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
@@ -144,6 +164,37 @@ func LevelRole(database *db.DB) *Command {
 					Color:       0x00FF00,
 				})
 
+			case "message":
+				var level int
+				var message string
+
+				for _, opt := range subcommand.Options {
+					switch opt.Name {
+					case "level":
+						level = int(opt.IntValue())
+					case "message":
+						message = opt.StringValue()
+					}
+				}
+
+				err := database.SetLevelRoleMessage(context.Background(), i.GuildID, level, message)
+				if err != nil {
+					slog.Error("Failed to set level role message", "error", err, "guild_id", i.GuildID, "level", level)
+					SendError(s, i, "Failed to set custom message. Ensure a role reward exists for this level first.")
+					return
+				}
+
+				desc := fmt.Sprintf("Custom message set for **Level %d**:\n\n`%s`", level, message)
+				if message == "" {
+					desc = fmt.Sprintf("Custom message removed for **Level %d**.", level)
+				}
+
+				SendEmbed(s, i, &discordgo.MessageEmbed{
+					Title:       "Level Role Message Updated",
+					Description: desc,
+					Color:       0x00FF00,
+				})
+
 			case "list":
 				roles, err := database.GetLevelRoles(context.Background(), i.GuildID)
 				if err != nil {
@@ -170,6 +221,9 @@ func LevelRole(database *db.DB) *Command {
 					rewardStr := fmt.Sprintf("**Level %d:** <@&%s>", r.Level, r.RoleID)
 					if r.CoinsReward > 0 {
 						rewardStr += fmt.Sprintf(" + %d coins", r.CoinsReward)
+					}
+					if r.CustomMessage != nil && *r.CustomMessage != "" {
+						rewardStr += " *(Custom Message)*"
 					}
 					description += rewardStr + "\n"
 				}

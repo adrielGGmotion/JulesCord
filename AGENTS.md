@@ -75,6 +75,16 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 ---
 
 ## Completed Work
+- Implemented Phase 119 Auto-React Channels: added migrations `104_auto_react.up.sql` and `104_auto_react.down.sql` with table `auto_react_config`.
+- Added DB operations `AddAutoReact`, `RemoveAutoReact`, and `GetAutoReactChannels` in `internal/db/db.go`.
+- Added `/autoreact` command with `add`, `remove`, and `list` subcommands in `internal/bot/commands/autoreact.go`. Registered it in `internal/bot/bot.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to automatically react to messages in configured channels with the specified emojis.
+
+- Implemented Phase 118 Level Roles Custom Messages: added migrations `103_level_role_messages.up.sql` and `103_level_role_messages.down.sql` with `custom_message` column to `level_roles` table.
+- Added DB operations `SetLevelRoleMessage` and `GetLevelRoleMessage` in `internal/db/db.go`, and updated `GetLevelRole` to fetch the custom message.
+- Added `message` subcommand to `/levelrole` command in `internal/bot/commands/levelrole.go` to set a custom congratulatory message.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to use the custom message if configured when a user receives a level role.
+
 - Implemented Phase 117 Server Join/Leave Logs: added migrations `102_join_leave_logs.up.sql` and `102_join_leave_logs.down.sql` with `join_leave_log_config` table.
 - Added DB operations `SetJoinLeaveLog`, `GetJoinLeaveLog`, and `RemoveJoinLeaveLog` in `internal/db/db.go`.
 - Added `/joinleavelog` command with `setup` and `remove` subcommands in `internal/bot/commands/joinleavelog.go`. Registered it in `internal/bot/bot.go`.
@@ -362,16 +372,16 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] Update `guildMemberAddHandler` and `guildMemberRemoveHandler` to post detailed embeds (account age, role counts, etc.) to the configured channel
 
 ### Phase 118 — Level Roles Custom Messages
-- [ ] `migrations/103_level_role_messages.up.sql` — add `custom_message` to `level_roles` table
-- [ ] DB operations — `SetLevelRoleMessage`, `GetLevelRoleMessage`
-- [ ] `/levelrole message` command to set a custom congratulatory message for a specific level
-- [ ] Update `messageCreateHandler` to send the custom message (if configured) when assigning a level role
+- [x] `migrations/103_level_role_messages.up.sql` — add `custom_message` to `level_roles` table
+- [x] DB operations — `SetLevelRoleMessage`, `GetLevelRoleMessage`
+- [x] `/levelrole message` command to set a custom congratulatory message for a specific level
+- [x] Update `messageCreateHandler` to send the custom message (if configured) when assigning a level role
 
 ### Phase 119 — Auto-React Channels
-- [ ] `migrations/104_auto_react.up.sql` — `auto_react_config` table (guild_id, channel_id, emojis)
-- [ ] DB operations — `AddAutoReact`, `RemoveAutoReact`, `GetAutoReactChannels`
-- [ ] `/autoreact` command with `add`, `remove`, and `list` subcommands
-- [ ] Update `messageCreateHandler` to automatically react with the configured emojis in specified channels
+- [x] `migrations/104_auto_react.up.sql` — `auto_react_config` table (guild_id, channel_id, emojis)
+- [x] DB operations — `AddAutoReact`, `RemoveAutoReact`, `GetAutoReactChannels`
+- [x] `/autoreact` command with `add`, `remove`, and `list` subcommands
+- [x] Update `messageCreateHandler` to automatically react with the configured emojis in specified channels
 
 ## Phase 113 — Temp Nicknames
 - [x] `migrations/098_temp_nicknames.up.sql` — `temp_nicknames` table (id, guild_id, user_id, original_nickname, expires_at)
@@ -1424,6 +1434,16 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `messageCreateHandler` to DM users when their keyword is mentioned in the guild
 
 ### Completed Work
+- Implemented Phase 119 Auto-React Channels: added migrations `104_auto_react.up.sql` and `104_auto_react.down.sql` with table `auto_react_config`.
+- Added DB operations `AddAutoReact`, `RemoveAutoReact`, and `GetAutoReactChannels` in `internal/db/db.go`.
+- Added `/autoreact` command with `add`, `remove`, and `list` subcommands in `internal/bot/commands/autoreact.go`. Registered it in `internal/bot/bot.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to automatically react to messages in configured channels with the specified emojis.
+
+- Implemented Phase 118 Level Roles Custom Messages: added migrations `103_level_role_messages.up.sql` and `103_level_role_messages.down.sql` with `custom_message` column to `level_roles` table.
+- Added DB operations `SetLevelRoleMessage` and `GetLevelRoleMessage` in `internal/db/db.go`, and updated `GetLevelRole` to fetch the custom message.
+- Added `message` subcommand to `/levelrole` command in `internal/bot/commands/levelrole.go` to set a custom congratulatory message.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to use the custom message if configured when a user receives a level role.
+
 
 
 - Implemented Phase 113 Temp Nicknames: added migrations `098_temp_nicknames.up.sql` and `098_temp_nicknames.down.sql` with table `temp_nicknames`.
@@ -1533,3 +1553,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetAutoDelete`, `GetAutoDelete`, `RemoveAutoDelete`
 - [x] `/autodelete` command with `setup` and `remove` subcommands
 - [x] Update `messageCreateHandler` to offload a goroutine that waits `delete_after` seconds and deletes the message in configured channels
+
+### Phase 120 — Welcome Roles System
+- [ ] `migrations/105_welcome_roles.up.sql` — `welcome_roles` table (guild_id, role_id)
+- [ ] DB operations — `AddWelcomeRole`, `RemoveWelcomeRole`, `GetWelcomeRoles`
+- [ ] `/welcomerole` command with `add`, `remove`, and `list` subcommands
+- [ ] Update `guildMemberAddHandler` to assign the configured welcome roles when a user joins

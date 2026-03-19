@@ -2437,6 +2437,7 @@ type LevelRole struct {
 	Level       int       `json:"level"`
 	RoleID      string    `json:"role_id"`
 	CoinsReward int       `json:"coins_reward"`
+	CustomMessage *string `json:"custom_message"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
@@ -2478,7 +2479,7 @@ func (db *DB) GetLevelRoles(ctx context.Context, guildID string) ([]LevelRole, e
 	}()
 
 	query := `
-		SELECT guild_id, level, role_id, coins_reward, created_at
+		SELECT guild_id, level, role_id, coins_reward, custom_message, created_at
 		FROM level_roles
 		WHERE guild_id = $1
 		ORDER BY level ASC
@@ -2492,7 +2493,7 @@ func (db *DB) GetLevelRoles(ctx context.Context, guildID string) ([]LevelRole, e
 	var roles []LevelRole
 	for rows.Next() {
 		var r LevelRole
-		if err := rows.Scan(&r.GuildID, &r.Level, &r.RoleID, &r.CoinsReward, &r.CreatedAt); err != nil {
+		if err := rows.Scan(&r.GuildID, &r.Level, &r.RoleID, &r.CoinsReward, &r.CustomMessage, &r.CreatedAt); err != nil {
 			return nil, err
 		}
 		roles = append(roles, r)
@@ -2501,24 +2502,72 @@ func (db *DB) GetLevelRoles(ctx context.Context, guildID string) ([]LevelRole, e
 	return roles, rows.Err()
 }
 
+// SetLevelRoleMessage sets a custom message for a specific level role reward.
+func (db *DB) SetLevelRoleMessage(ctx context.Context, guildID string, level int, message string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("SetLevelRoleMessage").Observe(time.Since(start).Seconds())
+	}()
+
+	var nullMsg *string
+	if message != "" {
+		nullMsg = &message
+	}
+
+	query := `
+		UPDATE level_roles
+		SET custom_message = $1
+		WHERE guild_id = $2 AND level = $3
+	`
+	res, err := db.Pool.Exec(ctx, query, nullMsg, guildID, level)
+	if err != nil {
+		return err
+	}
+	if res.RowsAffected() == 0 {
+		return fmt.Errorf("level role not found for level %d", level)
+	}
+	return nil
+}
+
+// GetLevelRoleMessage retrieves the custom message for a specific level role reward.
+func (db *DB) GetLevelRoleMessage(ctx context.Context, guildID string, level int) (*string, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetLevelRoleMessage").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `SELECT custom_message FROM level_roles WHERE guild_id = $1 AND level = $2`
+	var message *string
+	err := db.Pool.QueryRow(ctx, query, guildID, level).Scan(&message)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No role configured for this level
+		}
+		return nil, err
+	}
+
+	return message, nil
+}
+
 // GetLevelRole retrieves the configured role reward for a specific level in a guild.
-func (db *DB) GetLevelRole(ctx context.Context, guildID string, level int) (*string, int, error) {
+func (db *DB) GetLevelRole(ctx context.Context, guildID string, level int) (*string, int, *string, error) {
 	start := time.Now()
 	defer func() {
 		metrics.DBQueryLatency.WithLabelValues("GetLevelRole").Observe(time.Since(start).Seconds())
 	}()
 
-	query := `SELECT role_id, coins_reward FROM level_roles WHERE guild_id = $1 AND level = $2`
+	query := `SELECT role_id, coins_reward, custom_message FROM level_roles WHERE guild_id = $1 AND level = $2`
 	var roleID string
 	var coinsReward int
-	err := db.Pool.QueryRow(ctx, query, guildID, level).Scan(&roleID, &coinsReward)
+	var customMessage *string
+	err := db.Pool.QueryRow(ctx, query, guildID, level).Scan(&roleID, &coinsReward, &customMessage)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, 0, nil // No role configured for this level
+			return nil, 0, nil, nil // No role configured for this level
 		}
-		return nil, 0, err
+		return nil, 0, nil, err
 	}
-	return &roleID, coinsReward, nil
+	return &roleID, coinsReward, customMessage, nil
 }
 
 // SetVoiceLogChannel sets the voice log channel for a guild.
@@ -6748,4 +6797,67 @@ func (db *DB) RemoveJoinLeaveLog(ctx context.Context, guildID string) error {
 		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
 	}
 	return err
+}
+
+// AutoReactConfig represents an auto-react configuration for a channel.
+type AutoReactConfig struct {
+	ID        int       `json:"id"`
+	GuildID   string    `json:"guild_id"`
+	ChannelID string    `json:"channel_id"`
+	Emojis    string    `json:"emojis"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// AddAutoReact adds or updates an auto-react configuration for a channel.
+func (db *DB) AddAutoReact(ctx context.Context, guildID, channelID, emojis string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("AddAutoReact").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		INSERT INTO auto_react_config (guild_id, channel_id, emojis)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, channel_id) DO UPDATE SET
+			emojis = EXCLUDED.emojis
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, emojis)
+	return err
+}
+
+// RemoveAutoReact removes an auto-react configuration for a channel.
+func (db *DB) RemoveAutoReact(ctx context.Context, guildID, channelID string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("RemoveAutoReact").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `DELETE FROM auto_react_config WHERE guild_id = $1 AND channel_id = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}
+
+// GetAutoReactChannels retrieves all auto-react configurations for a guild.
+func (db *DB) GetAutoReactChannels(ctx context.Context, guildID string) ([]AutoReactConfig, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetAutoReactChannels").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `SELECT id, guild_id, channel_id, emojis, created_at FROM auto_react_config WHERE guild_id = $1`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var configs []AutoReactConfig
+	for rows.Next() {
+		var c AutoReactConfig
+		if err := rows.Scan(&c.ID, &c.GuildID, &c.ChannelID, &c.Emojis, &c.CreatedAt); err != nil {
+			return nil, err
+		}
+		configs = append(configs, c)
+	}
+	return configs, rows.Err()
 }
