@@ -7379,3 +7379,186 @@ func (db *DB) GetActiveMultiplier(ctx context.Context, guildID string) (float64,
 
 	return factor, nil
 }
+
+// Lottery represents an active economy lottery
+type Lottery struct {
+	ID          int
+	GuildID     string
+	Prize       int
+	TicketPrice int
+	EndTime     time.Time
+}
+
+// LotteryTicket represents a user's purchased tickets for a lottery
+type LotteryTicket struct {
+	LotteryID int
+	UserID    string
+	Count     int
+}
+
+// CreateLottery creates a new lottery in a guild.
+func (db *DB) CreateLottery(ctx context.Context, guildID string, prize, ticketPrice int, endTime time.Time) (int, error) {
+	var id int
+	err := db.Pool.QueryRow(ctx, `
+		INSERT INTO lotteries (guild_id, prize, ticket_price, end_time)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id
+	`, guildID, prize, ticketPrice, endTime).Scan(&id)
+	return id, err
+}
+
+// BuyLotteryTicket deducts the ticket price from the user's coins and adds the ticket to the lottery.
+func (db *DB) BuyLotteryTicket(ctx context.Context, lotteryID int, guildID, userID string, amount int) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Fetch lottery details and verify it exists and is active
+	var ticketPrice int
+	var endTime time.Time
+	err = tx.QueryRow(ctx, `
+		SELECT ticket_price, end_time FROM lotteries WHERE id = $1 AND guild_id = $2
+	`, lotteryID, guildID).Scan(&ticketPrice, &endTime)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fmt.Errorf("lottery not found")
+		}
+		return err
+	}
+
+	if time.Now().After(endTime) {
+		return fmt.Errorf("lottery has already ended")
+	}
+
+	totalCost := ticketPrice * amount
+
+	// Check if user has enough coins
+	var currentCoins int
+	err = tx.QueryRow(ctx, `
+		SELECT coins FROM user_economy WHERE guild_id = $1 AND user_id = $2
+	`, guildID, userID).Scan(&currentCoins)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fmt.Errorf("insufficient funds")
+		}
+		return err
+	}
+
+	if currentCoins < totalCost {
+		return fmt.Errorf("insufficient funds")
+	}
+
+	// Deduct coins
+	_, err = tx.Exec(ctx, `
+		UPDATE user_economy SET coins = coins - $1 WHERE guild_id = $2 AND user_id = $3
+	`, totalCost, guildID, userID)
+	if err != nil {
+		return err
+	}
+
+	// Add tickets
+	_, err = tx.Exec(ctx, `
+		INSERT INTO lottery_tickets (lottery_id, user_id, count)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (lottery_id, user_id) DO UPDATE SET count = lottery_tickets.count + $3
+	`, lotteryID, userID, amount)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// GetActiveLotteries returns all lotteries that have not yet ended.
+func (db *DB) GetActiveLotteries(ctx context.Context, guildID string) ([]Lottery, error) {
+	rows, err := db.Pool.Query(ctx, `
+		SELECT id, guild_id, prize, ticket_price, end_time FROM lotteries
+		WHERE guild_id = $1 AND end_time > NOW()
+		ORDER BY end_time ASC
+	`, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var lotteries []Lottery
+	for rows.Next() {
+		var l Lottery
+		if err := rows.Scan(&l.ID, &l.GuildID, &l.Prize, &l.TicketPrice, &l.EndTime); err != nil {
+			return nil, err
+		}
+		lotteries = append(lotteries, l)
+	}
+	return lotteries, nil
+}
+
+// ResolveLottery selects a random winning ticket (weighted by count), awards the prize to the winner, and deletes the lottery.
+// If no tickets were purchased, the lottery is simply deleted. Returns the winner's user ID if there was one, or empty string.
+func (db *DB) ResolveLottery(ctx context.Context, lotteryID int, guildID string, prize int) (string, error) {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback(ctx)
+
+	// Fetch all tickets for this lottery
+	rows, err := tx.Query(ctx, `
+		SELECT user_id, count FROM lottery_tickets WHERE lottery_id = $1
+	`, lotteryID)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+
+	var tickets []LotteryTicket
+	var totalTickets int
+	for rows.Next() {
+		var t LotteryTicket
+		if err := rows.Scan(&t.UserID, &t.Count); err != nil {
+			return "", err
+		}
+		tickets = append(tickets, t)
+		totalTickets += t.Count
+	}
+
+	var winnerID string
+
+	if totalTickets > 0 {
+		// Weighted random selection
+		// To ensure randomness we can fetch from a random pool but we will do it sequentially here with a random int
+		// Actually since we don't want to import math/rand in db package, we'll do the random selection in the database via query
+		err = tx.QueryRow(ctx, `
+			WITH expanded_tickets AS (
+				SELECT user_id, generate_series(1, count)
+				FROM lottery_tickets
+				WHERE lottery_id = $1
+			)
+			SELECT user_id FROM expanded_tickets ORDER BY random() LIMIT 1
+		`, lotteryID).Scan(&winnerID)
+		if err != nil {
+			return "", err
+		}
+
+		// Award prize to winner
+		_, err = tx.Exec(ctx, `
+			INSERT INTO user_economy (guild_id, user_id, xp, level, coins)
+			VALUES ($1, $2, 0, 1, $3)
+			ON CONFLICT (guild_id, user_id) DO UPDATE SET coins = user_economy.coins + $3
+		`, guildID, winnerID, prize)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	// Delete lottery (which deletes tickets via cascade)
+	_, err = tx.Exec(ctx, `
+		DELETE FROM lotteries WHERE id = $1 AND guild_id = $2
+	`, lotteryID, guildID)
+	if err != nil {
+		return "", err
+	}
+
+	return winnerID, tx.Commit(ctx)
+}
