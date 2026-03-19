@@ -75,6 +75,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 ---
 
 ## Completed Work
+- Implemented Phase 117 Server Join/Leave Logs: added migrations `102_join_leave_logs.up.sql` and `102_join_leave_logs.down.sql` with `join_leave_log_config` table.
+- Added DB operations `SetJoinLeaveLog`, `GetJoinLeaveLog`, and `RemoveJoinLeaveLog` in `internal/db/db.go`.
+- Added `/joinleavelog` command with `setup` and `remove` subcommands in `internal/bot/commands/joinleavelog.go`. Registered it in `internal/bot/bot.go`.
+- Updated `guildMemberAddHandler` and `guildMemberRemoveHandler` in `internal/bot/bot.go` to post detailed, formatted embed logs containing user join/leave information such as account age, member count, time in server, and roles to the configured logging channel.
+
 - Implemented Phase 116 Custom Voice Channel Names: added migrations `101_voice_generator_custom.up.sql` and `101_voice_generator_custom.down.sql` with `allow_custom_names` and `default_name_template` columns to `voice_generator_config` table.
 - Added DB operations `SetVoiceGeneratorNaming` and updated `GetVoiceGeneratorConfig` in `internal/db/db.go`.
 - Added `/voicegen name` command in `internal/bot/commands/voicegen.go` to allow the owner of a generated voice channel to rename it.
@@ -351,10 +356,22 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] Update `voiceStateUpdateHandler` to use the `default_name_template` (e.g., `{user}'s Channel`) when creating the channel
 
 ### Phase 117 — Server Join/Leave Logs (Detailed)
-- [ ] `migrations/102_join_leave_logs.up.sql` — `join_leave_log_config` table (guild_id, channel_id, log_joins, log_leaves)
-- [ ] DB operations — `SetJoinLeaveLog`, `GetJoinLeaveLog`
-- [ ] `/joinleavelog` command with `setup` and `remove` subcommands
-- [ ] Update `guildMemberAddHandler` and `guildMemberRemoveHandler` to post detailed embeds (account age, role counts, etc.) to the configured channel
+- [x] `migrations/102_join_leave_logs.up.sql` — `join_leave_log_config` table (guild_id, channel_id, log_joins, log_leaves)
+- [x] DB operations — `SetJoinLeaveLog`, `GetJoinLeaveLog`
+- [x] `/joinleavelog` command with `setup` and `remove` subcommands
+- [x] Update `guildMemberAddHandler` and `guildMemberRemoveHandler` to post detailed embeds (account age, role counts, etc.) to the configured channel
+
+### Phase 118 — Level Roles Custom Messages
+- [ ] `migrations/103_level_role_messages.up.sql` — add `custom_message` to `level_roles` table
+- [ ] DB operations — `SetLevelRoleMessage`, `GetLevelRoleMessage`
+- [ ] `/levelrole message` command to set a custom congratulatory message for a specific level
+- [ ] Update `messageCreateHandler` to send the custom message (if configured) when assigning a level role
+
+### Phase 119 — Auto-React Channels
+- [ ] `migrations/104_auto_react.up.sql` — `auto_react_config` table (guild_id, channel_id, emojis)
+- [ ] DB operations — `AddAutoReact`, `RemoveAutoReact`, `GetAutoReactChannels`
+- [ ] `/autoreact` command with `add`, `remove`, and `list` subcommands
+- [ ] Update `messageCreateHandler` to automatically react with the configured emojis in specified channels
 
 ## Phase 113 — Temp Nicknames
 - [x] `migrations/098_temp_nicknames.up.sql` — `temp_nicknames` table (id, guild_id, user_id, original_nickname, expires_at)

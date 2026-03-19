@@ -6705,3 +6705,47 @@ func (db *DB) UpdateStockPrices(ctx context.Context) error {
 
 	return tx.Commit(ctx)
 }
+
+// SetJoinLeaveLog saves or updates the join/leave log configuration for a guild.
+func (db *DB) SetJoinLeaveLog(ctx context.Context, guildID, channelID string, logJoins, logLeaves bool) error {
+	query := `
+		INSERT INTO join_leave_log_config (guild_id, channel_id, log_joins, log_leaves)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (guild_id) DO UPDATE
+		SET channel_id = EXCLUDED.channel_id,
+		    log_joins = EXCLUDED.log_joins,
+		    log_leaves = EXCLUDED.log_leaves
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, logJoins, logLeaves)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+	}
+	return err
+}
+
+// GetJoinLeaveLog retrieves the join/leave log configuration for a guild.
+func (db *DB) GetJoinLeaveLog(ctx context.Context, guildID string) (channelID string, logJoins bool, logLeaves bool, err error) {
+	query := `
+		SELECT channel_id, log_joins, log_leaves
+		FROM join_leave_log_config
+		WHERE guild_id = $1
+	`
+	err = db.Pool.QueryRow(ctx, query, guildID).Scan(&channelID, &logJoins, &logLeaves)
+	if err == pgx.ErrNoRows {
+		return "", false, false, nil
+	}
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+	}
+	return channelID, logJoins, logLeaves, err
+}
+
+// RemoveJoinLeaveLog deletes the join/leave log configuration for a guild.
+func (db *DB) RemoveJoinLeaveLog(ctx context.Context, guildID string) error {
+	query := `DELETE FROM join_leave_log_config WHERE guild_id = $1`
+	_, err := db.Pool.Exec(ctx, query, guildID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+	}
+	return err
+}
