@@ -77,6 +77,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Settings(database))
 	registry.Add(commands.VoiceGen(database, bot))
 	registry.Add(commands.VoiceLog(database))
+	registry.Add(commands.JoinLeaveLog(database))
 	registry.Add(commands.AutoPublish(database))
 	registry.Add(commands.ReactionRole(database))
 	registry.Add(commands.Schedule(database))
@@ -1376,6 +1377,64 @@ func (b *Bot) guildMemberRemoveHandler(s *discordgo.Session, m *discordgo.GuildM
 		return
 	}
 
+	// Leave Log
+	logChannelID, _, logLeaves, logErr := b.DB.GetJoinLeaveLog(context.Background(), m.GuildID)
+	if logErr == nil && logChannelID != "" && logLeaves {
+		creationTime, _ := discordgo.SnowflakeTimestamp(m.User.ID)
+		accountAge := time.Since(creationTime)
+
+		var joinedDuration string
+		var roleCount string
+		member, err := s.State.Member(m.GuildID, m.User.ID)
+		if err == nil && member != nil {
+			joinedDuration = fmt.Sprintf("%.0f days", time.Since(member.JoinedAt).Hours()/24)
+			roleCount = fmt.Sprintf("%d", len(member.Roles))
+		} else {
+			joinedDuration = "Unknown (not cached)"
+			roleCount = "Unknown (not cached)"
+		}
+
+		embed := &discordgo.MessageEmbed{
+			Author: &discordgo.MessageEmbedAuthor{
+				Name:    m.User.String() + " Left",
+				IconURL: m.User.AvatarURL(""),
+			},
+			Color: 0xFF0000, // Red
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:   "User",
+					Value:  m.User.Mention(),
+					Inline: true,
+				},
+				{
+					Name:   "ID",
+					Value:  m.User.ID,
+					Inline: true,
+				},
+				{
+					Name:   "Account Age",
+					Value:  fmt.Sprintf("%.0f days", accountAge.Hours()/24),
+					Inline: false,
+				},
+				{
+					Name:   "Time in Server",
+					Value:  joinedDuration,
+					Inline: true,
+				},
+				{
+					Name:   "Roles",
+					Value:  roleCount,
+					Inline: true,
+				},
+			},
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
+		_, sendErr := s.ChannelMessageSendEmbed(logChannelID, embed)
+		if sendErr != nil {
+			slog.Error("Failed to send leave log embed", "channel_id", logChannelID, "error", sendErr)
+		}
+	}
+
 	// Send goodbye message if configured
 	channelID, msg, err := b.DB.GetGoodbyeMessage(context.Background(), m.GuildID)
 	if err != nil {
@@ -1410,6 +1469,53 @@ func (b *Bot) guildMemberRemoveHandler(s *discordgo.Session, m *discordgo.GuildM
 func (b *Bot) guildMemberAddHandler(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	if b.DB == nil {
 		return
+	}
+
+	// Join Log
+	logChannelID, logJoins, _, logErr := b.DB.GetJoinLeaveLog(context.Background(), m.GuildID)
+	if logErr == nil && logChannelID != "" && logJoins {
+		creationTime, _ := discordgo.SnowflakeTimestamp(m.User.ID)
+		accountAge := time.Since(creationTime)
+		memberCount := "Unknown"
+		guild, err := s.State.Guild(m.GuildID)
+		if err == nil {
+			memberCount = fmt.Sprintf("%d", guild.MemberCount)
+		}
+
+		embed := &discordgo.MessageEmbed{
+			Author: &discordgo.MessageEmbedAuthor{
+				Name:    m.User.String() + " Joined",
+				IconURL: m.User.AvatarURL(""),
+			},
+			Color: 0x00FF00, // Green
+			Fields: []*discordgo.MessageEmbedField{
+				{
+					Name:   "User",
+					Value:  m.User.Mention(),
+					Inline: true,
+				},
+				{
+					Name:   "ID",
+					Value:  m.User.ID,
+					Inline: true,
+				},
+				{
+					Name:   "Account Age",
+					Value:  fmt.Sprintf("%.0f days", accountAge.Hours()/24),
+					Inline: false,
+				},
+				{
+					Name:   "Member Count",
+					Value:  memberCount,
+					Inline: true,
+				},
+			},
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
+		_, sendErr := s.ChannelMessageSendEmbed(logChannelID, embed)
+		if sendErr != nil {
+			slog.Error("Failed to send join log embed", "channel_id", logChannelID, "error", sendErr)
+		}
 	}
 
 	channelID, message, err := b.DB.GetWelcomeMessage(context.Background(), m.GuildID)
