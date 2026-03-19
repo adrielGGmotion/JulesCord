@@ -75,6 +75,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 ---
 
 ## Completed Work
+- Implemented Phase 115 Economy Stocks/Investments: added migrations `100_economy_stocks.up.sql` and `100_economy_stocks.down.sql` with `stocks` and `user_stocks` tables.
+- Added DB operations `BuyStock`, `SellStock`, `GetUserStocks`, and `UpdateStockPrices` in `internal/db/db.go`.
+- Added `/stock` command with `buy`, `sell`, `portfolio`, and `market` subcommands in `internal/bot/commands/stock.go`. Registered it in `internal/bot/bot.go`.
+- Added a background goroutine `stockMarketLoop` in `internal/bot/bot.go` to simulate market fluctuations every hour.
+
 - Implemented Phase 114 Economy Marriage Perks: added migrations `099_marriage_perks.up.sql` and `099_marriage_perks.down.sql` with `joint_bank` and `joint_balance` to `marriages` table.
 - Added DB operations `SetJointBank`, `DepositJoint`, `WithdrawJoint`, and `GetJointBalance` in `internal/db/db.go`.
 - Added `/marry` subcommands `joint-bank`, `deposit`, and `withdraw` in `internal/bot/commands/marry.go`.
@@ -329,10 +334,10 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - [x] Update `/bank balance` to show joint balance if `joint_bank` is true
 
 ### Phase 115 — Economy Stocks/Investments
-- [ ] `migrations/100_economy_stocks.up.sql` — `stocks` table (symbol, current_price, history) and `user_stocks` table (user_id, symbol, quantity, average_buy_price)
-- [ ] DB operations — `BuyStock`, `SellStock`, `GetUserStocks`, `UpdateStockPrices`
-- [ ] `/stock` command with `buy`, `sell`, `portfolio`, and `market` subcommands
-- [ ] Update `internal/bot/bot.go` to add a background goroutine that simulates stock market fluctuations every hour
+- [x] `migrations/100_economy_stocks.up.sql` — `stocks` table (symbol, current_price, history) and `user_stocks` table (user_id, symbol, quantity, average_buy_price)
+- [x] DB operations — `BuyStock`, `SellStock`, `GetUserStocks`, `UpdateStockPrices`
+- [x] `/stock` command with `buy`, `sell`, `portfolio`, and `market` subcommands
+- [x] Update `internal/bot/bot.go` to add a background goroutine that simulates stock market fluctuations every hour
 
 ### Phase 116 — Custom Voice Channel Names (Voice Generator)
 - [ ] `migrations/101_voice_generator_custom.up.sql` — add `allow_custom_names` and `default_name_template` to `voice_generator_config`
