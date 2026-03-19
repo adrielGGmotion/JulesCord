@@ -190,6 +190,8 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.TempNick(database))
 	registry.Add(commands.Multiplier(database))
 	registry.Add(commands.Lottery(database))
+	registry.Add(commands.Bounty(database))
+	registry.Add(commands.CoinflipBet(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {

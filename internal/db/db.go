@@ -7562,3 +7562,207 @@ func (db *DB) ResolveLottery(ctx context.Context, lotteryID int, guildID string,
 
 	return winnerID, tx.Commit(ctx)
 }
+
+// Bounty represents an active bounty on a user.
+type Bounty struct {
+	ID           int
+	GuildID      string
+	TargetUserID string
+	BountyAmount int64
+	CreatedBy    string
+	CreatedAt    time.Time
+}
+
+// PlaceBounty adds or increases a bounty on a target user.
+func (db *DB) PlaceBounty(ctx context.Context, guildID, targetUserID, createdBy string, amount int64) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Deduct from creator
+	res, err := tx.Exec(ctx, `
+		UPDATE user_economy
+		SET coins = coins - $1
+		WHERE guild_id = $2 AND user_id = $3 AND coins >= $1
+	`, amount, guildID, createdBy)
+	if err != nil {
+		return err
+	}
+	if res.RowsAffected() == 0 {
+		return fmt.Errorf("insufficient coins to place bounty")
+	}
+
+	// Add or update bounty
+	_, err = tx.Exec(ctx, `
+		INSERT INTO bounties (guild_id, target_user_id, bounty_amount, created_by)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (guild_id, target_user_id)
+		DO UPDATE SET bounty_amount = bounties.bounty_amount + EXCLUDED.bounty_amount, created_by = EXCLUDED.created_by, created_at = NOW()
+	`, guildID, targetUserID, amount, createdBy)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// GetBounty retrieves an active bounty on a user.
+func (db *DB) GetBounty(ctx context.Context, guildID, targetUserID string) (*Bounty, error) {
+	var b Bounty
+	err := db.Pool.QueryRow(ctx, `
+		SELECT id, guild_id, target_user_id, bounty_amount, created_by, created_at
+		FROM bounties
+		WHERE guild_id = $1 AND target_user_id = $2
+	`, guildID, targetUserID).Scan(&b.ID, &b.GuildID, &b.TargetUserID, &b.BountyAmount, &b.CreatedBy, &b.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No active bounty
+		}
+		return nil, err
+	}
+	return &b, nil
+}
+
+// RemoveBounty deletes an active bounty.
+func (db *DB) RemoveBounty(ctx context.Context, guildID, targetUserID string) error {
+	_, err := db.Pool.Exec(ctx, `
+		DELETE FROM bounties
+		WHERE guild_id = $1 AND target_user_id = $2
+	`, guildID, targetUserID)
+	return err
+}
+
+// GetActiveBounties retrieves all active bounties in a guild.
+func (db *DB) GetActiveBounties(ctx context.Context, guildID string) ([]Bounty, error) {
+	rows, err := db.Pool.Query(ctx, `
+		SELECT id, guild_id, target_user_id, bounty_amount, created_by, created_at
+		FROM bounties
+		WHERE guild_id = $1
+		ORDER BY bounty_amount DESC
+	`, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var bounties []Bounty
+	for rows.Next() {
+		var b Bounty
+		if err := rows.Scan(&b.ID, &b.GuildID, &b.TargetUserID, &b.BountyAmount, &b.CreatedBy, &b.CreatedAt); err != nil {
+			return nil, err
+		}
+		bounties = append(bounties, b)
+	}
+	return bounties, nil
+}
+
+// CoinflipBet represents an active coinflip challenge.
+type CoinflipBet struct {
+	ID         int
+	GuildID    string
+	HostID     string
+	OpponentID string
+	Amount     int64
+	Side       string
+	CreatedAt  time.Time
+}
+
+// CreateCoinflipBet creates a new coinflip bet challenge.
+func (db *DB) CreateCoinflipBet(ctx context.Context, guildID, hostID, opponentID string, amount int64, side string) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Verify host has enough coins
+	var hostCoins int64
+	err = tx.QueryRow(ctx, "SELECT coins FROM user_economy WHERE guild_id = $1 AND user_id = $2", guildID, hostID).Scan(&hostCoins)
+	if err != nil {
+		return fmt.Errorf("host economy not found")
+	}
+	if hostCoins < amount {
+		return fmt.Errorf("host does not have enough coins")
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO coinflip_bets (guild_id, host_id, opponent_id, amount, side)
+		VALUES ($1, $2, $3, $4, $5)
+	`, guildID, hostID, opponentID, amount, side)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// GetActiveCoinflipBet retrieves a pending coinflip bet between a host and opponent.
+func (db *DB) GetActiveCoinflipBet(ctx context.Context, guildID, hostID, opponentID string) (*CoinflipBet, error) {
+	var b CoinflipBet
+	err := db.Pool.QueryRow(ctx, `
+		SELECT id, guild_id, host_id, opponent_id, amount, side, created_at
+		FROM coinflip_bets
+		WHERE guild_id = $1 AND host_id = $2 AND opponent_id = $3
+	`, guildID, hostID, opponentID).Scan(&b.ID, &b.GuildID, &b.HostID, &b.OpponentID, &b.Amount, &b.Side, &b.CreatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &b, nil
+}
+
+// RemoveCoinflipBet deletes a coinflip bet by its ID.
+func (db *DB) RemoveCoinflipBet(ctx context.Context, id int) error {
+	_, err := db.Pool.Exec(ctx, "DELETE FROM coinflip_bets WHERE id = $1", id)
+	return err
+}
+
+// AcceptCoinflipBet completes a coinflip bet in a single transaction.
+func (db *DB) AcceptCoinflipBet(ctx context.Context, betID int, guildID, winnerID, loserID string, amount int64) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Deduct from loser
+	res, err := tx.Exec(ctx, `
+		UPDATE user_economy
+		SET coins = coins - $1
+		WHERE guild_id = $2 AND user_id = $3 AND coins >= $1
+	`, amount, guildID, loserID)
+	if err != nil {
+		return err
+	}
+	if res.RowsAffected() == 0 {
+		return fmt.Errorf("loser has insufficient coins")
+	}
+
+	// Add to winner
+	_, err = tx.Exec(ctx, `
+		UPDATE user_economy
+		SET coins = coins + $1
+		WHERE guild_id = $2 AND user_id = $3
+	`, amount, guildID, winnerID)
+	if err != nil {
+		return err
+	}
+
+	// Remove bet
+	_, err = tx.Exec(ctx, "DELETE FROM coinflip_bets WHERE id = $1", betID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// CancelCoinflipBet deletes a bet.
+func (db *DB) CancelCoinflipBet(ctx context.Context, id int) error {
+	_, err := db.Pool.Exec(ctx, "DELETE FROM coinflip_bets WHERE id = $1", id)
+	return err
+}
