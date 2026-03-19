@@ -1336,7 +1336,19 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `/levelblacklist` command with `add`, `remove`, and `list` subcommands
 - [x] Update `messageCreateHandler` to skip awarding XP if the user has a blacklisted role
 
+### Phase 111 — Keyword Notifications
+- [x] `migrations/096_keyword_notifications.up.sql` — `keyword_notifications` table (id, user_id, guild_id, keyword)
+- [x] DB operations — `AddKeywordNotification`, `RemoveKeywordNotification`, `GetKeywordNotifications`
+- [x] `/keyword` command with `add`, `remove`, and `list` subcommands
+- [x] Update `messageCreateHandler` to DM users when their keyword is mentioned in the guild
+
 ### Completed Work
+
+- Implemented Phase 111 Keyword Notifications: added migrations `096_keyword_notifications.up.sql` and `096_keyword_notifications.down.sql` with table `keyword_notifications`.
+- Added DB operations `AddKeywordNotification`, `RemoveKeywordNotification`, and `GetKeywordNotifications` in `internal/db/db.go`.
+- Added `/keyword` command with `add`, `remove`, and `list` subcommands in `internal/bot/commands/keyword.go`. Registered it in `internal/bot/bot.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to send DM notifications to users when their keywords are mentioned.
+
 
 - Implemented Phase 110 Auto-Delete Channels: added migrations `095_auto_delete.up.sql` and `095_auto_delete.down.sql` with table `auto_delete_config`.
 - Added DB operations `SetAutoDelete`, `GetAutoDelete`, and `RemoveAutoDelete` in `internal/db/db.go`.

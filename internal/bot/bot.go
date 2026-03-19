@@ -153,7 +153,6 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.ClearWarnings(database))
 	registry.Add(commands.LevelBlacklist(database))
 	registry.Add(commands.LevelChannelBlacklist(database))
-	registry.Add(commands.LevelMultiplier(database))
 	registry.Add(commands.Lock(database))
 	registry.Add(commands.AntiSpam(database))
 	registry.Add(commands.AdvancedLog(database))
@@ -168,7 +167,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Snippet(database))
 	registry.Add(commands.Translate(database))
 	registry.Add(commands.ThreadAuto(database))
-	registry.Add(commands.Autodelete(database))
+	registry.Add(commands.Keyword(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -695,6 +694,40 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 						slog.Error("Failed to forward message", "target", tID, "error", err)
 					}
 				}(targetID, embed)
+			}
+		}
+	}
+
+	// Keyword Notification System
+	if b.DB != nil && m.GuildID != "" {
+		notifs, err := b.DB.GetKeywordNotifications(context.Background(), m.GuildID)
+		if err == nil && len(notifs) > 0 {
+			msgContentLower := strings.ToLower(m.Content)
+			notifiedUsers := make(map[string]bool)
+
+			for _, n := range notifs {
+				if n.UserID == m.Author.ID {
+					continue // Don't notify the author
+				}
+				if notifiedUsers[n.UserID] {
+					continue // Already notified for this message
+				}
+
+				if strings.Contains(msgContentLower, n.Keyword) {
+					notifiedUsers[n.UserID] = true
+
+					go func(userID, keyword string) {
+						channel, err := s.UserChannelCreate(userID)
+						if err != nil {
+							return
+						}
+
+						link := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", m.GuildID, m.ChannelID, m.ID)
+						content := fmt.Sprintf("Your keyword **%s** was mentioned in <#%s> by **%s**.\n\n[Jump to message](%s)", keyword, m.ChannelID, m.Author.Username, link)
+
+						s.ChannelMessageSend(channel.ID, content)
+					}(n.UserID, n.Keyword)
+				}
 			}
 		}
 	}

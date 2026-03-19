@@ -6146,3 +6146,42 @@ func (db *DB) RemoveAutoDelete(ctx context.Context, guildID, channelID string) e
 	}
 	return nil
 }
+
+type KeywordNotification struct {
+	UserID  string
+	Keyword string
+}
+
+func (db *DB) AddKeywordNotification(ctx context.Context, userID, guildID, keyword string) error {
+	_, err := db.Pool.Exec(ctx,
+		`INSERT INTO keyword_notifications (user_id, guild_id, keyword) VALUES ($1, $2, $3)`,
+		userID, guildID, keyword)
+	return err
+}
+
+func (db *DB) RemoveKeywordNotification(ctx context.Context, userID, guildID, keyword string) error {
+	_, err := db.Pool.Exec(ctx,
+		`DELETE FROM keyword_notifications WHERE user_id = $1 AND guild_id = $2 AND keyword = $3`,
+		userID, guildID, keyword)
+	return err
+}
+
+func (db *DB) GetKeywordNotifications(ctx context.Context, guildID string) ([]KeywordNotification, error) {
+	rows, err := db.Pool.Query(ctx,
+		`SELECT user_id, keyword FROM keyword_notifications WHERE guild_id = $1`,
+		guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var notifs []KeywordNotification
+	for rows.Next() {
+		var n KeywordNotification
+		if err := rows.Scan(&n.UserID, &n.Keyword); err != nil {
+			return nil, err
+		}
+		notifs = append(notifs, n)
+	}
+	return notifs, nil
+}
