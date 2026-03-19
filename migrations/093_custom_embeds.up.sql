@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS custom_embeds (
+    id SERIAL PRIMARY KEY,
+    guild_id VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    color VARCHAR(10) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(guild_id, name)
+);

@@ -5976,3 +5976,117 @@ func (db *DB) RemoveThreadAutomation(ctx context.Context, guildID, channelID str
 	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
 	return err
 }
+
+// CustomEmbed represents a custom embed stored in the database.
+type CustomEmbed struct {
+	ID          int       `json:"id"`
+	GuildID     string    `json:"guild_id"`
+	Name        string    `json:"name"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	Color       string    `json:"color"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// AddCustomEmbed adds a new custom embed to the database.
+func (db *DB) AddCustomEmbed(ctx context.Context, guildID, name, title, description, color string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("AddCustomEmbed").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		INSERT INTO custom_embeds (guild_id, name, title, description, color)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (guild_id, name)
+		DO UPDATE SET title = EXCLUDED.title, description = EXCLUDED.description, color = EXCLUDED.color
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, name, title, description, color)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return fmt.Errorf("failed to add custom embed: %w", err)
+	}
+	return nil
+}
+
+// GetCustomEmbed retrieves a custom embed by its guild ID and name.
+func (db *DB) GetCustomEmbed(ctx context.Context, guildID, name string) (*CustomEmbed, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetCustomEmbed").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		SELECT id, guild_id, name, title, description, color, created_at
+		FROM custom_embeds
+		WHERE guild_id = $1 AND name = $2
+	`
+	var embed CustomEmbed
+	err := db.Pool.QueryRow(ctx, query, guildID, name).Scan(
+		&embed.ID, &embed.GuildID, &embed.Name, &embed.Title, &embed.Description, &embed.Color, &embed.CreatedAt,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil // Return nil if no embed found
+		}
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return nil, fmt.Errorf("failed to get custom embed: %w", err)
+	}
+	return &embed, nil
+}
+
+// ListCustomEmbeds retrieves all custom embeds for a given guild ID.
+func (db *DB) ListCustomEmbeds(ctx context.Context, guildID string) ([]CustomEmbed, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("ListCustomEmbeds").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		SELECT id, guild_id, name, title, description, color, created_at
+		FROM custom_embeds
+		WHERE guild_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return nil, fmt.Errorf("failed to list custom embeds: %w", err)
+	}
+	defer rows.Close()
+
+	var embeds []CustomEmbed
+	for rows.Next() {
+		var embed CustomEmbed
+		if err := rows.Scan(
+			&embed.ID, &embed.GuildID, &embed.Name, &embed.Title, &embed.Description, &embed.Color, &embed.CreatedAt,
+		); err != nil {
+			metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+			return nil, fmt.Errorf("failed to scan custom embed row: %w", err)
+		}
+		embeds = append(embeds, embed)
+	}
+
+	if err := rows.Err(); err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return nil, fmt.Errorf("failed to iterate over custom embeds: %w", err)
+	}
+
+	return embeds, nil
+}
+
+// DeleteCustomEmbed deletes a custom embed from the database by its guild ID and name.
+func (db *DB) DeleteCustomEmbed(ctx context.Context, guildID, name string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("DeleteCustomEmbed").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `DELETE FROM custom_embeds WHERE guild_id = $1 AND name = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, name)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return fmt.Errorf("failed to delete custom embed: %w", err)
+	}
+	return nil
+}

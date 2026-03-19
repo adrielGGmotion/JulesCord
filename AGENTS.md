@@ -76,6 +76,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 108 Custom Embeds System: added migrations `093_custom_embeds.up.sql` and `093_custom_embeds.down.sql` with table `custom_embeds`.
+- Added DB operations `AddCustomEmbed`, `GetCustomEmbed`, `ListCustomEmbeds`, and `DeleteCustomEmbed` in `internal/db/db.go`.
+- Added `/embed` command in `internal/bot/commands/embed.go` with `create`, `list`, `send`, and `delete` subcommands. Registered it in `internal/bot/bot.go`.
+
+
 - Implemented Phase 105 Message Snippets features: added migrations `090_message_snippets.up.sql` and `090_message_snippets.down.sql` with table `message_snippets`.
 - Added DB operations `AddSnippet`, `RemoveSnippet`, `GetSnippet`, and `ListSnippets` in `internal/db/db.go`.
 - Added `/snippet` command in `internal/bot/commands/snippet.go` with `add`, `remove`, `list`, and `send` subcommands. Registered it in `internal/bot/bot.go`.
@@ -286,6 +291,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Updated `internal/bot/bot.go` to register the `reactiongroup` command.
 
 ## Task Checklist
+
+### Phase 108 — Custom Embeds System
+- [x] `migrations/093_custom_embeds.up.sql` — `custom_embeds` table (id, guild_id, name, title, description, color)
+- [x] DB operations — `AddCustomEmbed`, `GetCustomEmbed`, `ListCustomEmbeds`, `DeleteCustomEmbed`
+- [x] `/embed` command with `create`, `list`, `send`, and `delete` subcommands
+- [x] Update `internal/bot/bot.go` to register the `embed` command
 
 #
 ### Phase 107 — Thread Automation Config
@@ -1314,6 +1325,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `messageCreateHandler` to skip awarding XP if the user has a blacklisted role
 
 ### Completed Work
+
+- Implemented Phase 108 Custom Embeds System: added migrations `093_custom_embeds.up.sql` and `093_custom_embeds.down.sql` with table `custom_embeds`.
+- Added DB operations `AddCustomEmbed`, `GetCustomEmbed`, `ListCustomEmbeds`, and `DeleteCustomEmbed` in `internal/db/db.go`.
+- Added `/embed` command in `internal/bot/commands/embed.go` with `create`, `list`, `send`, and `delete` subcommands. Registered it in `internal/bot/bot.go`.
+
 
 - Implemented Phase 107 Thread Automation Config: added migrations `092_thread_automation.up.sql` and `092_thread_automation.down.sql` with table `thread_automation_config`.
 - Added DB operations `SetThreadAutomation`, `GetThreadAutomation`, and `RemoveThreadAutomation` in `internal/db/db.go`.
