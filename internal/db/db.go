@@ -7269,3 +7269,61 @@ func (db *DB) AutoCancelTrades(ctx context.Context) error {
 	_, err := db.Pool.Exec(ctx, query)
 	return err
 }
+
+type VoiceTimeStat struct {
+	UserID       string
+	TotalSeconds int64
+}
+
+func (db *DB) AddVoiceTime(ctx context.Context, guildID, userID string, seconds int) error {
+	query := `
+		INSERT INTO voice_time_stats (guild_id, user_id, total_seconds)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, user_id) DO UPDATE
+		SET total_seconds = voice_time_stats.total_seconds + EXCLUDED.total_seconds
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, userID, seconds)
+	return err
+}
+
+func (db *DB) GetTopVoiceUsers(ctx context.Context, guildID string) ([]VoiceTimeStat, error) {
+	query := `
+		SELECT user_id, total_seconds
+		FROM voice_time_stats
+		WHERE guild_id = $1
+		ORDER BY total_seconds DESC
+		LIMIT 10
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats []VoiceTimeStat
+	for rows.Next() {
+		var stat VoiceTimeStat
+		if err := rows.Scan(&stat.UserID, &stat.TotalSeconds); err != nil {
+			return nil, err
+		}
+		stats = append(stats, stat)
+	}
+	return stats, rows.Err()
+}
+
+func (db *DB) GetVoiceTime(ctx context.Context, guildID, userID string) (int64, error) {
+	query := `
+		SELECT total_seconds
+		FROM voice_time_stats
+		WHERE guild_id = $1 AND user_id = $2
+	`
+	var totalSeconds int64
+	err := db.Pool.QueryRow(ctx, query, guildID, userID).Scan(&totalSeconds)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return totalSeconds, nil
+}
