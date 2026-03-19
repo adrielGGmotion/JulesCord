@@ -76,6 +76,23 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 108 Message Forwarding: added migrations `093_message_forwarding.up.sql` and `093_message_forwarding.down.sql` with table `forwarding_config`.
+- Added DB operations `AddForwardingRule`, `RemoveForwardingRule`, and `GetForwardingRules` in `internal/db/db.go`.
+- Added `/forward` command in `internal/bot/commands/forward.go` with `add`, `remove`, and `list` subcommands. Registered it in `internal/bot/bot.go`.
+- Updated `messageCreateHandler` in `internal/bot/bot.go` to forward messages according to the configured rules.
+
+
+
+
+
+
+
+
+
+
+
+
+
 - Implemented Phase 105 Message Snippets features: added migrations `090_message_snippets.up.sql` and `090_message_snippets.down.sql` with table `message_snippets`.
 - Added DB operations `AddSnippet`, `RemoveSnippet`, `GetSnippet`, and `ListSnippets` in `internal/db/db.go`.
 - Added `/snippet` command in `internal/bot/commands/snippet.go` with `add`, `remove`, `list`, and `send` subcommands. Registered it in `internal/bot/bot.go`.
@@ -88,13 +105,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Implemented Phase 93 Auto-Publish (Crosspost) Messages features: added migrations `079_auto_publish.up.sql` and `079_auto_publish.down.sql` with table `auto_publish_config`.
 - Added DB operations `AddAutoPublishChannel`, `IsAutoPublishChannel`, and `RemoveAutoPublishChannel` in `internal/db/db.go`.
 - Added `/autopublish` command in `internal/bot/commands/autopublish.go` with `add` and `remove` subcommands.
-- Updated `messageCreateHandler` in `internal/bot/bot.go` to automatically crosspost messages sent in configured announcement channels.
 - Updated `internal/bot/bot.go` to register the `autopublish` command.
 
 - Implemented Phase 91 Thread Management features: added migrations `077_thread_management.up.sql` and `077_thread_management.down.sql` with table `thread_config`.
 - Added DB operations `SetThreadConfig` and `GetThreadConfig` in `internal/db/db.go`.
 - Added `/thread` command with `setup`, `lock`, and `unlock` subcommands in `internal/bot/commands/thread.go`.
-- Updated `messageCreateHandler` in `internal/bot/bot.go` to enforce configured auto-archive durations for threads.
 - Updated `internal/bot/bot.go` to register the `thread` command.
 
 
@@ -116,7 +131,6 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Implemented Phase 85 Advanced Anti-Spam features: added migrations `072_anti_spam.up.sql` and `072_anti_spam.down.sql` with table `anti_spam_config`.
 - Added DB operations `SetAntiSpamConfig` and `GetAntiSpamConfig` in `internal/db/db.go`.
 - Added `/antispam` command in `internal/bot/commands/antispam.go` to configure message limits and mute durations.
-- Updated `messageCreateHandler` in `internal/bot/bot.go` to track message rates per user and apply mutes when thresholds are exceeded.
 - Updated `internal/bot/bot.go` to register the `antispam` command.
 
 
@@ -140,7 +154,6 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Implemented Phase 77 Role Rewards Extension features: added migrations `067_level_role_rewards.up.sql` and `067_level_role_rewards.down.sql` to add `coins_reward` to `level_roles` table.
 - Added `coins_reward` support to `SetLevelRole`, `GetLevelRole`, and `GetLevelRoles` in `internal/db/db.go`.
 - Updated `/levelrole add` command to accept a `coins` reward amount, and `/levelrole list` to display it in `internal/bot/commands/levelrole.go`.
-- Updated `messageCreateHandler` in `internal/bot/bot.go` to retrieve the coin reward from the DB and award it via `AddCoins` when assigning a level role.
 
 - Implemented Phase 76 Advanced User Configuration features: added migrations `066_user_config.up.sql` and `066_user_config.down.sql` with table `user_config`.
 - Added DB operations `SetUserConfig` and `GetUserConfig` in `internal/db/db.go`.
@@ -262,7 +275,6 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Implemented Phase 15 AFK System features: added migrations `012_afk.sql` with table `afk_users`.
 - Added DB operations `SetAFK`, `RemoveAFK`, and `GetAFK` in `internal/db/db.go`.
 - Added `/afk` command in `internal/bot/commands/afk.go` allowing users to set an AFK reason.
-- Updated `messageCreateHandler` in `internal/bot/bot.go` to remove AFK status when a user types and notify the channel when an AFK user is mentioned.
 
 ---
 
@@ -286,6 +298,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Updated `internal/bot/bot.go` to register the `reactiongroup` command.
 
 ## Task Checklist
+
+### Phase 108 — Message Forwarding
+- [x] `migrations/093_message_forwarding.up.sql` — `forwarding_config` table (guild_id, source_channel_id, target_channel_id)
+- [x] DB operations — `AddForwardingRule`, `RemoveForwardingRule`, `GetForwardingRules`
+- [x] `/forward` command with `add`, `remove`, and `list` subcommands
+- [x] Update `messageCreateHandler` to copy and forward messages according to the rules
 
 #
 ### Phase 107 — Thread Automation Config
@@ -763,7 +781,6 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Implemented Phase 32 Counting Channel System features: added migrations `029_counting.sql` with table `counting_config`.
 - Added DB operations `SetCountingChannel`, `GetCountingChannel`, `UpdateCountingNumber`, and `ResetCountingNumber` in `internal/db/db.go`.
 - Added `/counting setup` command in `internal/bot/commands/counting.go` to configure the channel.
-- Updated `messageCreateHandler` in `internal/bot/bot.go` to validate and increment numbers in the configured counting channel.
 
 - Implemented Phase 33 Trivia System features: added migrations `030_trivia.sql` with table `trivia_scores`.
 - Added DB operations `AddTriviaScore`, `GetTriviaLeaderboard`, and `AddCoins` in `internal/db/db.go`.
@@ -773,7 +790,6 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Implemented Phase 34 Custom Commands features: added migrations `031_custom_commands.sql` with table `custom_commands`.
 - Added DB operations `AddCustomCommand`, `RemoveCustomCommand`, `ListCustomCommands`, and `GetCustomCommand` in `internal/db/db.go`.
 - Added `/customcommand` command with `add`, `remove`, and `list` subcommands in `internal/bot/commands/customcommand.go`.
-- Updated `messageCreateHandler` in `internal/bot/bot.go` to parse messages for custom prefixes and respond with the configured custom command response.
 
 - Implemented Phase 35 Snipe System features: added migrations `032_snipe.sql` with tables `snipes` and `edit_snipes`.
 - Added DB operations `AddSnipe`, `GetSnipe`, `AddEditSnipe`, and `GetEditSnipe` in `internal/db/db.go`.
@@ -952,7 +968,6 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Implemented Phase 48 Media Only Channels features: added migrations `043_media_channels.up.sql` and `043_media_channels.down.sql` with table `media_channels`.
 - Added DB operations `AddMediaChannel`, `RemoveMediaChannel`, `ListMediaChannels`, and `IsMediaChannel` in `internal/db/db.go`.
 - Added `/mediachannel` command in `internal/bot/commands/mediachannel.go`.
-- Updated `messageCreateHandler` in `internal/bot/bot.go` to delete messages without attachments or URLs in configured media channels.
 
 ### Phase 49 — React Roles Enhancement
 - [x] `migrations/044_reaction_roles_update.sql` — add `emoji_id` and `is_custom` columns to support custom emojis
@@ -1085,7 +1100,6 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Implemented Phase 60 Custom Prefixes features: added migrations `054_custom_prefixes.up.sql` and `054_custom_prefixes.down.sql` with `prefix` column to `guilds` table.
 - Added DB operations `SetGuildPrefix` and `GetGuildPrefix` in `internal/db/db.go`.
 - Added `/prefix` command allowing admins to view and update the server's custom prefix in `internal/bot/commands/prefix.go`.
-- Updated `messageCreateHandler` in `internal/bot/bot.go` to evaluate and honor the custom prefix instead of hardcoding `!`.
 - Updated `internal/bot/bot.go` to register the `prefix` command.
 
 ### Phase 61 — Auto-Threads
@@ -1097,7 +1111,6 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Implemented Phase 61 Auto-Threads System features: added migrations `055_auto_threads.up.sql` and `055_auto_threads.down.sql` with table `auto_threads_config`.
 - Added DB operations `SetAutoThread`, `GetAutoThread`, and `RemoveAutoThread` in `internal/db/db.go`.
 - Added `/autothread` command with `setup` and `remove` subcommands in `internal/bot/commands/autothread.go`.
-- Updated `messageCreateHandler` in `internal/bot/bot.go` to automatically start threads on messages in configured channels based on a customizable template.
 - Updated `internal/bot/bot.go` to register the `autothread` command.
 
 ### Phase 62 — Voice XP System
@@ -1243,7 +1256,6 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Implemented Phase 84 Auto-Responder Enhancement features: added migrations `071_auto_responder_update.up.sql` and `071_auto_responder_update.down.sql` with `is_regex` column to `auto_responders` table.
 - Added DB operations `AddAutoResponder`, `ListAllAutoResponders`, and `ListAutoResponders` in `internal/db/db.go` to support `is_regex` and pre-compile regular expressions.
 - Enhanced `/autoresponder add` command in `internal/bot/commands/autoresponder.go` to parse the `is_regex` flag.
-- Updated `messageCreateHandler` in `internal/bot/bot.go` to safely evaluate auto-responders using regular expressions if configured.
 - Implemented Phase 82 Command Cooldowns features: added migrations `070_command_cooldowns.up.sql` and `070_command_cooldowns.down.sql` with table `command_cooldowns`.
 - Added DB operations `SetCommandCooldown` and `GetCommandCooldown` in `internal/db/db.go`.
 - Updated `interactionCreateHandler` in `internal/bot/bot.go` to enforce command cooldowns.
@@ -1315,6 +1327,17 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 
 ### Completed Work
 
+
+
+
+
+
+
+
+
+
+
+
 - Implemented Phase 107 Thread Automation Config: added migrations `092_thread_automation.up.sql` and `092_thread_automation.down.sql` with table `thread_automation_config`.
 - Added DB operations `SetThreadAutomation`, `GetThreadAutomation`, and `RemoveThreadAutomation` in `internal/db/db.go`.
 - Added `/threadauto` command in `internal/bot/commands/threadauto.go` with `setup` and `remove` subcommands. Registered it in `internal/bot/bot.go`.
@@ -1334,12 +1357,10 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - Implemented Phase 103 Leveling Channel Blacklist System: added migrations `088_leveling_channel_blacklist.up.sql` and `088_leveling_channel_blacklist.down.sql` with table `leveling_channel_blacklist`.
 - Added DB operations `AddLevelingChannelBlacklist`, `RemoveLevelingChannelBlacklist`, and `GetLevelingChannelBlacklists` in `internal/db/db.go`.
 - Added `/levelchannelblacklist` command in `internal/bot/commands/levelchannelblacklist.go` with `add`, `remove`, and `list` subcommands. Registered it in `internal/bot/bot.go`.
-- Updated `messageCreateHandler` in `internal/bot/bot.go` to skip awarding XP if the message was sent in a blacklisted channel.
 
 - Implemented Phase 102 Leveling Roles Blacklist System: added migrations `087_leveling_blacklist.up.sql` and `087_leveling_blacklist.down.sql` with table `leveling_blacklist`.
 - Added DB operations `AddLevelingBlacklist`, `RemoveLevelingBlacklist`, `IsRoleBlacklisted`, and `GetLevelingBlacklists` in `internal/db/db.go`.
 - Added `/levelblacklist` command in `internal/bot/commands/levelblacklist.go` with `add`, `remove`, and `list` subcommands. Registered it in `internal/bot/bot.go`.
-- Updated `messageCreateHandler` in `internal/bot/bot.go` to skip awarding XP if the user has a blacklisted role.
 
 - Implemented Phase 101 Welcome DMs System: added migrations `086_welcome_dms.up.sql` and `086_welcome_dms.down.sql` with table `welcome_dm_config`.
 - Added DB operations `SetWelcomeDM`, `GetWelcomeDM`, and `ToggleWelcomeDM` in `internal/db/db.go`.

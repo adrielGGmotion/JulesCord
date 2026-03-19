@@ -167,6 +167,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Snippet(database))
 	registry.Add(commands.Translate(database))
 	registry.Add(commands.ThreadAuto(database))
+	registry.Add(commands.NewForwardCommand(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -653,6 +654,37 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	// Ignore all messages created by the bot itself or other bots
 	if m.Author.ID == s.State.User.ID || m.Author.Bot {
 		return
+	}
+
+	// Message Forwarding System
+	if b.DB != nil && m.GuildID != "" && m.Type != discordgo.MessageTypeReply {
+		targets, err := b.DB.GetForwardingRules(context.Background(), m.GuildID, m.ChannelID)
+		if err == nil && len(targets) > 0 {
+			for _, targetID := range targets {
+				embed := &discordgo.MessageEmbed{
+					Author: &discordgo.MessageEmbedAuthor{
+						Name:    m.Author.Username,
+						IconURL: m.Author.AvatarURL(""),
+					},
+					Description: m.Content,
+					Color:       0x00BFFF,
+					Footer: &discordgo.MessageEmbedFooter{
+						Text: fmt.Sprintf("Forwarded from #%s", m.ChannelID),
+					},
+				}
+				if len(m.Attachments) > 0 {
+					embed.Image = &discordgo.MessageEmbedImage{
+						URL: m.Attachments[0].URL,
+					}
+				}
+				go func(tID string, emb *discordgo.MessageEmbed) {
+					_, err := s.ChannelMessageSendEmbed(tID, emb)
+					if err != nil {
+						slog.Error("Failed to forward message", "target", tID, "error", err)
+					}
+				}(targetID, embed)
+			}
+		}
 	}
 
 	// Auto-Publish System
