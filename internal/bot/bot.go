@@ -119,6 +119,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.NewCountingCommand(database))
 	registry.Add(commands.NewTriviaCommand(database))
 	registry.Add(commands.CustomCommand(database))
+	registry.Add(commands.NewVoiceTimeCommand(database))
 	registry.Add(commands.NewMemberCountCommand(database))
 	registry.Add(commands.Snipe(database))
 	registry.Add(commands.EditSnipe(database))
@@ -2555,11 +2556,17 @@ func (b *Bot) voiceStateUpdateHandler(s *discordgo.Session, v *discordgo.VoiceSt
 		description = fmt.Sprintf("<@%s> left voice channel <#%s>", v.UserID, oldChannelID)
 		color = 0xFF0000 // Red
 
-		// Calculate and award Voice XP
+		// Calculate and award Voice XP and Voice Time
 		joinTime, err := b.DB.GetVoiceJoinTime(context.Background(), v.GuildID, v.UserID)
 		if err == nil && joinTime != nil {
 			duration := time.Since(*joinTime)
+			seconds := int(duration.Seconds())
 			minutes := int(duration.Minutes())
+
+			if seconds > 0 {
+				_ = b.DB.AddVoiceTime(context.Background(), v.GuildID, v.UserID, seconds)
+			}
+
 			if minutes > 0 {
 				// Award 1 XP and 1 Coin per minute
 				_, _ = b.DB.AddXP(context.Background(), v.GuildID, v.UserID, minutes)

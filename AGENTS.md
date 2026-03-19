@@ -1583,6 +1583,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] `/starboard multi` command with `add`, `remove`, and `list` subcommands
 - [x] Update `messageReactionAddHandler` in `internal/bot/bot.go` to evaluate and post to multiple starboards based on custom emojis
 
+- Implemented Phase 126 Voice Time Tracking: added migrations `111_voice_time.up.sql` and `111_voice_time.down.sql` with table `voice_time_stats`.
+- Added DB operations `AddVoiceTime`, `GetTopVoiceUsers`, and `GetVoiceTime` in `internal/db/db.go`.
+- Added `/voicetime` command in `internal/bot/commands/voicetime.go` with `stats` and `leaderboard` subcommands.
+- Updated `voiceStateUpdateHandler` in `internal/bot/bot.go` to calculate and track duration spent in voice channels, and registered the `voicetime` command.
+
 - Implemented Phase 125 Economy Trade System: added migrations `110_economy_trades.up.sql` and `110_economy_trades.down.sql` with table `trades`.
 - Added DB operations `CreateTrade`, `AcceptTrade`, `CancelTrade`, and `AutoCancelTrades` in `internal/db/db.go`.
 - Added `/trade` command in `internal/bot/commands/trade.go` with `offer` and `accept` subcommands.
@@ -1601,10 +1606,10 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update background tasks or interaction handlers to auto-cancel pending trades after 10 minutes
 
 ### Phase 126 — Voice Time Tracking
-- [ ] `migrations/111_voice_time.up.sql` — `voice_time_stats` table to persist total time spent
-- [ ] DB operations — `AddVoiceTime`, `GetTopVoiceUsers`
-- [ ] `/voicetime` command to check total stats or view a leaderboard
-- [ ] Update `voiceStateUpdateHandler` to add total seconds to user stats upon leaving
+- [x] `migrations/111_voice_time.up.sql` — `voice_time_stats` table to persist total time spent
+- [x] DB operations — `AddVoiceTime`, `GetTopVoiceUsers`
+- [x] `/voicetime` command to check total stats or view a leaderboard
+- [x] Update `voiceStateUpdateHandler` to add total seconds to user stats upon leaving
 
 ### Phase 127 — Global Economy Multipliers
 - [ ] `migrations/112_global_multipliers.up.sql` — `global_multipliers` table for weekend events (guild_id, factor, expires_at)
