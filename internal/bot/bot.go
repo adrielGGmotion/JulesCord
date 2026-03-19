@@ -79,6 +79,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.BookmarksSlash(database))
 	registry.Add(commands.Timezone(database))
 	registry.Add(commands.Thread(database))
+	registry.Add(commands.Stock(database))
 
 	bot := &Bot{
 		Session:  session,
@@ -272,6 +273,8 @@ func (b *Bot) Start() error {
 	if err != nil {
 		return fmt.Errorf("error opening Discord connection: %w", err)
 	}
+
+	go b.stockMarketLoop()
 
 	slog.Info("Discord bot started successfully.")
 	return nil
@@ -2568,6 +2571,22 @@ func (b *Bot) checkTempNicknames() {
 				}
 			}
 			cancel()
+		}
+	}
+}
+
+// stockMarketLoop runs every hour and updates stock prices
+func (b *Bot) stockMarketLoop() {
+	ticker := time.NewTicker(1 * time.Hour)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		ctx := context.Background()
+		err := b.DB.UpdateStockPrices(ctx)
+		if err != nil {
+			slog.Error("Failed to update stock prices", "error", err)
+		} else {
+			slog.Info("Successfully updated stock market prices")
 		}
 	}
 }

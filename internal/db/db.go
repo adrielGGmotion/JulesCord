@@ -2,10 +2,13 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"regexp"
+	"strings"
 	"time"
 
 	"julescord/internal/metrics"
@@ -6430,4 +6433,273 @@ func (db *DB) GetTempNicknameByGuildUser(ctx context.Context, guildID, userID st
 		return nil, err
 	}
 	return &tn, nil
+}
+
+// Stock represents a market stock.
+type Stock struct {
+	Symbol       string
+	CurrentPrice int
+	History      []int
+}
+
+// UserStock represents a user's stock holdings.
+type UserStock struct {
+	GuildID         string
+	UserID          string
+	Symbol          string
+	Quantity        int
+	AverageBuyPrice float64
+}
+
+// GetStocks retrieves all available stocks.
+func (db *DB) GetStocks(ctx context.Context) ([]Stock, error) {
+	query := `SELECT symbol, current_price, history FROM stocks`
+	rows, err := db.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stocks []Stock
+	for rows.Next() {
+		var s Stock
+		var histBytes []byte
+		if err := rows.Scan(&s.Symbol, &s.CurrentPrice, &histBytes); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(histBytes, &s.History); err != nil {
+			// fallback if json parsing fails
+			s.History = []int{}
+		}
+		stocks = append(stocks, s)
+	}
+	return stocks, rows.Err()
+}
+
+// GetStock retrieves a specific stock by symbol.
+func (db *DB) GetStock(ctx context.Context, symbol string) (*Stock, error) {
+	query := `SELECT symbol, current_price, history FROM stocks WHERE symbol = $1`
+	var s Stock
+	var histBytes []byte
+	err := db.Pool.QueryRow(ctx, query, strings.ToUpper(symbol)).Scan(&s.Symbol, &s.CurrentPrice, &histBytes)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if err := json.Unmarshal(histBytes, &s.History); err != nil {
+		s.History = []int{}
+	}
+	return &s, nil
+}
+
+// GetUserStocks retrieves all stocks owned by a user.
+func (db *DB) GetUserStocks(ctx context.Context, guildID, userID string) ([]UserStock, error) {
+	query := `SELECT guild_id, user_id, symbol, quantity, average_buy_price FROM user_stocks WHERE guild_id = $1 AND user_id = $2 AND quantity > 0`
+	rows, err := db.Pool.Query(ctx, query, guildID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stocks []UserStock
+	for rows.Next() {
+		var s UserStock
+		if err := rows.Scan(&s.GuildID, &s.UserID, &s.Symbol, &s.Quantity, &s.AverageBuyPrice); err != nil {
+			return nil, err
+		}
+		stocks = append(stocks, s)
+	}
+	return stocks, rows.Err()
+}
+
+// BuyStock attempts to purchase shares of a stock for a user.
+func (db *DB) BuyStock(ctx context.Context, guildID, userID, symbol string, quantity int) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	sym := strings.ToUpper(symbol)
+
+	// Get current stock price
+	var currentPrice int
+	err = tx.QueryRow(ctx, `SELECT current_price FROM stocks WHERE symbol = $1`, sym).Scan(&currentPrice)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fmt.Errorf("stock %s not found", sym)
+		}
+		return err
+	}
+
+	totalCost := currentPrice * quantity
+
+	// Deduct coins from user
+	res, err := tx.Exec(ctx, `
+		UPDATE user_economy
+		SET coins = coins - $1
+		WHERE guild_id = $2 AND user_id = $3 AND coins >= $1
+	`, totalCost, guildID, userID)
+	if err != nil {
+		return err
+	}
+	if res.RowsAffected() == 0 {
+		return fmt.Errorf("insufficient coins")
+	}
+
+	// Calculate new average buy price and insert/update
+	var currentQuantity int
+	var currentAvg float64
+	err = tx.QueryRow(ctx, `SELECT quantity, average_buy_price FROM user_stocks WHERE guild_id = $1 AND user_id = $2 AND symbol = $3 FOR UPDATE`, guildID, userID, sym).Scan(&currentQuantity, &currentAvg)
+	if err != nil && err != pgx.ErrNoRows {
+		return err
+	}
+
+	newQuantity := currentQuantity + quantity
+	var newAvg float64
+	if currentQuantity == 0 {
+		newAvg = float64(currentPrice)
+	} else {
+		newAvg = ((currentAvg * float64(currentQuantity)) + float64(totalCost)) / float64(newQuantity)
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_stocks (guild_id, user_id, symbol, quantity, average_buy_price)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (guild_id, user_id, symbol) DO UPDATE SET
+			quantity = EXCLUDED.quantity,
+			average_buy_price = EXCLUDED.average_buy_price
+	`, guildID, userID, sym, newQuantity, newAvg)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// SellStock attempts to sell shares of a stock for a user.
+func (db *DB) SellStock(ctx context.Context, guildID, userID, symbol string, quantity int) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	sym := strings.ToUpper(symbol)
+
+	// Check user holdings
+	var currentQuantity int
+	err = tx.QueryRow(ctx, `SELECT quantity FROM user_stocks WHERE guild_id = $1 AND user_id = $2 AND symbol = $3 FOR UPDATE`, guildID, userID, sym).Scan(&currentQuantity)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fmt.Errorf("you do not own any shares of %s in this server", sym)
+		}
+		return err
+	}
+
+	if currentQuantity < quantity {
+		return fmt.Errorf("you only own %d shares of %s", currentQuantity, sym)
+	}
+
+	// Get current stock price
+	var currentPrice int
+	err = tx.QueryRow(ctx, `SELECT current_price FROM stocks WHERE symbol = $1`, sym).Scan(&currentPrice)
+	if err != nil {
+		return err
+	}
+
+	totalValue := currentPrice * quantity
+
+	// Deduct shares
+	if currentQuantity == quantity {
+		_, err = tx.Exec(ctx, `DELETE FROM user_stocks WHERE guild_id = $1 AND user_id = $2 AND symbol = $3`, guildID, userID, sym)
+	} else {
+		_, err = tx.Exec(ctx, `UPDATE user_stocks SET quantity = quantity - $1 WHERE guild_id = $2 AND user_id = $3 AND symbol = $4`, quantity, guildID, userID, sym)
+	}
+	if err != nil {
+		return err
+	}
+
+	// Add coins to user
+	_, err = tx.Exec(ctx, `
+		INSERT INTO user_economy (guild_id, user_id, coins)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, user_id) DO UPDATE SET coins = user_economy.coins + EXCLUDED.coins
+	`, guildID, userID, totalValue)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// UpdateStockPrices simulates market fluctuations for all stocks.
+func (db *DB) UpdateStockPrices(ctx context.Context) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	query := `SELECT symbol, current_price, history FROM stocks`
+	rows, err := tx.Query(ctx, query)
+	if err != nil {
+		return err
+	}
+
+	type updateData struct {
+		symbol string
+		price  int
+		hist   []byte
+	}
+	var updates []updateData
+
+	for rows.Next() {
+		var sym string
+		var price int
+		var histBytes []byte
+		if err := rows.Scan(&sym, &price, &histBytes); err != nil {
+			rows.Close()
+			return err
+		}
+
+		var hist []int
+		if err := json.Unmarshal(histBytes, &hist); err != nil {
+			hist = []int{}
+		}
+
+		// Calculate new price (fluctuate by -10% to +10%)
+		changePercent := (rand.Float64() * 0.2) - 0.1
+		changeAmt := int(float64(price) * changePercent)
+
+		// Add some random noise (-5 to +5)
+		noise := rand.Intn(11) - 5
+		newPrice := price + changeAmt + noise
+
+		// Ensure price doesn't drop below 1
+		if newPrice < 1 {
+			newPrice = 1
+		}
+
+		// Update history (keep last 10)
+		hist = append(hist, newPrice)
+		if len(hist) > 10 {
+			hist = hist[len(hist)-10:]
+		}
+
+		newHistBytes, _ := json.Marshal(hist)
+		updates = append(updates, updateData{sym, newPrice, newHistBytes})
+	}
+	rows.Close()
+
+	for _, u := range updates {
+		_, err := tx.Exec(ctx, `UPDATE stocks SET current_price = $1, history = $2 WHERE symbol = $3`, u.price, u.hist, u.symbol)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
 }

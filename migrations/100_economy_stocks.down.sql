@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS user_stocks;
+DROP TABLE IF EXISTS stocks;
