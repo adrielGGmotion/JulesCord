@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"time"
 
 	"julescord/internal/db"
@@ -81,6 +82,9 @@ func Daily(database *db.DB) *Command {
 			amount := 100
 
 			// Grant daily and get new total
+			globalMultiplier, _ := database.GetActiveMultiplier(ctx, i.GuildID)
+			amount = int(math.Round(float64(amount) * globalMultiplier))
+
 			newCoins, err := database.ClaimDaily(ctx, i.GuildID, user.ID, amount)
 			if err != nil {
 				slog.Error("Failed to process daily claim for %s", "arg1", user.ID, "error", err)

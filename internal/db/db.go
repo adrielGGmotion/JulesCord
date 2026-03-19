@@ -7327,3 +7327,55 @@ func (db *DB) GetVoiceTime(ctx context.Context, guildID, userID string) (int64, 
 	}
 	return totalSeconds, nil
 }
+
+// SetGlobalMultiplier sets an active global multiplier for a guild.
+func (db *DB) SetGlobalMultiplier(ctx context.Context, guildID string, factor float64, duration time.Duration) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("SetGlobalMultiplier").Observe(time.Since(start).Seconds())
+	}()
+
+	expiresAt := time.Now().Add(duration)
+
+	query := `
+		INSERT INTO global_multipliers (guild_id, factor, expires_at)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id) DO UPDATE
+		SET factor = EXCLUDED.factor, expires_at = EXCLUDED.expires_at
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, factor, expiresAt)
+	return err
+}
+
+// GetActiveMultiplier retrieves the active global multiplier for a guild.
+// If none is set, or if the current one has expired, it returns 1.0.
+func (db *DB) GetActiveMultiplier(ctx context.Context, guildID string) (float64, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetActiveMultiplier").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		SELECT factor, expires_at
+		FROM global_multipliers
+		WHERE guild_id = $1
+	`
+	var factor float64
+	var expiresAt time.Time
+
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&factor, &expiresAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return 1.0, nil
+		}
+		return 1.0, err
+	}
+
+	if time.Now().After(expiresAt) {
+		// Clean up expired multiplier implicitly
+		db.Pool.Exec(ctx, "DELETE FROM global_multipliers WHERE guild_id = $1", guildID)
+		return 1.0, nil
+	}
+
+	return factor, nil
+}

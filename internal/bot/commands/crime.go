@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"time"
 
@@ -76,6 +77,9 @@ func Crime(database *db.DB) *Command {
 			if rand.Intn(100) < 50 {
 				// Success
 				reward := rand.Intn(301) + 200 // 200 to 500 coins
+				globalMultiplier, _ := database.GetActiveMultiplier(ctx, guildID)
+				reward = int(math.Round(float64(reward) * globalMultiplier))
+
 				err = database.AddCoins(ctx, guildID, userID, reward)
 				if err != nil {
 					_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{

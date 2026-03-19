@@ -1,0 +1,5 @@
+
+- Implemented Phase 127 Global Economy Multipliers: added migrations `112_global_multipliers.up.sql` and `112_global_multipliers.down.sql` with table `global_multipliers`.
+- Added DB operations `SetGlobalMultiplier` and `GetActiveMultiplier` in `internal/db/db.go`.
+- Added `/multiplier` command with `set` and `view` subcommands in `internal/bot/commands/multiplier.go`.
+- Updated economy logic in `bot.go`, `work.go`, `crime.go`, and `daily.go` to factor in the active global multiplier, and registered the `multiplier` command.

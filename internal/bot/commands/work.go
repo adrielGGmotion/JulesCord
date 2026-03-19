@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"time"
 
@@ -82,6 +83,9 @@ func Work(database *db.DB) *Command {
 			}
 
 			// Add coins and update timestamp
+			globalMultiplier, _ := database.GetActiveMultiplier(ctx, guildID)
+			reward = int(math.Round(float64(reward) * globalMultiplier))
+
 			err = database.AddCoins(ctx, guildID, userID, reward)
 			if err != nil {
 				_, _ = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
