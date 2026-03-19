@@ -5976,3 +5976,64 @@ func (db *DB) RemoveThreadAutomation(ctx context.Context, guildID, channelID str
 	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
 	return err
 }
+
+// AddForwardingRule adds a new message forwarding rule.
+func (db *DB) AddForwardingRule(ctx context.Context, guildID, sourceChannelID, targetChannelID string) error {
+	start := time.Now()
+	query := `
+		INSERT INTO forwarding_config (guild_id, source_channel_id, target_channel_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, source_channel_id, target_channel_id) DO NOTHING
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, sourceChannelID, targetChannelID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return err
+	}
+	metrics.DBQueryLatency.WithLabelValues("AddForwardingRule").Observe(time.Since(start).Seconds())
+	return nil
+}
+
+// RemoveForwardingRule removes a message forwarding rule.
+func (db *DB) RemoveForwardingRule(ctx context.Context, guildID, sourceChannelID, targetChannelID string) error {
+	start := time.Now()
+	query := `
+		DELETE FROM forwarding_config
+		WHERE guild_id = $1 AND source_channel_id = $2 AND target_channel_id = $3
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, sourceChannelID, targetChannelID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return err
+	}
+	metrics.DBQueryLatency.WithLabelValues("RemoveForwardingRule").Observe(time.Since(start).Seconds())
+	return nil
+}
+
+// GetForwardingRules returns a list of target channel IDs for a given source channel.
+func (db *DB) GetForwardingRules(ctx context.Context, guildID, sourceChannelID string) ([]string, error) {
+	start := time.Now()
+	query := `
+		SELECT target_channel_id
+		FROM forwarding_config
+		WHERE guild_id = $1 AND source_channel_id = $2
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID, sourceChannelID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return nil, err
+	}
+	defer rows.Close()
+
+	var targets []string
+	for rows.Next() {
+		var targetID string
+		if err := rows.Scan(&targetID); err != nil {
+			metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+			return nil, err
+		}
+		targets = append(targets, targetID)
+	}
+	metrics.DBQueryLatency.WithLabelValues("GetForwardingRules").Observe(time.Since(start).Seconds())
+	return targets, nil
+}
