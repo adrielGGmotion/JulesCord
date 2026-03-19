@@ -933,27 +933,29 @@ func (db *DB) GetGuildConfig(ctx context.Context, guildID string) (*GuildConfig,
 
 // VoiceGeneratorConfig represents the configuration for voice generator.
 type VoiceGeneratorConfig struct {
-	GuildID       string `json:"guild_id"`
-	BaseChannelID string `json:"base_channel_id"`
-	MaxChannels   int    `json:"max_channels"`
+	GuildID             string  `json:"guild_id"`
+	BaseChannelID       string  `json:"base_channel_id"`
+	MaxChannels         int     `json:"max_channels"`
+	AllowCustomNames    bool    `json:"allow_custom_names"`
+	DefaultNameTemplate *string `json:"default_name_template"`
 }
 
 // SetVoiceGeneratorConfig updates the voice generator config for a guild.
-func (db *DB) SetVoiceGeneratorConfig(ctx context.Context, guildID, baseChannelID string, maxChannels int) error {
+func (db *DB) SetVoiceGeneratorConfig(ctx context.Context, guildID, baseChannelID string, maxChannels int, allowCustomNames bool, defaultNameTemplate *string) error {
 	query := `
-		INSERT INTO voice_generator_config (guild_id, base_channel_id, max_channels)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (guild_id) DO UPDATE SET base_channel_id = EXCLUDED.base_channel_id, max_channels = EXCLUDED.max_channels
+		INSERT INTO voice_generator_config (guild_id, base_channel_id, max_channels, allow_custom_names, default_name_template)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (guild_id) DO UPDATE SET base_channel_id = EXCLUDED.base_channel_id, max_channels = EXCLUDED.max_channels, allow_custom_names = EXCLUDED.allow_custom_names, default_name_template = EXCLUDED.default_name_template
 	`
-	_, err := db.Pool.Exec(ctx, query, guildID, baseChannelID, maxChannels)
+	_, err := db.Pool.Exec(ctx, query, guildID, baseChannelID, maxChannels, allowCustomNames, defaultNameTemplate)
 	return err
 }
 
 // GetVoiceGeneratorConfig gets the voice generator config for a guild.
 func (db *DB) GetVoiceGeneratorConfig(ctx context.Context, guildID string) (*VoiceGeneratorConfig, error) {
-	query := `SELECT guild_id, base_channel_id, max_channels FROM voice_generator_config WHERE guild_id = $1`
+	query := `SELECT guild_id, base_channel_id, max_channels, allow_custom_names, default_name_template FROM voice_generator_config WHERE guild_id = $1`
 	var config VoiceGeneratorConfig
-	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&config.GuildID, &config.BaseChannelID, &config.MaxChannels)
+	err := db.Pool.QueryRow(ctx, query, guildID).Scan(&config.GuildID, &config.BaseChannelID, &config.MaxChannels, &config.AllowCustomNames, &config.DefaultNameTemplate)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil // No config set

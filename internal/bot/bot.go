@@ -27,7 +27,16 @@ type Bot struct {
 	xpCooldown             sync.Map // map[string]time.Time (key: guildID_channelID_userID)
 	AutoResponders         sync.Map // map[string][]*db.AutoResponder (key: guildID)
 	antiSpamTracking       sync.Map // map[string][]time.Time (key: guildID_userID)
-	generatedVoiceChannels sync.Map // map[string]bool (key: channelID)
+	generatedVoiceChannels sync.Map // map[string]string (key: channelID, value: userID)
+}
+
+// IsGeneratedChannelOwner implements the IsGeneratedChannelOwnerChecker interface.
+func (b *Bot) IsGeneratedChannelOwner(channelID, userID string) bool {
+	ownerID, ok := b.generatedVoiceChannels.Load(channelID)
+	if !ok {
+		return false
+	}
+	return ownerID.(string) == userID
 }
 
 // New initializes a new bot instance.
@@ -41,7 +50,14 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 		return nil, fmt.Errorf("error creating Discord session: %w", err)
 	}
 
-	registry := commands.NewRegistry()
+	bot := &Bot{
+		Config:  cfg,
+		Session: session,
+		DB:      database,
+	}
+
+	bot.Registry = commands.NewRegistry()
+	registry := bot.Registry
 	registry.Add(commands.Ping())
 	registry.Add(commands.About())
 	registry.Add(commands.Stats(database))
@@ -59,7 +75,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Coins(database))
 	registry.Add(commands.Config(database))
 	registry.Add(commands.Settings(database))
-	registry.Add(commands.VoiceGen(database))
+	registry.Add(commands.VoiceGen(database, bot))
 	registry.Add(commands.VoiceLog(database))
 	registry.Add(commands.AutoPublish(database))
 	registry.Add(commands.ReactionRole(database))
@@ -80,13 +96,6 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Timezone(database))
 	registry.Add(commands.Thread(database))
 	registry.Add(commands.Stock(database))
-
-	bot := &Bot{
-		Session:  session,
-		Config:   cfg,
-		Registry: registry,
-		DB:       database,
-	}
 
 	registry.Add(commands.AutoResponder(database, bot))
 	registry.Add(commands.Starboard(database))
@@ -2032,7 +2041,11 @@ func (b *Bot) voiceStateUpdateHandler(s *discordgo.Session, v *discordgo.VoiceSt
 				if currentGenerated < generatorConfig.MaxChannels {
 					var name string
 					if user != nil {
-						name = user.Username + "'s Channel"
+						if generatorConfig.DefaultNameTemplate != nil && *generatorConfig.DefaultNameTemplate != "" {
+							name = strings.ReplaceAll(*generatorConfig.DefaultNameTemplate, "{user}", user.Username)
+						} else {
+							name = user.Username + "'s Channel"
+						}
 					} else {
 						name = "Generated Channel"
 					}
@@ -2047,8 +2060,8 @@ func (b *Bot) voiceStateUpdateHandler(s *discordgo.Session, v *discordgo.VoiceSt
 					if err != nil {
 						slog.Error("Failed to create generated voice channel", "error", err)
 					} else {
-						// Track the generated channel
-						b.generatedVoiceChannels.Store(createdChannel.ID, true)
+						// Track the generated channel and its owner
+						b.generatedVoiceChannels.Store(createdChannel.ID, v.UserID)
 						err = s.GuildMemberMove(v.GuildID, v.UserID, &createdChannel.ID)
 						if err != nil {
 							slog.Error("Failed to move user to generated voice channel", "error", err)
