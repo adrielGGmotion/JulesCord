@@ -6227,3 +6227,35 @@ func (db *DB) GetReactionTriggers(ctx context.Context, guildID string) ([]Reacti
 	}
 	return triggers, nil
 }
+
+// SetVoiceRole sets the role to be assigned when users join a specific voice channel.
+func (db *DB) SetVoiceRole(ctx context.Context, guildID, channelID, roleID string) error {
+	query := `
+		INSERT INTO voice_roles (guild_id, channel_id, role_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, channel_id) DO UPDATE SET role_id = EXCLUDED.role_id
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID, roleID)
+	return err
+}
+
+// GetVoiceRole gets the role to be assigned when users join a specific voice channel.
+func (db *DB) GetVoiceRole(ctx context.Context, guildID, channelID string) (string, error) {
+	var roleID string
+	query := `SELECT role_id FROM voice_roles WHERE guild_id = $1 AND channel_id = $2`
+	err := db.Pool.QueryRow(ctx, query, guildID, channelID).Scan(&roleID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return "", nil
+		}
+		return "", err
+	}
+	return roleID, nil
+}
+
+// RemoveVoiceRole removes the configured voice role for a specific channel.
+func (db *DB) RemoveVoiceRole(ctx context.Context, guildID, channelID string) error {
+	query := `DELETE FROM voice_roles WHERE guild_id = $1 AND channel_id = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	return err
+}

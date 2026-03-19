@@ -1356,6 +1356,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 
 ### Completed Work
 
+- Implemented Phase 113 Voice Channel Roles System: added migrations `098_voice_roles.up.sql` and `098_voice_roles.down.sql` with table `voice_roles`.
+- Added DB operations `SetVoiceRole`, `GetVoiceRole`, and `RemoveVoiceRole` in `internal/db/db.go`.
+- Added `/voicerole` command in `internal/bot/commands/voicerole.go` with `set` and `remove` subcommands. Registered it in `internal/bot/bot.go`.
+- Updated `voiceStateUpdateHandler` in `internal/bot/bot.go` to assign the role when a user joins the channel and remove it when they leave.
+
 - Implemented Phase 112 Reaction Triggers: added migrations `097_reaction_triggers.up.sql` and `097_reaction_triggers.down.sql` with table `reaction_triggers`.
 - Added DB operations `AddReactionTrigger`, `RemoveReactionTrigger`, and `GetReactionTriggers` in `internal/db/db.go`.
 - Added `/reactiontrigger` command in `internal/bot/commands/reactiontrigger.go` with `add`, `remove`, and `list` subcommands. Registered it in `internal/bot/bot.go`.
@@ -1458,3 +1463,15 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `SetAutoDelete`, `GetAutoDelete`, `RemoveAutoDelete`
 - [x] `/autodelete` command with `setup` and `remove` subcommands
 - [x] Update `messageCreateHandler` to offload a goroutine that waits `delete_after` seconds and deletes the message in configured channels
+
+### Phase 113 — Voice Channel Roles System
+- [x] `migrations/098_voice_roles.up.sql` — `voice_roles` table (guild_id, channel_id, role_id)
+- [x] DB operations — `SetVoiceRole`, `GetVoiceRole`, `RemoveVoiceRole`
+- [x] `/voicerole` command with `set` and `remove` subcommands
+- [x] Update `voiceStateUpdateHandler` to assign the role when a user joins the channel and remove it when they leave
+
+### Phase 114 — Auto-Pin Messages System
+- [ ] `migrations/099_auto_pin.up.sql` — `auto_pin_config` table (guild_id, channel_id, reaction_threshold, emoji)
+- [ ] DB operations — `SetAutoPin`, `GetAutoPin`, `RemoveAutoPin`
+- [ ] `/autopin` command with `setup` and `remove` subcommands
+- [ ] Update `messageReactionAddHandler` to automatically pin messages that reach the reaction threshold

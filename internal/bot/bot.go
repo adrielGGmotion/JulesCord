@@ -169,6 +169,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.ThreadAuto(database))
 	registry.Add(commands.Keyword(database))
 	registry.Add(commands.ReactionTrigger(database))
+	registry.Add(commands.VoiceRole(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -1990,6 +1991,18 @@ func (b *Bot) voiceStateUpdateHandler(s *discordgo.Session, v *discordgo.VoiceSt
 	// If the channel ID didn't change, it's a mute/deafen or similar state update
 	if oldChannelID == newChannelID {
 		return
+	}
+
+	// Voice roles assignment
+	if oldChannelID != "" {
+		if roleID, err := b.DB.GetVoiceRole(context.Background(), v.GuildID, oldChannelID); err == nil && roleID != "" {
+			s.GuildMemberRoleRemove(v.GuildID, v.UserID, roleID)
+		}
+	}
+	if newChannelID != "" {
+		if roleID, err := b.DB.GetVoiceRole(context.Background(), v.GuildID, newChannelID); err == nil && roleID != "" {
+			s.GuildMemberRoleAdd(v.GuildID, v.UserID, roleID)
+		}
 	}
 
 	// Fetch user details. Try v.Member.User first, fallback to state cache/API
