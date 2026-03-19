@@ -5782,6 +5782,76 @@ func (db *DB) RemoveLevelingChannelBlacklist(ctx context.Context, guildID, chann
 	return err
 }
 
+// AddLevelMultiplier sets a multiplier for a role in a guild.
+func (db *DB) AddLevelMultiplier(ctx context.Context, guildID, roleID string, multiplier float64) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("AddLevelMultiplier").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		INSERT INTO leveling_multipliers (guild_id, role_id, multiplier)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, role_id) DO UPDATE
+		SET multiplier = EXCLUDED.multiplier
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, roleID, multiplier)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+	}
+	return err
+}
+
+// RemoveLevelMultiplier removes a multiplier for a role in a guild.
+func (db *DB) RemoveLevelMultiplier(ctx context.Context, guildID, roleID string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("RemoveLevelMultiplier").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		DELETE FROM leveling_multipliers
+		WHERE guild_id = $1 AND role_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, roleID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+	}
+	return err
+}
+
+// GetLevelMultipliers retrieves all multipliers for a guild.
+func (db *DB) GetLevelMultipliers(ctx context.Context, guildID string) (map[string]float64, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetLevelMultipliers").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		SELECT role_id, multiplier
+		FROM leveling_multipliers
+		WHERE guild_id = $1
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return nil, err
+	}
+	defer rows.Close()
+
+	multipliers := make(map[string]float64)
+	for rows.Next() {
+		var roleID string
+		var multiplier float64
+		if err := rows.Scan(&roleID, &multiplier); err != nil {
+			metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+			return nil, err
+		}
+		multipliers[roleID] = multiplier
+	}
+	return multipliers, nil
+}
+
 // GetLevelingChannelBlacklists retrieves all blacklisted channels for a guild.
 func (db *DB) GetLevelingChannelBlacklists(ctx context.Context, guildID string) ([]string, error) {
 	start := time.Now()

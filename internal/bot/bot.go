@@ -153,6 +153,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.ClearWarnings(database))
 	registry.Add(commands.LevelBlacklist(database))
 	registry.Add(commands.LevelChannelBlacklist(database))
+	registry.Add(commands.LevelMultiplier(database))
 	registry.Add(commands.Lock(database))
 	registry.Add(commands.AntiSpam(database))
 	registry.Add(commands.AdvancedLog(database))
@@ -167,7 +168,6 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Snippet(database))
 	registry.Add(commands.Translate(database))
 	registry.Add(commands.ThreadAuto(database))
-	registry.Add(commands.NewForwardCommand(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -996,6 +996,18 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 			if !isChannelBlacklisted && !hasBlacklistedRole {
 				// Award XP (e.g., random 15-25 XP)
 				amount := rand.Intn(11) + 15
+				multiplier := 1.0
+				if m.Member != nil && len(m.Member.Roles) > 0 {
+					multipliers, err := b.DB.GetLevelMultipliers(context.Background(), m.GuildID)
+					if err == nil {
+						for _, roleID := range m.Member.Roles {
+							if val, ok := multipliers[roleID]; ok && val > multiplier {
+								multiplier = val
+							}
+						}
+					}
+				}
+				amount = int(math.Round(float64(amount) * multiplier))
 
 				// Ensure user exists first
 				err = b.DB.UpsertUser(context.Background(), m.Author.ID, m.Author.Username, m.Author.GlobalName, m.Author.AvatarURL(""))
