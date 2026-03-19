@@ -3,9 +3,9 @@ package commands
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
-	"log/slog"
 
 	"julescord/internal/db"
 

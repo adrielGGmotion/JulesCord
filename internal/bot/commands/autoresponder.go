@@ -1,10 +1,10 @@
 package commands
 
 import (
-	"regexp"
 	"context"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"

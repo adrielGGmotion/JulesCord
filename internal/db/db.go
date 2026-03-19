@@ -5219,7 +5219,6 @@ func (db *DB) GetReactionRoleGroup(ctx context.Context, id int) (*ReactionRoleGr
 	return &g, nil
 }
 
-
 func (db *DB) SaveTicketTranscript(ctx context.Context, ticketID int, channelID, guildID, userID, transcriptURL string) error {
 	query := `
 		INSERT INTO ticket_transcripts (ticket_id, channel_id, guild_id, user_id, transcript_url)
@@ -5735,4 +5734,78 @@ func (db *DB) ToggleWelcomeDM(ctx context.Context, guildID string, enabled bool)
 		return err
 	}
 	return nil
+}
+
+// AddLevelingChannelBlacklist adds a channel to the leveling blacklist for a guild.
+func (db *DB) AddLevelingChannelBlacklist(ctx context.Context, guildID, channelID string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("AddLevelingChannelBlacklist").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		INSERT INTO leveling_channel_blacklist (guild_id, channel_id)
+		VALUES ($1, $2)
+		ON CONFLICT (guild_id, channel_id) DO NOTHING
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+	}
+	return err
+}
+
+// RemoveLevelingChannelBlacklist removes a channel from the leveling blacklist for a guild.
+func (db *DB) RemoveLevelingChannelBlacklist(ctx context.Context, guildID, channelID string) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("RemoveLevelingChannelBlacklist").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		DELETE FROM leveling_channel_blacklist
+		WHERE guild_id = $1 AND channel_id = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, channelID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+	}
+	return err
+}
+
+// GetLevelingChannelBlacklists retrieves all blacklisted channels for a guild.
+func (db *DB) GetLevelingChannelBlacklists(ctx context.Context, guildID string) ([]string, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetLevelingChannelBlacklists").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		SELECT channel_id
+		FROM leveling_channel_blacklist
+		WHERE guild_id = $1
+	`
+	rows, err := db.Pool.Query(ctx, query, guildID)
+	if err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return nil, err
+	}
+	defer rows.Close()
+
+	var blacklists []string
+	for rows.Next() {
+		var channelID string
+		if err := rows.Scan(&channelID); err != nil {
+			metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+			return nil, err
+		}
+		blacklists = append(blacklists, channelID)
+	}
+
+	if err := rows.Err(); err != nil {
+		metrics.ErrorCounter.WithLabelValues("db_query").Inc()
+		return nil, err
+	}
+
+	return blacklists, nil
 }

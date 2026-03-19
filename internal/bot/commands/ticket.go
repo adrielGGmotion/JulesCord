@@ -1,6 +1,5 @@
 package commands
 
-
 import (
 	"bytes"
 
@@ -68,7 +67,7 @@ func Ticket(database *db.DB) *Command {
 				HandleCreateTicket(s, i, database, subcommand.Options)
 			case "close":
 				handleCloseTicket(s, i, database)
-						case "transcripts":
+			case "transcripts":
 				handleTicketTranscripts(s, i, database)
 			case "panel":
 				handlePanelTicket(s, i, database)
@@ -336,7 +335,6 @@ func handleCloseTicket(s *discordgo.Session, i *discordgo.InteractionCreate, dat
 		}
 	}()
 }
-
 
 func handleTicketTranscripts(s *discordgo.Session, i *discordgo.InteractionCreate, database *db.DB) {
 	var userID string

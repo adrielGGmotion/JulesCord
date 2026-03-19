@@ -151,6 +151,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Unban(database))
 	registry.Add(commands.ClearWarnings(database))
 	registry.Add(commands.LevelBlacklist(database))
+	registry.Add(commands.LevelChannelBlacklist(database))
 	registry.Add(commands.Lock(database))
 	registry.Add(commands.AntiSpam(database))
 	registry.Add(commands.AdvancedLog(database))
@@ -905,6 +906,18 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 		}
 
 		if !onCooldown {
+			// Check if channel is blacklisted
+			isChannelBlacklisted := false
+			blacklistedChannels, err := b.DB.GetLevelingChannelBlacklists(context.Background(), m.GuildID)
+			if err == nil {
+				for _, channelID := range blacklistedChannels {
+					if m.ChannelID == channelID {
+						isChannelBlacklisted = true
+						break
+					}
+				}
+			}
+
 			// Check if user has a blacklisted role
 			hasBlacklistedRole := false
 			if m.Member != nil {
@@ -923,77 +936,75 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 				}
 			}
 
-			if hasBlacklistedRole {
-				return
-			}
+			if !isChannelBlacklisted && !hasBlacklistedRole {
+				// Award XP (e.g., random 15-25 XP)
+				amount := rand.Intn(11) + 15
 
-			// Award XP (e.g., random 15-25 XP)
-			amount := rand.Intn(11) + 15
-
-			// Ensure user exists first
-			err := b.DB.UpsertUser(context.Background(), m.Author.ID, m.Author.Username, m.Author.GlobalName, m.Author.AvatarURL(""))
-			if err != nil {
-				slog.Error("Failed to upsert user %s for XP", "arg1", m.Author.ID, "error", err)
-			} else {
-				// Add XP
-				newXP, err := b.DB.AddXP(context.Background(), m.GuildID, m.Author.ID, amount)
+				// Ensure user exists first
+				err = b.DB.UpsertUser(context.Background(), m.Author.ID, m.Author.Username, m.Author.GlobalName, m.Author.AvatarURL(""))
 				if err != nil {
-					slog.Error("Failed to add XP to user %s", "arg1", m.Author.ID, "error", err)
+					slog.Error("Failed to upsert user %s for XP", "arg1", m.Author.ID, "error", err)
 				} else {
-					// Update cooldown
-					b.xpCooldown.Store(cooldownKey, now)
+					// Add XP
+					newXP, err := b.DB.AddXP(context.Background(), m.GuildID, m.Author.ID, amount)
+					if err != nil {
+						slog.Error("Failed to add XP to user %s", "arg1", m.Author.ID, "error", err)
+					} else {
+						// Update cooldown
+						b.xpCooldown.Store(cooldownKey, now)
 
-					// Calculate new level: Level = floor(sqrt(XP) / 10)
-					// (Level 1 = 100 XP, Level 2 = 400 XP, Level 3 = 900 XP, etc.)
-					newLevel := int(math.Floor(math.Sqrt(float64(newXP)) / 10.0))
+						// Calculate new level: Level = floor(sqrt(XP) / 10)
+						// (Level 1 = 100 XP, Level 2 = 400 XP, Level 3 = 900 XP, etc.)
+						newLevel := int(math.Floor(math.Sqrt(float64(newXP)) / 10.0))
 
-					// Fetch current economy state to get the previous level
-					oldEcon, err := b.DB.GetUserEconomy(context.Background(), m.GuildID, m.Author.ID)
-					oldLevel := 0
-					if err == nil && oldEcon != nil {
-						oldLevel = oldEcon.Level
-					}
+						// Fetch current economy state to get the previous level
+						oldEcon, err := b.DB.GetUserEconomy(context.Background(), m.GuildID, m.Author.ID)
+						oldLevel := 0
+						if err == nil && oldEcon != nil {
+							oldLevel = oldEcon.Level
+						}
 
-					if newLevel > oldLevel {
-						// Update level in DB
-						err := b.DB.SetLevel(context.Background(), m.GuildID, m.Author.ID, newLevel)
-						if err != nil {
-							slog.Error("Failed to update level for user %s", "arg1", m.Author.ID, "error", err)
-						} else {
-							// Check for level role reward
-							roleID, coinsReward, roleErr := b.DB.GetLevelRole(context.Background(), m.GuildID, newLevel)
-							if roleErr != nil {
-								slog.Error("Failed to check for level role", "error", roleErr, "guild_id", m.GuildID, "level", newLevel)
+						if newLevel > oldLevel {
+							// Update level in DB
+							err := b.DB.SetLevel(context.Background(), m.GuildID, m.Author.ID, newLevel)
+							if err != nil {
+								slog.Error("Failed to update level for user %s", "arg1", m.Author.ID, "error", err)
 							} else {
-								if roleID != nil && *roleID != "" {
-									grantErr := s.GuildMemberRoleAdd(m.GuildID, m.Author.ID, *roleID)
-									if grantErr != nil {
-										slog.Error("Failed to grant level role", "error", grantErr, "guild_id", m.GuildID, "user_id", m.Author.ID, "role_id", *roleID)
-									} else {
-										slog.Info("Granted level role", "guild_id", m.GuildID, "user_id", m.Author.ID, "role_id", *roleID, "level", newLevel)
+								// Check for level role reward
+								roleID, coinsReward, roleErr := b.DB.GetLevelRole(context.Background(), m.GuildID, newLevel)
+								if roleErr != nil {
+									slog.Error("Failed to check for level role", "error", roleErr, "guild_id", m.GuildID, "level", newLevel)
+								} else {
+									if roleID != nil && *roleID != "" {
+										grantErr := s.GuildMemberRoleAdd(m.GuildID, m.Author.ID, *roleID)
+										if grantErr != nil {
+											slog.Error("Failed to grant level role", "error", grantErr, "guild_id", m.GuildID, "user_id", m.Author.ID, "role_id", *roleID)
+										} else {
+											slog.Info("Granted level role", "guild_id", m.GuildID, "user_id", m.Author.ID, "role_id", *roleID, "level", newLevel)
+										}
 									}
+									if coinsReward > 0 {
+										err := b.DB.AddCoins(context.Background(), m.GuildID, m.Author.ID, coinsReward)
+										if err != nil {
+											slog.Error("Failed to grant level role coins reward", "error", err, "guild_id", m.GuildID, "user_id", m.Author.ID, "coins", coinsReward)
+										} else {
+											slog.Info("Granted level role coins reward", "guild_id", m.GuildID, "user_id", m.Author.ID, "coins", coinsReward, "level", newLevel)
+										}
+									}
+								}
+
+								// Announce level up
+								msg := fmt.Sprintf("🎉 Congratulations <@%s>, you just advanced to **Level %d**!", m.Author.ID, newLevel)
+								if roleID != nil && *roleID != "" {
+									msg += fmt.Sprintf(" You've been awarded the <@&%s> role!", *roleID)
 								}
 								if coinsReward > 0 {
-									err := b.DB.AddCoins(context.Background(), m.GuildID, m.Author.ID, coinsReward)
-									if err != nil {
-										slog.Error("Failed to grant level role coins reward", "error", err, "guild_id", m.GuildID, "user_id", m.Author.ID, "coins", coinsReward)
-									} else {
-										slog.Info("Granted level role coins reward", "guild_id", m.GuildID, "user_id", m.Author.ID, "coins", coinsReward, "level", newLevel)
-									}
+									msg += fmt.Sprintf(" You've also been awarded **%d coins**!", coinsReward)
 								}
-							}
-
-							// Announce level up
-							msg := fmt.Sprintf("🎉 Congratulations <@%s>, you just advanced to **Level %d**!", m.Author.ID, newLevel)
-							if roleID != nil && *roleID != "" {
-								msg += fmt.Sprintf(" You've been awarded the <@&%s> role!", *roleID)
-							}
-							if coinsReward > 0 {
-								msg += fmt.Sprintf(" You've also been awarded **%d coins**!", coinsReward)
-							}
-							_, err = s.ChannelMessageSend(m.ChannelID, msg)
-							if err != nil {
-								slog.Error("Failed to send level up message", "error", err)
+								_, err = s.ChannelMessageSend(m.ChannelID, msg)
+								if err != nil {
+									slog.Error("Failed to send level up message", "error", err)
+								}
 							}
 						}
 					}
