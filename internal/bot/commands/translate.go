@@ -12,10 +12,10 @@ import (
 func Translate(database *db.DB) *Command {
 	return &Command{
 		Definition: &discordgo.ApplicationCommand{
-			Name:        "translate",
-			Description: "Translate text or configure translation settings",
+			Name:                     "translate",
+			Description:              "Translate text or configure translation settings",
 			DefaultMemberPermissions: func(p int64) *int64 { return &p }(discordgo.PermissionManageGuild),
-			DMPermission: func(b bool) *bool { return &b }(false),
+			DMPermission:             func(b bool) *bool { return &b }(false),
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Name:        "text",

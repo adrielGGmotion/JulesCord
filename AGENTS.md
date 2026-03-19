@@ -1564,3 +1564,45 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — `AddWelcomeRole`, `RemoveWelcomeRole`, `GetWelcomeRoles`
 - [x] `/welcomerole` command with `add`, `remove`, and `list` subcommands
 - [x] Update `guildMemberAddHandler` to assign the configured welcome roles when a user joins
+
+### Phase 121 — Economy Heists
+- [x] `migrations/106_economy_heists.up.sql` — `heists` table to store active heists (id, guild_id, target_user_id, status) and `heist_participants` table
+- [x] DB operations — `CreateHeist`, `JoinHeist`, `ResolveHeist`, `GetActiveHeists`
+- [x] `/heist` command with `start` and `join` subcommands
+- [x] Add a background goroutine `heistLoop` in `internal/bot/bot.go` to process and resolve active heists every minute
+
+### Phase 122 — News Ping Roles
+- [x] `migrations/107_news_pings.up.sql` — `news_ping_config` table (guild_id, channel_id, role_id)
+- [x] DB operations — `SetNewsPing`, `RemoveNewsPing`, `GetNewsPing`
+- [x] `/newsping` command with `set` and `remove` subcommands
+- [x] Update `messageCreateHandler` to automatically reply with a role ping when a message is posted in the configured channel
+
+### Phase 123 — Starboard Multi-Channel Extension
+- [x] `migrations/108_starboard_multi.up.sql` — `starboard_multi_config` table allowing multiple starboards per guild (guild_id, channel_id, emoji, threshold)
+- [x] DB operations — `AddMultiStarboard`, `RemoveMultiStarboard`, `GetMultiStarboards`
+- [x] `/starboard multi` command with `add`, `remove`, and `list` subcommands
+- [x] Update `messageReactionAddHandler` in `internal/bot/bot.go` to evaluate and post to multiple starboards based on custom emojis
+
+### Phase 124 — Thread Watchers
+- [x] `migrations/109_thread_watchers.up.sql` — `thread_watchers` table (guild_id, channel_id, user_id)
+- [x] DB operations — `AddThreadWatcher`, `RemoveThreadWatcher`, `GetThreadWatchers`
+- [x] `/threadwatch` command with `add` and `remove` subcommands
+- [x] Update `threadCreateHandler` in `internal/bot/bot.go` to automatically add watching users to newly created threads
+
+### Phase 125 — Economy Trade System
+- [ ] `migrations/110_economy_trades.up.sql` — `trades` table for item/coin exchanges (id, guild_id, sender_id, receiver_id, status)
+- [ ] DB operations — `CreateTrade`, `AcceptTrade`, `CancelTrade`
+- [ ] `/trade` command with `offer` and `accept` subcommands
+- [ ] Update background tasks or interaction handlers to auto-cancel pending trades after 10 minutes
+
+### Phase 126 — Voice Time Tracking
+- [ ] `migrations/111_voice_time.up.sql` — `voice_time_stats` table to persist total time spent
+- [ ] DB operations — `AddVoiceTime`, `GetTopVoiceUsers`
+- [ ] `/voicetime` command to check total stats or view a leaderboard
+- [ ] Update `voiceStateUpdateHandler` to add total seconds to user stats upon leaving
+
+### Phase 127 — Global Economy Multipliers
+- [ ] `migrations/112_global_multipliers.up.sql` — `global_multipliers` table for weekend events (guild_id, factor, expires_at)
+- [ ] DB operations — `SetGlobalMultiplier`, `GetActiveMultipliers`
+- [ ] `/multiplier` command allowing admins to trigger global XP/Coin boosts
+- [ ] Update economy logic to factor in active global multipliers

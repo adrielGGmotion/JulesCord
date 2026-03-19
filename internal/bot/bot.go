@@ -150,7 +150,10 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Work(database))
 	registry.Add(commands.Crime(database))
 	registry.Add(commands.Rob(database))
+	registry.Add(commands.Heist(database))
+	registry.Add(commands.NewsPing(database))
 	registry.Add(commands.Use(database))
+	registry.Add(commands.ThreadWatch(database))
 	registry.Add(commands.Bank(database))
 	registry.Add(commands.Pet(database))
 	registry.Add(commands.Job(database))
@@ -266,6 +269,8 @@ func (b *Bot) threadCreateHandler(s *discordgo.Session, t *discordgo.ThreadCreat
 	// We only want to join automatically when the thread is newly created
 	if t.NewlyCreated {
 		ctx := context.Background()
+
+		// Thread Automation
 		autoJoin, err := b.DB.GetThreadAutomation(ctx, t.GuildID, t.ParentID)
 		if err == nil && autoJoin {
 			err = s.ThreadJoin(t.ID)
@@ -273,6 +278,17 @@ func (b *Bot) threadCreateHandler(s *discordgo.Session, t *discordgo.ThreadCreat
 				slog.Error("Failed to auto-join thread", "thread_id", t.ID, "guild_id", t.GuildID, "error", err)
 			} else {
 				slog.Info("Automatically joined thread", "thread_id", t.ID, "guild_id", t.GuildID)
+			}
+		}
+
+		// Thread Watchers
+		watchers, err := b.DB.GetThreadWatchers(ctx, t.GuildID, t.ParentID)
+		if err == nil && len(watchers) > 0 {
+			for _, watcherID := range watchers {
+				err = s.ThreadMemberAdd(t.ID, watcherID)
+				if err != nil {
+					slog.Error("Failed to add watcher to thread", "error", err, "thread_id", t.ID, "user_id", watcherID)
+				}
 			}
 		}
 	}
@@ -287,9 +303,100 @@ func (b *Bot) Start() error {
 	}
 
 	go b.stockMarketLoop()
+	go b.heistLoop()
 
 	slog.Info("Discord bot started successfully.")
 	return nil
+}
+
+// heistLoop runs every minute to resolve active heists that have passed their planning phase.
+func (b *Bot) heistLoop() {
+	ticker := time.NewTicker(1 * time.Minute)
+	for range ticker.C {
+		if b.DB == nil {
+			continue
+		}
+
+		ctx := context.Background()
+		heists, err := b.DB.GetActiveHeists(ctx)
+		if err != nil {
+			slog.Error("Failed to fetch active heists", "error", err)
+			continue
+		}
+
+		for _, h := range heists {
+			// Resolve heist
+			participantCount := len(h.Participants)
+			if participantCount == 0 {
+				b.DB.ResolveHeist(ctx, h.ID, false)
+				continue
+			}
+
+			// Success rate logic:
+			// Base rate 20%. +10% per participant up to max 80%.
+			successRate := 20 + (participantCount * 10)
+			if successRate > 80 {
+				successRate = 80
+			}
+
+			// If success: steal from target's bank and distribute evenly
+			// If fail: fine participants and give to target
+			success := (rand.Intn(100) < successRate)
+
+			// Fetch target economy
+			targetEcon, err := b.DB.GetUserEconomy(ctx, h.GuildID, h.TargetUserID)
+			if err != nil || targetEcon == nil {
+				b.DB.ResolveHeist(ctx, h.ID, false)
+				continue
+			}
+
+			targetUser, err := b.Session.User(h.TargetUserID)
+			if err != nil {
+				continue
+			}
+
+			if success {
+				// Steal up to 50% of the target's bank
+				stolenAmount := int(float64(targetEcon.Bank) * 0.5)
+				share := int(float64(stolenAmount) / float64(participantCount))
+
+				b.DB.WithdrawCoins(ctx, h.GuildID, h.TargetUserID, int64(stolenAmount))
+
+				crewMentions := ""
+				for _, pid := range h.Participants {
+					// Add to participant's coins
+					_ = b.DB.AddCoins(ctx, h.GuildID, pid, share)
+					crewMentions += fmt.Sprintf("<@%s> ", pid)
+				}
+				b.DB.ResolveHeist(ctx, h.ID, true)
+
+				channel, err := b.DB.GetServerLogChannel(ctx, h.GuildID)
+				if err == nil && channel != "" {
+					b.Session.ChannelMessageSend(channel, fmt.Sprintf("💰 **HEIST SUCCESS!** The crew %s successfully robbed **%s**'s bank for **%d coins**! (Each member got **%d coins**)", crewMentions, targetUser.Username, stolenAmount, share))
+				}
+			} else {
+				// Fine participants 500 coins each, give to target
+				fineAmount := 500
+				totalFine := int64(0)
+
+				crewMentions := ""
+				for _, pid := range h.Participants {
+					_ = b.DB.RemoveCoins(ctx, h.GuildID, pid, fineAmount)
+					totalFine += int64(fineAmount)
+					crewMentions += fmt.Sprintf("<@%s> ", pid)
+				}
+
+				// Give fines to target's bank
+				b.DB.DepositCoins(ctx, h.GuildID, h.TargetUserID, totalFine)
+				b.DB.ResolveHeist(ctx, h.ID, false)
+
+				channel, err := b.DB.GetServerLogChannel(ctx, h.GuildID)
+				if err == nil && channel != "" {
+					b.Session.ChannelMessageSend(channel, fmt.Sprintf("🚓 **HEIST FAILED!** The crew %s was caught trying to rob **%s**! They were each fined **%d coins**, which went to the target's bank.", crewMentions, targetUser.Username, fineAmount))
+				}
+			}
+		}
+	}
 }
 
 // Stop closes the connection to Discord gracefully.
@@ -672,6 +779,17 @@ func (b *Bot) messageCreateHandler(s *discordgo.Session, m *discordgo.MessageCre
 	// Ignore all messages created by the bot itself or other bots
 	if m.Author.ID == s.State.User.ID || m.Author.Bot {
 		return
+	}
+
+	// News Ping System
+	if b.DB != nil && m.GuildID != "" {
+		roleID, err := b.DB.GetNewsPing(context.Background(), m.GuildID, m.ChannelID)
+		if err == nil && roleID != "" {
+			_, err = s.ChannelMessageSendReply(m.ChannelID, fmt.Sprintf("<@&%s>", roleID), m.Reference())
+			if err != nil {
+				slog.Error("Failed to send news ping", "error", err)
+			}
+		}
 	}
 
 	// Auto-Delete System
@@ -1741,7 +1859,16 @@ func (b *Bot) checkReminders() {
 
 // handleStarboardReaction processes reactions to check if they should be added/updated on the starboard.
 func (b *Bot) handleStarboardReaction(s *discordgo.Session, guildID, channelID, messageID, emojiName string) {
-	if b.DB == nil || guildID == "" || emojiName != "⭐" {
+	if b.DB == nil || guildID == "" {
+		return
+	}
+
+	b.handleStandardStarboardReaction(s, guildID, channelID, messageID, emojiName)
+	b.handleMultiStarboardReaction(s, guildID, channelID, messageID, emojiName)
+}
+
+func (b *Bot) handleStandardStarboardReaction(s *discordgo.Session, guildID, channelID, messageID, emojiName string) {
+	if emojiName != "⭐" {
 		return
 	}
 
@@ -2761,6 +2888,91 @@ func (b *Bot) stockMarketLoop() {
 			slog.Error("Failed to update stock prices", "error", err)
 		} else {
 			slog.Info("Successfully updated stock market prices")
+		}
+	}
+}
+
+func (b *Bot) handleMultiStarboardReaction(s *discordgo.Session, guildID, channelID, messageID, emojiName string) {
+	ctx := context.Background()
+	multiConfigs, err := b.DB.GetMultiStarboards(ctx, guildID)
+	if err != nil || len(multiConfigs) == 0 {
+		return
+	}
+
+	for _, config := range multiConfigs {
+		if config.Emoji != emojiName {
+			continue
+		}
+
+		// Prevent loops
+		if channelID == config.ChannelID {
+			continue
+		}
+
+		msg, err := s.ChannelMessage(channelID, messageID)
+		if err != nil {
+			continue
+		}
+
+		var count int
+		for _, reaction := range msg.Reactions {
+			if reaction.Emoji.Name == emojiName {
+				count = reaction.Count
+				break
+			}
+		}
+
+		if count == 0 {
+			continue
+		}
+
+		starboardMessageID, _ := b.DB.GetMultiStarboardMessage(ctx, guildID, messageID, config.ID)
+
+		authorName := msg.Author.Username
+		if msg.Author.GlobalName != "" {
+			authorName = msg.Author.GlobalName
+		}
+
+		embed := &discordgo.MessageEmbed{
+			Author: &discordgo.MessageEmbedAuthor{
+				Name:    authorName,
+				IconURL: msg.Author.AvatarURL(""),
+			},
+			Description: msg.Content,
+			Color:       0xFFD700,
+			Timestamp:   msg.Timestamp.Format(time.RFC3339),
+		}
+
+		embed.Description += fmt.Sprintf("\n\n[Jump to Message](https://discord.com/channels/%s/%s/%s)", guildID, channelID, messageID)
+
+		if len(msg.Attachments) > 0 {
+			embed.Image = &discordgo.MessageEmbedImage{
+				URL: msg.Attachments[0].URL,
+			}
+		}
+
+		text := fmt.Sprintf("%s **%d** | <#%s>", emojiName, count, channelID)
+
+		if count >= config.Threshold {
+			if starboardMessageID == "" {
+				sentMsg, err := s.ChannelMessageSendComplex(config.ChannelID, &discordgo.MessageSend{
+					Content: text,
+					Embeds:  []*discordgo.MessageEmbed{embed},
+				})
+				if err == nil {
+					b.DB.UpsertMultiStarboardMessage(ctx, guildID, messageID, config.ID, sentMsg.ID, count)
+				}
+			} else {
+				_, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
+					Channel: config.ChannelID,
+					ID:      starboardMessageID,
+					Content: &text,
+					Embeds:  &[]*discordgo.MessageEmbed{embed},
+				})
+				if err == nil {
+					b.DB.UpsertMultiStarboardMessage(ctx, guildID, messageID, config.ID, starboardMessageID, count)
+				}
+			}
 		}
 	}
 }

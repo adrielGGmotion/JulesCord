@@ -101,8 +101,8 @@ func Bank(database *db.DB) *Command {
 				}
 
 				embed := &discordgo.MessageEmbed{
-					Title: "🏦 Bank Balance",
-					Color: 0x2ecc71,
+					Title:       "🏦 Bank Balance",
+					Color:       0x2ecc71,
 					Description: desc,
 				}
 				s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
