@@ -1449,6 +1449,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `messageCreateHandler` to DM users when their keyword is mentioned in the guild
 
 ### Completed Work
+- Implemented Phase 131 Advanced Warnings System: added migrations `116_advanced_warnings.up.sql` and `116_advanced_warnings.down.sql` with table `advanced_warnings`.
+- Added DB operations `AddAdvancedWarning`, `GetAdvancedWarnings`, `RemoveAdvancedWarning`, `ClearAdvancedWarnings`, and `GetExpiredAdvancedWarnings` in `internal/db/db.go`.
+- Added `/advwarn` command in `internal/bot/commands/advwarn.go` with `issue`, `list`, and `remove` subcommands. Registered it in `internal/bot/bot.go`.
+- Added a background goroutine `checkExpiredAdvancedWarnings` in `internal/bot/bot.go` to periodically remove expired advanced warnings.
+
 - Implemented Phase 130 Economy Coinflip Bet: added migrations `115_economy_coinflip.up.sql` and `115_economy_coinflip.down.sql` with table `coinflip_bets`.
 - Added DB operations `CreateCoinflipBet`, `AcceptCoinflipBet`, and `CancelCoinflipBet` in `internal/db/db.go`.
 - Added `/coinflipbet` command in `internal/bot/commands/coinflipbet.go` with `host` and `accept` subcommands. Registered it in `internal/bot/bot.go`.
@@ -1660,10 +1665,10 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Implement flip logic upon acceptance and transfer coins from loser to winner
 
 ### Phase 131 — Advanced Warnings
-- [ ] `migrations/116_advanced_warnings.up.sql` — `advanced_warnings` table (id, guild_id, user_id, moderator_id, reason, active, created_at, expires_at)
-- [ ] DB operations — `AddAdvancedWarning`, `GetAdvancedWarnings`, `RemoveAdvancedWarning`, `ClearAdvancedWarnings`
-- [ ] `/advwarn` command with `issue`, `list`, and `remove` subcommands
-- [ ] Background goroutine to check for and expire advanced warnings based on `expires_at`
+- [x] `migrations/116_advanced_warnings.up.sql` — `advanced_warnings` table (id, guild_id, user_id, moderator_id, reason, active, created_at, expires_at)
+- [x] DB operations — `AddAdvancedWarning`, `GetAdvancedWarnings`, `RemoveAdvancedWarning`, `ClearAdvancedWarnings`
+- [x] `/advwarn` command with `issue`, `list`, and `remove` subcommands
+- [x] Background goroutine to check for and expire advanced warnings based on `expires_at`
 
 ### Phase 132 — Custom Emoji Manager
 - [ ] DB operations — (No new tables needed, just Discord API interactions)

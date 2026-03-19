@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS advanced_warnings (
+    id SERIAL PRIMARY KEY,
+    guild_id VARCHAR(30) NOT NULL,
+    user_id VARCHAR(30) NOT NULL,
+    moderator_id VARCHAR(30) NOT NULL,
+    reason TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP WITH TIME ZONE
+);

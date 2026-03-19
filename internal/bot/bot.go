@@ -192,6 +192,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Lottery(database))
 	registry.Add(commands.Bounty(database))
 	registry.Add(commands.CoinflipBet(database))
+	registry.Add(commands.AdvWarn(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -311,9 +312,35 @@ func (b *Bot) Start() error {
 	go b.stockMarketLoop()
 	go b.heistLoop()
 	go b.lotteryLoop()
+	go b.checkExpiredAdvancedWarnings()
 
 	slog.Info("Discord bot started successfully.")
 	return nil
+}
+
+// checkExpiredAdvancedWarnings runs every minute to remove expired advanced warnings.
+func (b *Bot) checkExpiredAdvancedWarnings() {
+	ticker := time.NewTicker(1 * time.Minute)
+	for range ticker.C {
+		if b.DB == nil {
+			continue
+		}
+
+		warnings, err := b.DB.GetExpiredAdvancedWarnings(context.Background())
+		if err != nil {
+			slog.Error("Failed to fetch expired advanced warnings", "error", err)
+			continue
+		}
+
+		for _, w := range warnings {
+			err = b.DB.RemoveAdvancedWarning(context.Background(), w.ID, w.GuildID)
+			if err != nil {
+				slog.Error("Failed to remove expired advanced warning", "id", w.ID, "error", err)
+			} else {
+				slog.Info("Removed expired advanced warning", "id", w.ID, "user", w.UserID)
+			}
+		}
+	}
 }
 
 // heistLoop runs every minute to resolve active heists that have passed their planning phase.
