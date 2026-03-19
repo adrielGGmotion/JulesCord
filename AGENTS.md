@@ -76,6 +76,10 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 105 Message Snippets features: added migrations `090_message_snippets.up.sql` and `090_message_snippets.down.sql` with table `message_snippets`.
+- Added DB operations `AddSnippet`, `RemoveSnippet`, `GetSnippet`, and `ListSnippets` in `internal/db/db.go`.
+- Added `/snippet` command in `internal/bot/commands/snippet.go` with `add`, `remove`, `list`, and `send` subcommands. Registered it in `internal/bot/bot.go`.
+
 - Implemented Phase 101 Welcome DMs System: added migrations `086_welcome_dms.up.sql` and `086_welcome_dms.down.sql` with table `welcome_dm_config`.
 - Added DB operations `SetWelcomeDM`, `GetWelcomeDM`, and `ToggleWelcomeDM` in `internal/db/db.go`.
 - Added `/welcomedm` command in `internal/bot/commands/welcomedm.go` with `set`, `enable`, and `disable` subcommands.
@@ -282,6 +286,13 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 - Updated `internal/bot/bot.go` to register the `reactiongroup` command.
 
 ## Task Checklist
+
+### Phase 105 — Message Snippets / Macros
+- [x] `migrations/090_message_snippets.up.sql` — `message_snippets` table (id, guild_id, name, content)
+- [x] DB operations — `AddSnippet`, `RemoveSnippet`, `GetSnippet`, `ListSnippets`
+- [x] `/snippet` command with `add`, `remove`, `list`, and `send` subcommands
+- [x] Update `internal/bot/bot.go` to register the `snippet` command
+
 
 ### Phase 104 — User Warn Level Automation
 - [x] `migrations/089_warn_automation.sql` — `warn_automation_config` table (guild_id, warning_threshold, action, duration)
