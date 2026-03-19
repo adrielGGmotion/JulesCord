@@ -283,6 +283,12 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Task Checklist
 
+### Phase 104 — User Warn Level Automation
+- [x] `migrations/089_warn_automation.sql` — `warn_automation_config` table (guild_id, warning_threshold, action, duration)
+- [x] DB operations — `AddWarnAutomationRule`, `RemoveWarnAutomationRule`, `GetWarnAutomationRules`
+- [x] `/warnautomod` command with `add` and `remove` subcommands
+- [x] Update `/warn` command logic to evaluate warning count and automatically apply configured punishments (mute, kick, ban)
+
 ### Phase 103 — Leveling Channel Blacklist System
 - [x] `migrations/088_leveling_channel_blacklist.sql` — `leveling_channel_blacklist` table (id, guild_id, channel_id)
 - [x] DB operations — `AddLevelingChannelBlacklist`, `RemoveLevelingChannelBlacklist`, `GetLevelingChannelBlacklists`
@@ -1284,6 +1290,11 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `messageCreateHandler` to skip awarding XP if the user has a blacklisted role
 
 ### Completed Work
+
+- Implemented Phase 104 User Warn Level Automation: added migrations `089_warn_automation.up.sql` and `089_warn_automation.down.sql` with table `warn_automation_config`.
+- Added DB operations `AddWarnAutomationRule`, `RemoveWarnAutomationRule`, and `GetWarnAutomationRules` in `internal/db/db.go`.
+- Added `/warnautomod` command in `internal/bot/commands/warnautomod.go` with `add` and `remove` subcommands. Registered it in `internal/bot/bot.go`.
+- Updated `/warn` command in `internal/bot/commands/warn.go` to evaluate user warning counts and automatically trigger mute, kick, or ban actions based on configured automation rules.
 
 - Implemented Phase 103 Leveling Channel Blacklist System: added migrations `088_leveling_channel_blacklist.up.sql` and `088_leveling_channel_blacklist.down.sql` with table `leveling_channel_blacklist`.
 - Added DB operations `AddLevelingChannelBlacklist`, `RemoveLevelingChannelBlacklist`, and `GetLevelingChannelBlacklists` in `internal/db/db.go`.
