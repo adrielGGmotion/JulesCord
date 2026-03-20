@@ -7861,3 +7861,104 @@ func (db *DB) GetExpiredAdvancedWarnings(ctx context.Context) ([]AdvancedWarning
 	}
 	return warnings, rows.Err()
 }
+
+// Phase 133: Cross-Server Economy
+
+func (db *DB) GetGlobalCoins(ctx context.Context, userID string) (int64, error) {
+	var totalCoins int64
+	err := db.Pool.QueryRow(ctx, `
+		SELECT total_coins
+		FROM global_economy
+		WHERE user_id = $1
+	`, userID).Scan(&totalCoins)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return totalCoins, nil
+}
+
+func (db *DB) TransferGlobalCoins(ctx context.Context, senderID, receiverID string, amount int64) error {
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	// Lock order by ID to prevent deadlocks
+	user1, user2 := senderID, receiverID
+	if user1 > user2 {
+		user1, user2 = user2, user1
+	}
+
+	_, err = tx.Exec(ctx, `
+		SELECT 1 FROM global_economy WHERE user_id IN ($1, $2) FOR UPDATE
+	`, user1, user2)
+	if err != nil {
+		return err
+	}
+
+	// Ensure sender has enough coins
+	var senderCoins int64
+	err = tx.QueryRow(ctx, `
+		SELECT total_coins
+		FROM global_economy
+		WHERE user_id = $1
+	`, senderID).Scan(&senderCoins)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return fmt.Errorf("insufficient funds")
+		}
+		return err
+	}
+
+	if senderCoins < amount {
+		return fmt.Errorf("insufficient funds")
+	}
+
+	// Deduct from sender
+	_, err = tx.Exec(ctx, `
+		UPDATE global_economy
+		SET total_coins = total_coins - $2
+		WHERE user_id = $1
+	`, senderID, amount)
+	if err != nil {
+		return err
+	}
+
+	// Add to receiver
+	_, err = tx.Exec(ctx, `
+		INSERT INTO global_economy (user_id, total_coins)
+		VALUES ($1, $2)
+		ON CONFLICT (user_id) DO UPDATE
+		SET total_coins = global_economy.total_coins + $2
+	`, receiverID, amount)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// AddGlobalCoins is a helper method to mint/add global coins
+func (db *DB) AddGlobalCoins(ctx context.Context, userID string, amount int64) error {
+	_, err := db.Pool.Exec(ctx, `
+		INSERT INTO global_economy (user_id, total_coins)
+		VALUES ($1, $2)
+		ON CONFLICT (user_id) DO UPDATE
+		SET total_coins = global_economy.total_coins + $2
+	`, userID, amount)
+	return err
+}
+
+// RemoveGlobalCoins is a helper method to remove global coins
+func (db *DB) RemoveGlobalCoins(ctx context.Context, userID string, amount int64) error {
+	_, err := db.Pool.Exec(ctx, `
+		UPDATE global_economy
+		SET total_coins = total_coins - $2
+		WHERE user_id = $1 AND total_coins >= $2
+	`, userID, amount)
+	return err
+}

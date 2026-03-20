@@ -75,6 +75,15 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 ---
 
 ## Completed Work
+- Implemented Phase 133 Cross-Server Economy: added migrations `117_cross_server_economy.up.sql` and `117_cross_server_economy.down.sql` with table `global_economy`.
+- Added DB operations `TransferGlobalCoins`, `GetGlobalCoins`, `AddGlobalCoins`, and `RemoveGlobalCoins` in `internal/db/db.go`.
+- Added `/globaleco` command in `internal/bot/commands/globaleco.go` with `balance` and `transfer` subcommands. Registered it in `internal/bot/bot.go`.
+
+- Implemented Phase 128 Economy Lotteries: added migrations `113_economy_lotteries.up.sql` and `113_economy_lotteries.down.sql` with tables `lotteries` and `lottery_tickets`.
+- Added DB operations `CreateLottery`, `BuyLotteryTicket`, `GetActiveLotteries`, and `ResolveLottery` in `internal/db/db.go`.
+- Added `/lottery` command in `internal/bot/commands/lottery.go` with `create`, `buy`, and `list` subcommands.
+- Added a background goroutine `lotteryLoop` in `internal/bot/bot.go` to resolve ended lotteries and award coins to a random ticket holder, and registered the `lottery` command.
+
 
 - Implemented Phase 132 Custom Emoji Manager: added `/emojimanager` command in `internal/bot/commands/emojimanager.go` with `add`, `remove`, and `list` subcommands using Discord API interactions. Added chunking for `list` subcommand to prevent exceeding embed description limits, and base64 parsing for `add` subcommand. Registered the `emojimanager` command in `internal/bot/bot.go`.
 
@@ -1457,6 +1466,15 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `messageCreateHandler` to DM users when their keyword is mentioned in the guild
 
 ### Completed Work
+- Implemented Phase 133 Cross-Server Economy: added migrations `117_cross_server_economy.up.sql` and `117_cross_server_economy.down.sql` with table `global_economy`.
+- Added DB operations `TransferGlobalCoins`, `GetGlobalCoins`, `AddGlobalCoins`, and `RemoveGlobalCoins` in `internal/db/db.go`.
+- Added `/globaleco` command in `internal/bot/commands/globaleco.go` with `balance` and `transfer` subcommands. Registered it in `internal/bot/bot.go`.
+
+- Implemented Phase 128 Economy Lotteries: added migrations `113_economy_lotteries.up.sql` and `113_economy_lotteries.down.sql` with tables `lotteries` and `lottery_tickets`.
+- Added DB operations `CreateLottery`, `BuyLotteryTicket`, `GetActiveLotteries`, and `ResolveLottery` in `internal/db/db.go`.
+- Added `/lottery` command in `internal/bot/commands/lottery.go` with `create`, `buy`, and `list` subcommands.
+- Added a background goroutine `lotteryLoop` in `internal/bot/bot.go` to resolve ended lotteries and award coins to a random ticket holder, and registered the `lottery` command.
+
 - Implemented Phase 131 Advanced Warnings System: added migrations `116_advanced_warnings.up.sql` and `116_advanced_warnings.down.sql` with table `advanced_warnings`.
 - Added DB operations `AddAdvancedWarning`, `GetAdvancedWarnings`, `RemoveAdvancedWarning`, `ClearAdvancedWarnings`, and `GetExpiredAdvancedWarnings` in `internal/db/db.go`.
 - Added `/advwarn` command in `internal/bot/commands/advwarn.go` with `issue`, `list`, and `remove` subcommands. Registered it in `internal/bot/bot.go`.
@@ -1682,3 +1700,15 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — (No new tables needed, just Discord API interactions)
 - [x] `/emojimanager` command with `add` (url), `remove` (name/id), and `list` subcommands
 - [x] Update `internal/bot/bot.go` to register the `emojimanager` command
+
+### Phase 133 — Cross-Server Economy
+- [x] `migrations/117_cross_server_economy.up.sql` — `global_economy` table (user_id, total_coins)
+- [x] DB operations — `TransferGlobalCoins`, `GetGlobalCoins`
+- [x] `/globaleco` command with `balance` and `transfer` subcommands
+- [x] Update `internal/bot/bot.go` to register the `globaleco` command
+
+### Phase 134 — Verification Panels Extension
+- [ ] `migrations/118_verification_questions.up.sql` — `verification_questions` table (id, guild_id, question, correct_answer)
+- [ ] DB operations — `AddVerificationQuestion`, `GetVerificationQuestions`, `RemoveVerificationQuestion`
+- [ ] `/verifyquestion` command with `add` and `remove` subcommands
+- [ ] Update verification handler to DM user the questions and wait for correct answers before verifying
