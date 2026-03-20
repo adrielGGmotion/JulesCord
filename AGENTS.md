@@ -75,6 +75,11 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 ---
 
 ## Completed Work
+- Implemented Phase 128 Economy Lotteries: added migrations `113_economy_lotteries.up.sql` and `113_economy_lotteries.down.sql` with tables `lotteries` and `lottery_tickets`.
+- Added DB operations `CreateLottery`, `BuyLotteryTicket`, `GetActiveLotteries`, and `ResolveLottery` in `internal/db/db.go`.
+- Added `/lottery` command in `internal/bot/commands/lottery.go` with `create`, `buy`, and `list` subcommands.
+- Added a background goroutine `lotteryLoop` in `internal/bot/bot.go` to resolve ended lotteries and award coins to a random ticket holder, and registered the `lottery` command.
+
 
 - Implemented Phase 132 Custom Emoji Manager: added `/emojimanager` command in `internal/bot/commands/emojimanager.go` with `add`, `remove`, and `list` subcommands using Discord API interactions. Added chunking for `list` subcommand to prevent exceeding embed description limits, and base64 parsing for `add` subcommand. Registered the `emojimanager` command in `internal/bot/bot.go`.
 
@@ -1457,6 +1462,19 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] Update `messageCreateHandler` to DM users when their keyword is mentioned in the guild
 
 ### Completed Work
+- Implemented Phase 133 Web Dashboard Economy Integration:
+- Updated `UserWithEconomy` struct and `GetUsersWithEconomy` query in `internal/db/db.go` to include `coins` and `bank` fields.
+- Added `GetUserWithEconomyByID` in `internal/db/db.go`.
+- Updated `/api/users` and added `/api/users/:id` endpoints in `internal/api/server.go`.
+- Updated `web/src/pages/Users.jsx` to display `Coins` and `Bank` columns.
+- Created `web/src/pages/Economy.jsx` leaderboard component showing Top 50 users by net worth.
+- Registered Economy route in `web/src/App.jsx` and `web/src/components/Layout.jsx`.
+
+- Implemented Phase 128 Economy Lotteries: added migrations `113_economy_lotteries.up.sql` and `113_economy_lotteries.down.sql` with tables `lotteries` and `lottery_tickets`.
+- Added DB operations `CreateLottery`, `BuyLotteryTicket`, `GetActiveLotteries`, and `ResolveLottery` in `internal/db/db.go`.
+- Added `/lottery` command in `internal/bot/commands/lottery.go` with `create`, `buy`, and `list` subcommands.
+- Added a background goroutine `lotteryLoop` in `internal/bot/bot.go` to resolve ended lotteries and award coins to a random ticket holder, and registered the `lottery` command.
+
 - Implemented Phase 131 Advanced Warnings System: added migrations `116_advanced_warnings.up.sql` and `116_advanced_warnings.down.sql` with table `advanced_warnings`.
 - Added DB operations `AddAdvancedWarning`, `GetAdvancedWarnings`, `RemoveAdvancedWarning`, `ClearAdvancedWarnings`, and `GetExpiredAdvancedWarnings` in `internal/db/db.go`.
 - Added `/advwarn` command in `internal/bot/commands/advwarn.go` with `issue`, `list`, and `remove` subcommands. Registered it in `internal/bot/bot.go`.
@@ -1682,3 +1700,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — (No new tables needed, just Discord API interactions)
 - [x] `/emojimanager` command with `add` (url), `remove` (name/id), and `list` subcommands
 - [x] Update `internal/bot/bot.go` to register the `emojimanager` command
+
+### Phase 133 — Web Dashboard Economy Integration
+- [x] Backend: Update `/api/users` and `/api/users/:id` to include economy data (coins, bank, max_level).
+- [x] Frontend: Add Economy stats (Coins, Bank) to the Users table in `web/src/pages/Users.jsx`.
+- [x] Frontend: Add a dedicated "Economy" page at `web/src/pages/Economy.jsx` to show a leaderboard (Top 50 users by coins/bank combined).
+- [x] Frontend: Update routing in `web/src/App.jsx` to include the Economy page.
