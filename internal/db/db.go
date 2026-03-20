@@ -7861,3 +7861,35 @@ func (db *DB) GetExpiredAdvancedWarnings(ctx context.Context) ([]AdvancedWarning
 	}
 	return warnings, rows.Err()
 }
+
+// SetVoiceLink sets a voice channel to text channel link.
+func (db *DB) SetVoiceLink(ctx context.Context, guildID, voiceChannelID, textChannelID string) error {
+	query := `
+		INSERT INTO voice_link_config (guild_id, voice_channel_id, text_channel_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (guild_id, voice_channel_id) DO UPDATE SET text_channel_id = EXCLUDED.text_channel_id
+	`
+	_, err := db.Pool.Exec(ctx, query, guildID, voiceChannelID, textChannelID)
+	return err
+}
+
+// GetVoiceLink retrieves a linked text channel for a voice channel.
+func (db *DB) GetVoiceLink(ctx context.Context, guildID, voiceChannelID string) (*string, error) {
+	query := `SELECT text_channel_id FROM voice_link_config WHERE guild_id = $1 AND voice_channel_id = $2`
+	var textChannelID string
+	err := db.Pool.QueryRow(ctx, query, guildID, voiceChannelID).Scan(&textChannelID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // Not linked
+		}
+		return nil, err
+	}
+	return &textChannelID, nil
+}
+
+// RemoveVoiceLink removes a voice channel to text channel link.
+func (db *DB) RemoveVoiceLink(ctx context.Context, guildID, voiceChannelID string) error {
+	query := `DELETE FROM voice_link_config WHERE guild_id = $1 AND voice_channel_id = $2`
+	_, err := db.Pool.Exec(ctx, query, guildID, voiceChannelID)
+	return err
+}

@@ -76,6 +76,13 @@ Starting from scratch in Go. All old Node.js files must be removed first.
 
 ## Completed Work
 
+- Implemented Phase 133 Temporary Voice Channel Linking: added migrations `117_voice_link_config.up.sql` and `117_voice_link_config.down.sql` with table `voice_link_config`.
+- Added DB operations `SetVoiceLink`, `GetVoiceLink`, and `RemoveVoiceLink` in `internal/db/db.go`.
+- Added `/voicelink` command in `internal/bot/commands/voicelink.go` with `setup` and `remove` subcommands.
+- Updated `voiceStateUpdateHandler` in `internal/bot/bot.go` to assign temporary view access to the linked text channel when joining the voice channel, and registered the `voicelink` command.
+
+
+
 - Implemented Phase 132 Custom Emoji Manager: added `/emojimanager` command in `internal/bot/commands/emojimanager.go` with `add`, `remove`, and `list` subcommands using Discord API interactions. Added chunking for `list` subcommand to prevent exceeding embed description limits, and base64 parsing for `add` subcommand. Registered the `emojimanager` command in `internal/bot/bot.go`.
 
 - Implemented Phase 132 Custom Emoji Manager:
@@ -1682,3 +1689,9 @@ The GitHub Actions runner has `BOT_TOKEN` and `DISCORD_CLIENT_ID` available as e
 - [x] DB operations — (No new tables needed, just Discord API interactions)
 - [x] `/emojimanager` command with `add` (url), `remove` (name/id), and `list` subcommands
 - [x] Update `internal/bot/bot.go` to register the `emojimanager` command
+
+### Phase 133 — Temporary Voice Channel Linking
+- [x] `migrations/117_voice_link_config.up.sql` — `voice_link_config` table (guild_id, voice_channel_id, text_channel_id)
+- [x] DB operations — `SetVoiceLink`, `GetVoiceLink`, `RemoveVoiceLink`
+- [x] `/voicelink` command with `setup` and `remove` subcommands
+- [x] Update `voiceStateUpdateHandler` in `internal/bot/bot.go` to assign temporary access to the linked text channel when joining the voice channel
