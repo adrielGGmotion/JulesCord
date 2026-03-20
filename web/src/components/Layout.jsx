@@ -1,12 +1,13 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Home, Server, Users, Shield, Settings, Activity } from 'lucide-react';
+import { Home, Server, Users, Shield, Settings, Activity, Coins } from 'lucide-react';
 
 export default function Layout() {
   const navItems = [
     { name: 'Dashboard', path: '/', icon: <Home className="w-5 h-5 mr-3" /> },
     { name: 'Guilds', path: '/guilds', icon: <Server className="w-5 h-5 mr-3" /> },
     { name: 'Users', path: '/users', icon: <Users className="w-5 h-5 mr-3" /> },
+    { name: 'Economy', path: '/economy', icon: <Coins className="w-5 h-5 mr-3" /> },
     { name: 'Moderation', path: '/moderation', icon: <Shield className="w-5 h-5 mr-3" /> },
     { name: 'Metrics', path: '/metrics', icon: <Activity className="w-5 h-5 mr-3" /> },
     { name: 'Config', path: '/config', icon: <Settings className="w-5 h-5 mr-3" /> },

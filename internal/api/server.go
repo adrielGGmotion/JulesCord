@@ -289,6 +289,33 @@ func (s *Server) registerRoutes() {
 		c.JSON(http.StatusOK, users)
 	})
 
+	s.Engine.GET("/api/users/:id", func(c *gin.Context) {
+		if s.DB == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Database not available"})
+			return
+		}
+
+		id := c.Param("id")
+		if id == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing user ID"})
+			return
+		}
+
+		user, err := s.DB.GetUserWithEconomyByID(c.Request.Context(), id)
+		if err != nil {
+			if err.Error() == "no rows in result set" {
+				c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+				return
+			}
+			metrics.ErrorCounter.WithLabelValues("db_get_user_by_id").Inc()
+			slog.Error("Error fetching user by ID", "error", err, "user_id", id)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user"})
+			return
+		}
+
+		c.JSON(http.StatusOK, user)
+	})
+
 	s.Engine.GET("/api/mod-actions", func(c *gin.Context) {
 		if s.DB == nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Database not available"})
