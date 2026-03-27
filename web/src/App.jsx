@@ -7,6 +7,7 @@ import Users from './pages/Users';
 import Moderation from './pages/Moderation';
 import Metrics from './pages/Metrics';
 import GuildSettings from './pages/GuildSettings';
+import Economy from './pages/Economy';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
           <Route index element={<Home />} />
           <Route path="guilds" element={<Guilds />} />
           <Route path="users" element={<Users />} />
+          <Route path="economy" element={<Economy />} />
           <Route path="moderation" element={<Moderation />} />
           <Route path="metrics" element={<Metrics />} />
           <Route path="guilds/:id/settings" element={<GuildSettings />} />

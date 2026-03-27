@@ -734,6 +734,8 @@ type UserWithEconomy struct {
 	AvatarURL  *string `json:"avatar_url"`
 	TotalXP    int64   `json:"total_xp"`
 	MaxLevel   int     `json:"max_level"`
+	Coins      int64   `json:"coins"`
+	Bank       int64   `json:"bank"`
 }
 
 // GetUsersWithEconomy returns all users with their aggregated XP and level.
@@ -747,7 +749,9 @@ func (db *DB) GetUsersWithEconomy(ctx context.Context) ([]UserWithEconomy, error
 		SELECT
 			u.id, u.username, u.global_name, u.avatar_url,
 			COALESCE(SUM(e.xp), 0) as total_xp,
-			COALESCE(MAX(e.level), 0) as max_level
+			COALESCE(MAX(e.level), 0) as max_level,
+			COALESCE(SUM(e.coins), 0) as coins,
+			COALESCE(SUM(e.bank), 0) as bank
 		FROM users u
 		LEFT JOIN user_economy e ON u.id = e.user_id
 		GROUP BY u.id, u.username, u.global_name, u.avatar_url
@@ -762,7 +766,7 @@ func (db *DB) GetUsersWithEconomy(ctx context.Context) ([]UserWithEconomy, error
 	var users []UserWithEconomy
 	for rows.Next() {
 		var u UserWithEconomy
-		if err := rows.Scan(&u.ID, &u.Username, &u.GlobalName, &u.AvatarURL, &u.TotalXP, &u.MaxLevel); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.GlobalName, &u.AvatarURL, &u.TotalXP, &u.MaxLevel, &u.Coins, &u.Bank); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -7860,4 +7864,33 @@ func (db *DB) GetExpiredAdvancedWarnings(ctx context.Context) ([]AdvancedWarning
 		warnings = append(warnings, w)
 	}
 	return warnings, rows.Err()
+}
+
+// GetUserWithEconomyByID returns aggregated economy stats for a specific user ID.
+func (db *DB) GetUserWithEconomyByID(ctx context.Context, userID string) (*UserWithEconomy, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryLatency.WithLabelValues("GetUserWithEconomyByID").Observe(time.Since(start).Seconds())
+	}()
+
+	query := `
+		SELECT
+			u.id, u.username, u.global_name, u.avatar_url,
+			COALESCE(SUM(e.xp), 0) as total_xp,
+			COALESCE(MAX(e.level), 0) as max_level,
+			COALESCE(SUM(e.coins), 0) as coins,
+			COALESCE(SUM(e.bank), 0) as bank
+		FROM users u
+		LEFT JOIN user_economy e ON u.id = e.user_id
+		WHERE u.id = $1
+		GROUP BY u.id, u.username, u.global_name, u.avatar_url
+	`
+	var u UserWithEconomy
+	err := db.Pool.QueryRow(ctx, query, userID).Scan(
+		&u.ID, &u.Username, &u.GlobalName, &u.AvatarURL, &u.TotalXP, &u.MaxLevel, &u.Coins, &u.Bank,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
 }
