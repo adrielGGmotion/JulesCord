@@ -194,6 +194,7 @@ func New(cfg *config.Config, database *db.DB) (*Bot, error) {
 	registry.Add(commands.Bounty(database))
 	registry.Add(commands.CoinflipBet(database))
 	registry.Add(commands.AdvWarn(database))
+	registry.Add(commands.VoiceLink(database))
 
 	// Load auto-responders into memory cache
 	if database != nil {
@@ -2341,6 +2342,66 @@ func (b *Bot) voiceStateUpdateHandler(s *discordgo.Session, v *discordgo.VoiceSt
 		member, err := s.GuildMember(v.GuildID, v.UserID)
 		if err == nil && member != nil && member.User != nil {
 			user = member.User
+		}
+	}
+
+
+	// Voice Link Logic
+	// Handle user leaving or moving from a voice channel
+	if oldChannelID != "" {
+		linkedTextChannel, err := b.DB.GetVoiceLink(context.Background(), v.GuildID, oldChannelID)
+		if err == nil && linkedTextChannel != nil {
+			// Find text channel to update permissions
+			channel, err := s.State.Channel(*linkedTextChannel)
+			if err == nil {
+				allow := int64(0)
+				deny := int64(0)
+				for _, overwrite := range channel.PermissionOverwrites {
+					if overwrite.ID == v.UserID {
+						allow = overwrite.Allow
+						deny = overwrite.Deny
+						break
+					}
+				}
+
+				allow &= ^int64(discordgo.PermissionViewChannel)
+
+				if allow == 0 && deny == 0 {
+					err = s.ChannelPermissionDelete(*linkedTextChannel, v.UserID)
+				} else {
+					err = s.ChannelPermissionSet(*linkedTextChannel, v.UserID, discordgo.PermissionOverwriteTypeMember, allow, deny)
+				}
+				if err != nil {
+					slog.Error("Failed to update voice link permissions", "error", err)
+				}
+			}
+		}
+	}
+
+	// Handle user joining or moving to a voice channel
+	if newChannelID != "" {
+		linkedTextChannel, err := b.DB.GetVoiceLink(context.Background(), v.GuildID, newChannelID)
+		if err == nil && linkedTextChannel != nil {
+			channel, err := s.State.Channel(*linkedTextChannel)
+			if err == nil {
+				allow := int64(0)
+				deny := int64(0)
+				for _, overwrite := range channel.PermissionOverwrites {
+					if overwrite.ID == v.UserID {
+						allow = overwrite.Allow
+						deny = overwrite.Deny
+						break
+					}
+				}
+
+				allow |= int64(discordgo.PermissionViewChannel)
+				deny &= ^int64(discordgo.PermissionViewChannel)
+
+				err = s.ChannelPermissionSet(*linkedTextChannel, v.UserID, discordgo.PermissionOverwriteTypeMember, allow, deny)
+				if err != nil {
+					slog.Error("Failed to update voice link permissions", "error", err)
+				}
+			}
 		}
 	}
 
